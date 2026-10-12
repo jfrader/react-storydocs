@@ -52,7 +52,9 @@ test('searchCatalog: component match ranks first and precedes its story rows', (
 
 test('row helpers: unique keys and deep-link shape', () => {
   const [row] = searchCatalog(catalog, 'variants');
+  assert.ok(row, 'a story row is found');
+  if (!row) throw new Error('expected a row');
   assert.equal(rowKey(row), 'button--Variants');
   assert.equal(rowPath(row), '/components/button?story=Variants');
-  assert.equal(rowPath({ entry: catalog[1] }), '/components/badge');
+  assert.equal(rowPath({ entry: catalog[1]! }), '/components/badge');
 });
