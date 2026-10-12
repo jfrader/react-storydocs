@@ -52,15 +52,24 @@ jobs:
         run: pnpm typecheck
 
       - name: Check reference checkout credentials
+        id: reference
         env:
           REFERENCE_UI_TOKEN: ${{ secrets.REFERENCE_UI_TOKEN }}
         run: |
           if [ -z "$REFERENCE_UI_TOKEN" ]; then
-            echo "::error::Set REFERENCE_UI_TOKEN to a read-only token for jfrader/jfrader-ui. Fork PRs need a trusted branch run; no privileged pull_request_target workflow is used."
-            exit 1
+            echo "present=0" >> "$GITHUB_OUTPUT"
+            echo "::notice::REFERENCE_UI_TOKEN is not set — skipping the jfrader-ui reference build. The self-contained examples/fixtures consumer below still exercises the full build pipeline."
+          else
+            echo "present=1" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Build the self-contained fixtures consumer
+        run: |
+          pnpm --dir examples/fixtures install --frozen-lockfile --prefer-offline
+          pnpm --dir examples/fixtures build
+
       - name: Checkout reference design system
+        if: ${{ steps.reference.outputs.present == '1' }}
         uses: actions/checkout@v6
         with:
           repository: jfrader/jfrader-ui
@@ -70,13 +79,17 @@ jobs:
           persist-credentials: false
 
       - name: Install reference design system dependencies
+        if: ${{ steps.reference.outputs.present == '1' }}
         run: pnpm --dir ../jfrader-ui --filter @jfrader/ui... install --frozen-lockfile --prefer-offline
 
       - name: Generate reference tokens
+        if: ${{ steps.reference.outputs.present == '1' }}
         run: pnpm --dir ../jfrader-ui --filter @jfrader/tokens generate
 
       - name: Install reference consumer dependencies
+        if: ${{ steps.reference.outputs.present == '1' }}
         run: pnpm --dir examples/jfrader-ui install --frozen-lockfile --prefer-offline
 
       - name: Build reference consumer
+        if: ${{ steps.reference.outputs.present == '1' }}
         run: pnpm build
