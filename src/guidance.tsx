@@ -1,19 +1,119 @@
+/** @jsxImportSource react */
 /**
- * Optional authored guidance: plain Markdown files in a configured directory, one per
+ * Optional authored guidance: plain Markdown files in the configured directories, one per
  * component slug (`button.md`) plus optionally `index.md` for the overview. Stories can
  * generate examples and props; they cannot write "when to use this" — that prose lives here.
  */
-import { useEffect, useState } from 'react';
-import { marked } from 'marked';
+import { createElement, useEffect, useState, type ReactNode } from 'react';
 import { loadGuidance } from 'virtual:storybook-docs/guidance';
+import { parseGuidance, type Block, type CalloutTone, type Inline } from './guidance-model';
+import './guidance.css';
+
+const CALLOUT_LABELS: Record<CalloutTone, string | null> = { do: 'Do', dont: "Don't", note: null };
+
+function renderInline(nodes: Inline[]): ReactNode[] {
+  return nodes.map((node, index) => {
+    switch (node.kind) {
+      case 'text':
+        return node.text;
+      case 'strong':
+      case 'em':
+      case 'del':
+        return createElement(node.kind, { key: index }, renderInline(node.children));
+      case 'code':
+        return <code key={index}>{node.text}</code>;
+      case 'br':
+        return <br key={index} />;
+      case 'image':
+        return <img key={index} src={node.src} alt={node.alt} />;
+      case 'link':
+        return node.external ? (
+          <a key={index} href={node.href} target="_blank" rel="noreferrer noopener">
+            {renderInline(node.children)}
+          </a>
+        ) : (
+          <a key={index} href={node.href}>
+            {renderInline(node.children)}
+          </a>
+        );
+    }
+  });
+}
+
+function renderBlocks(blocks: Block[]): ReactNode[] {
+  return blocks.map((block, index) => {
+    switch (block.kind) {
+      case 'heading':
+        return createElement(`h${Math.min(block.depth, 6)}`, { key: index }, renderInline(block.children));
+      case 'paragraph':
+        return <p key={index}>{renderInline(block.children)}</p>;
+      case 'text':
+        return <span key={index}>{renderInline(block.children)}</span>;
+      case 'list': {
+        const items = block.items.map((item, itemIndex) => <li key={itemIndex}>{renderBlocks(item)}</li>);
+        return block.ordered ? (
+          <ol key={index} start={block.start}>
+            {items}
+          </ol>
+        ) : (
+          <ul key={index}>{items}</ul>
+        );
+      }
+      case 'code':
+        return (
+          <pre key={index} className="code" data-lang={block.lang || undefined}>
+            {block.text}
+          </pre>
+        );
+      case 'table':
+        return (
+          <div key={index} className="guidance-table">
+            <table>
+              <thead>
+                <tr>
+                  {block.header.map((cell, cellIndex) => (
+                    <th key={cellIndex} style={{ textAlign: block.align[cellIndex] ?? undefined }}>
+                      {renderInline(cell)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {block.rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex} style={{ textAlign: block.align[cellIndex] ?? undefined }}>
+                        {renderInline(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'callout': {
+        const label = CALLOUT_LABELS[block.tone];
+        return (
+          <aside key={index} className={`guidance-callout guidance-callout-${block.tone}`}>
+            {label ? <p className="guidance-callout-label">{label}</p> : null}
+            {renderBlocks(block.children)}
+          </aside>
+        );
+      }
+      case 'rule':
+        return <hr key={index} />;
+    }
+  });
+}
 
 export function Guidance({ slug, placeholder }: { slug: string; placeholder?: string }) {
-  const [html, setHtml] = useState<string | null>(null);
+  const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    setHtml(null);
+    setBlocks(null);
     setMissing(false);
     loadGuidance(slug)
       .then((module) => {
@@ -23,7 +123,7 @@ export function Guidance({ slug, placeholder }: { slug: string; placeholder?: st
           setMissing(true);
           return;
         }
-        setHtml(marked.parse(markdown, { async: false }) as string);
+        setBlocks(parseGuidance(markdown));
       })
       .catch(() => {
         if (alive) setMissing(true);
@@ -41,6 +141,6 @@ export function Guidance({ slug, placeholder }: { slug: string; placeholder?: st
       </section>
     ) : null;
   }
-  if (html === null) return null;
-  return <section className="guidance" dangerouslySetInnerHTML={{ __html: html }} />;
+  if (blocks === null) return null;
+  return <section className="guidance">{renderBlocks(blocks)}</section>;
 }

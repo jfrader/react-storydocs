@@ -75,6 +75,7 @@ const THEME_ROLES: ThemeRole[] = [
   'accentSoft',
   'accentContrast',
   'danger',
+  'success',
   'focusRing',
 ];
 
@@ -346,7 +347,7 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
         // `DialogTriggerProps extends ComponentPropsWithRef<'button'>` → note the native element
         // whose full prop set applies on top of the component's own props.
         let native: string | undefined;
-        for (const clause of node.heritageClauses ?? []) {
+        for (const clause of (ts.isInterfaceDeclaration(node) ? node.heritageClauses : undefined) ?? []) {
           for (const heritage of clause.types) {
             const text = heritage.expression.getText(source);
             if (!/ComponentProps|HTMLAttributes|DOMAttributes/.test(text)) continue;
@@ -392,11 +393,13 @@ ${catalog.entries.map((entry) => `    case ${JSON.stringify(entry.slug)}: return
   const guidanceFiles = new Map<string, string>();
   const indexGuidance = () => {
     guidanceFiles.clear();
-    const directory = config.guidance ? path.resolve(projectRoot, config.guidance.dir) : null;
-    if (!directory || !existsSync(directory)) return;
-    for (const file of readdirSync(directory)) {
-      if (!file.endsWith('.md')) continue;
-      guidanceFiles.set(file.slice(0, -'.md'.length), path.join(directory, file));
+    for (const dir of [config.guidance?.dir ?? []].flat()) {
+      const directory = path.resolve(projectRoot, dir);
+      if (!existsSync(directory)) continue;
+      for (const file of readdirSync(directory)) {
+        if (!file.endsWith('.md')) continue;
+        guidanceFiles.set(file.slice(0, -'.md'.length), path.join(directory, file));
+      }
     }
   };
 

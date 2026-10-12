@@ -1,0 +1,55 @@
+/* Authored guidance blocks: do/don't cards, neutral callouts, tables and code. */
+.guidance p,
+.guidance ul,
+.guidance ol {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+.guidance li + li {
+  margin-top: 4px;
+}
+.guidance a {
+  color: var(--sd-accent-text);
+}
+.guidance pre.code {
+  margin: 12px 0;
+}
+.guidance hr {
+  margin: 22px 0;
+  border: 0;
+  border-top: 1px solid var(--sd-border);
+}
+.guidance-table {
+  overflow-x: auto;
+}
+
+.guidance-callout {
+  --callout-tone: var(--sd-accent);
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--sd-border);
+  border-left: 3px solid var(--callout-tone);
+  border-radius: 0 var(--sd-radius) var(--sd-radius) 0;
+  background: var(--sd-surface);
+}
+.guidance-callout > :first-child {
+  margin-top: 0;
+}
+.guidance-callout > :last-child {
+  margin-bottom: 0;
+}
+.guidance-callout-do {
+  --callout-tone: var(--sd-success);
+  background: color-mix(in srgb, var(--sd-success) 8%, var(--sd-surface));
+}
+.guidance-callout-dont {
+  --callout-tone: var(--sd-danger);
+  background: color-mix(in srgb, var(--sd-danger) 8%, var(--sd-surface));
+}
+.guidance-callout-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--callout-tone);
+}

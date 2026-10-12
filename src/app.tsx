@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { useEffect, useRef, useState } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
@@ -9,6 +10,7 @@ import { TypePage } from './pages/foundations-type';
 import { OverviewPage } from './pages/overview';
 import { SearchBox } from './search';
 import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
+import { PageRail, hashPath } from './toc';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
 
@@ -21,7 +23,7 @@ type Route =
   | { kind: 'effects' };
 
 function parseRoute(hash: string): Route {
-  const path = hash.replace(new RegExp(`^#?\\/?${STORYBOOK_DOCS_BASE}`), '').replace(/^\/+/, '');
+  const path = hashPath(hash).replace(new RegExp(`^#?\\/?${STORYBOOK_DOCS_BASE}`), '').replace(/^\/+/, '');
   if (path.startsWith('components/')) {
     const slug = path.slice('components/'.length);
     if (catalog.some((entry) => entry.slug === slug)) return { kind: 'component', slug };
@@ -64,7 +66,7 @@ export function DocsApp() {
   ];
 
   return (
-    <div className="app">
+    <div className={route.kind === 'overview' ? 'app' : 'app has-toc'}>
       <a
         className="skip"
         href="#main"
@@ -165,6 +167,7 @@ export function DocsApp() {
           <OverviewPage />
         )}
       </main>
+      {route.kind !== 'overview' ? <PageRail pageKey={activeSlug ?? route.kind} /> : null}
     </div>
   );
 }

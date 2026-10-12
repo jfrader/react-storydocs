@@ -23,7 +23,7 @@ example/            # a consumer you can copy
 | Props tables (one per component and part, with native-element notes) | the component sources — `react-docgen-typescript` for components, the TypeScript compiler API for exported `*Props` types (where compound parts live) |
 | Usage snippet | the default story's own arguments |
 | Per-example Code disclosures | the story's merged args (hidden when the story uses a custom render, so a snippet never lies) |
-| Authored guidance per component | Markdown files in the configured guidance directory — the part stories cannot generate |
+| Authored guidance per component | Markdown files in the configured guidance directories, with `> Do —` / `> Don't —` blockquotes rendered as do/don't cards — the part stories cannot generate |
 | Foundations: Color, Typography, Spacing & shape, Elevation & motion | your token module (optional) |
 | Docs chrome theme | your CSS custom properties (optional) |
 
