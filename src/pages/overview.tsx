@@ -48,7 +48,7 @@ export function OverviewPage() {
               <ul>
                 {shown.map((entry) => (
                   <li key={entry.slug}>
-                    <a href={hrefFor(`/components/${entry.slug}`)}>{entry.name}</a>
+                    <a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a>
                   </li>
                 ))}
               </ul>
@@ -99,7 +99,7 @@ export function OverviewPage() {
       <ul>
         {startHere.map((entry) => (
           <li key={entry.slug}>
-            <a href={hrefFor(`/components/${entry.slug}`)}>{entry.name}</a> — {entry.stories.length} stories
+            <a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a> — {entry.stories.length} stories
           </li>
         ))}
       </ul>

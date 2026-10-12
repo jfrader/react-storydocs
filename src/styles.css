@@ -21,6 +21,9 @@
 }
 /* The consumer's theme bridge is injected later and overrides these defaults. */
 
+html {
+  scroll-padding-top: 72px;
+}
 html,
 body {
   margin: 0;
@@ -48,6 +51,41 @@ body {
   background: var(--sd-surface);
   border-bottom: 1px solid var(--sd-border);
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 30;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--sd-accent);
+  color: var(--sd-accent-contrast);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip:focus {
+  transform: none;
+}
+.nav-toggle {
+  display: none;
+}
+.main:focus {
+  outline: none;
+}
+.table-scroll {
+  overflow-x: auto;
+}
 .mark {
   width: 26px;
   height: 26px;
@@ -68,8 +106,9 @@ body {
   flex: 0 1 430px;
 }
 .search input {
+  box-sizing: border-box;
   width: 100%;
-  border: 1px solid var(--sd-border);
+  border: 1px solid var(--sd-text-subtle);
   background: var(--sd-bg);
   border-radius: 10px;
   padding: 7px 10px;
@@ -78,7 +117,7 @@ body {
   font-size: 13px;
 }
 .search input::placeholder {
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 .search input:focus-visible {
   outline: 2px solid var(--sd-focus-ring);
@@ -110,6 +149,8 @@ body {
 }
 .search-results li[aria-selected='true'] {
   background: var(--sd-accent-soft);
+  outline: 2px solid var(--sd-focus-ring);
+  outline-offset: -2px;
 }
 .search-results li b {
   font-size: 13.5px;
@@ -117,7 +158,7 @@ body {
 .search-results li span {
   margin-left: auto;
   font-size: 12px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 .spacer {
   flex: 1;
@@ -130,7 +171,7 @@ body {
   padding: 2px 8px;
 }
 .tool {
-  border: 1px solid var(--sd-border);
+  border: 1px solid var(--sd-text-subtle);
   background: var(--sd-surface-raised);
   color: var(--sd-text);
   border-radius: 8px;
@@ -144,6 +185,8 @@ body {
   background: var(--sd-surface-hover);
 }
 .tool:focus-visible,
+summary:focus-visible,
+.table-scroll:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--sd-focus-ring);
   outline-offset: 2px;
@@ -177,14 +220,14 @@ a:focus-visible {
   font-size: 10.5px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   font-weight: 700;
 }
 .nav-note {
   margin: 22px 10px 0;
   font-size: 11.5px;
   line-height: 1.6;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 
 .main {
@@ -193,7 +236,7 @@ a:focus-visible {
 }
 .crumb {
   font-size: 12.5px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   margin-bottom: 10px;
 }
 h1 {
@@ -294,12 +337,12 @@ code {
   place-items: center;
 }
 .story-failed {
-  color: var(--sd-danger);
+  color: color-mix(in srgb, var(--sd-danger) 55%, var(--sd-text));
   font-size: 13px;
 }
 .lazy-placeholder {
   padding: 26px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   font-size: 13px;
 }
 .lazy-placeholder::before {
@@ -321,6 +364,9 @@ code {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .lazy-placeholder::before {
     animation: none;
   }
@@ -341,7 +387,7 @@ pre.code {
 .hint,
 .section-blurb {
   font-size: 13px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 .section-blurb {
   margin: -2px 0 10px;
@@ -358,7 +404,7 @@ code.type {
   font-size: 10.5px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--sd-danger);
+  color: color-mix(in srgb, var(--sd-danger) 55%, var(--sd-text));
 }
 
 /* Authored guidance (Markdown) */
@@ -400,9 +446,19 @@ th {
   font-size: 11px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   padding: 8px 10px;
   border-bottom: 1px solid var(--sd-border);
+}
+tbody th {
+  font-size: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  font-weight: 400;
+  color: var(--sd-text-muted);
+  vertical-align: top;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--sd-border-subtle);
 }
 td {
   padding: 9px 10px;
@@ -427,7 +483,7 @@ td {
 .sw .n {
   padding: 8px 10px;
   font-size: 12px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 .sw .n b {
   display: block;
@@ -447,12 +503,13 @@ td {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 
 /* Foundations: spacing, shape, elevation, motion */
 .scale-rows {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   margin: 8px 0;
 }
@@ -468,7 +525,7 @@ td {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 .bar {
   height: 14px;
@@ -498,7 +555,7 @@ td {
 .shadow-cell .meta {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
 }
 .radius-box {
   width: 64px;
@@ -557,7 +614,7 @@ section > h3 {
 .group-card .count {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   border: 1px solid var(--sd-border);
   border-radius: 999px;
   padding: 1px 7px;
@@ -576,4 +633,54 @@ section > h3 {
 }
 .group-card .hint {
   margin: 8px 0 0;
+}
+
+/* Narrow viewports: one column, the sidebar becomes a menu under the header. */
+@media (max-width: 1000px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .top {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .nav-toggle {
+    display: inline-block;
+  }
+  .search {
+    order: 10;
+    flex: 1 1 100%;
+  }
+  .nav {
+    display: none;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--sd-border);
+    padding-bottom: 20px;
+  }
+  .nav.open {
+    display: block;
+  }
+  .main {
+    padding: 26px 20px 120px;
+  }
+  .tiles,
+  .grid2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .scale-row,
+  .space-row {
+    flex-wrap: wrap;
+  }
+  .scale-row .meta,
+  .space-row .meta {
+    width: auto;
+    flex: 0 1 auto;
+    overflow-wrap: anywhere;
+  }
+  .bar,
+  .bar-outline {
+    max-width: 100%;
+  }
 }

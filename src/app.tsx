@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
 import { ComponentPage } from './pages/component-page';
@@ -9,8 +9,10 @@ import { SpacingPage } from './pages/foundations-spacing';
 import { TypePage } from './pages/foundations-type';
 import { OverviewPage } from './pages/overview';
 import { SearchBox } from './search';
-import { STORYBOOK_DOCS_BASE } from './base';
+import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath } from './toc';
+
+const routeHref = (path: string) => `#${hrefFor(path)}`;
 
 type Route =
   | { kind: 'overview' }
@@ -36,11 +38,15 @@ function parseRoute(hash: string): Route {
 export function DocsApp() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [mode, setMode] = useState(theme.values?.[0] ?? 'dark');
+  const [navOpen, setNavOpen] = useState(false);
+  const mainRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const onHash = () => {
       setRoute(parseRoute(window.location.hash));
+      setNavOpen(false);
       window.scrollTo(0, 0);
+      mainRef.current?.focus({ preventScroll: true });
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -53,50 +59,88 @@ export function DocsApp() {
   const [darkMode, lightMode] = theme.values ?? ['dark', 'light'];
   const activeSlug = route.kind === 'component' ? route.slug : null;
   const foundations = [
-    ...(pages.color ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/color`, label: 'Color', kind: 'color' }] : []),
-    ...(pages.typography ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/typography`, label: 'Typography', kind: 'typography' }] : []),
-    ...(pages.spacing ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/spacing`, label: 'Spacing & shape', kind: 'spacing' }] : []),
-    ...(pages.effects ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/effects`, label: 'Elevation & motion', kind: 'effects' }] : []),
+    ...(pages.color ? [{ href: routeHref(`/tokens/color`), label: 'Color', kind: 'color' }] : []),
+    ...(pages.typography ? [{ href: routeHref(`/tokens/typography`), label: 'Typography', kind: 'typography' }] : []),
+    ...(pages.spacing ? [{ href: routeHref(`/tokens/spacing`), label: 'Spacing & shape', kind: 'spacing' }] : []),
+    ...(pages.effects ? [{ href: routeHref(`/tokens/effects`), label: 'Elevation & motion', kind: 'effects' }] : []),
   ];
 
   return (
     <div className={route.kind === 'overview' ? 'app' : 'app has-toc'}>
+      <a
+        className="skip"
+        href="#main"
+        onClick={(event) => {
+          event.preventDefault();
+          mainRef.current?.focus();
+        }}
+      >
+        Skip to content
+      </a>
       <header className="top">
-        <span className="mark">{site.mark ?? site.title.slice(0, 1).toUpperCase()}</span>
+        <button
+          type="button"
+          className="tool nav-toggle"
+          aria-expanded={navOpen}
+          aria-controls="docs-nav"
+          onClick={() => setNavOpen(!navOpen)}
+        >
+          Menu
+        </button>
+        <span className="mark" aria-hidden="true">{site.mark ?? site.title.slice(0, 1).toUpperCase()}</span>
         <span className="brand">{site.title}</span>
         <span className="chip">docs</span>
         <SearchBox />
         <span className="spacer" />
-        <button className="tool" onClick={() => setMode(mode === darkMode ? lightMode : darkMode)}>
+        <button
+          type="button"
+          className="tool"
+          aria-label={`Switch to ${mode === darkMode ? lightMode : darkMode} theme`}
+          onClick={() => setMode(mode === darkMode ? lightMode : darkMode)}
+        >
           {mode === darkMode ? lightMode : darkMode}
         </button>
         {(site.links ?? []).map((link) => (
           <a className="tool" key={link.href} href={link.href}>
-            {link.label} ↗
+            {link.label} <span aria-hidden="true">↗</span>
           </a>
         ))}
       </header>
 
-      <nav className="nav">
-        <a href={STORYBOOK_DOCS_BASE || '#'} className={route.kind === 'overview' ? 'on' : undefined}>
+      <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation">
+        <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
         </a>
-        {foundations.length > 0 ? <div className="grp">Foundations</div> : null}
-        {foundations.map((item) => (
-          <a key={item.href} href={item.href} className={route.kind === item.kind ? 'on' : undefined}>
-            {item.label}
-          </a>
-        ))}
-        {groups.map((group) => (
-          <div key={group}>
-            <div className="grp">{group}</div>
+        {foundations.length > 0 ? (
+          <div role="group" aria-labelledby="nav-grp-foundations">
+            <div className="grp" id="nav-grp-foundations">
+              Foundations
+            </div>
+            {foundations.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className={route.kind === item.kind ? 'on' : undefined}
+                aria-current={route.kind === item.kind ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
+        {groups.map((group, index) => (
+          <div key={group} role="group" aria-labelledby={`nav-grp-${index}`}>
+            <div className="grp" id={`nav-grp-${index}`}>
+              {group}
+            </div>
             {catalog
               .filter((entry) => entry.group === group)
               .map((entry) => (
                 <a
                   key={entry.slug}
-                  href={`${STORYBOOK_DOCS_BASE}/components/${entry.slug}`}
+                  href={routeHref(`/components/${entry.slug}`)}
                   className={activeSlug === entry.slug ? 'on' : undefined}
+                  aria-current={activeSlug === entry.slug ? 'page' : undefined}
                 >
                   {entry.name}
                 </a>
@@ -108,7 +152,7 @@ export function DocsApp() {
         </div>
       </nav>
 
-      <main className="main">
+      <main id="main" className="main" tabIndex={-1} ref={mainRef}>
         {route.kind === 'component' ? (
           <ComponentPage entry={catalog.find((entry) => entry.slug === route.slug)!} />
         ) : route.kind === 'color' ? (
