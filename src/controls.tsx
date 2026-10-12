@@ -105,7 +105,9 @@ export function ControlledStoryFrame({ module, story, componentName }: {
     },
     [storyLayout],
   );
-  const snippet = typeof definition.render === 'function' || typeof meta.render === 'function'
+  // A stories-only meta (foundations pages) has no component to instantiate, so there is no
+  // honest usage snippet to show: skip it rather than inventing a tag from the page name.
+  const snippet = !(meta as { component?: unknown }).component || typeof definition.render === 'function' || typeof meta.render === 'function'
     ? null
     : usageSnippet(componentName, args);
   return (

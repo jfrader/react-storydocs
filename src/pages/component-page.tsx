@@ -142,7 +142,12 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
     });
   }, [entry.stories, meta, module]);
   const sections = useMemo(() => sectionStories(visibleStories), [visibleStories]);
-  const snippet = useMemo(() => usageSnippet(entry.name, defaultArgs), [entry.name, defaultArgs]);
+  // Foundations pages are stories-only metas: there is no component to instantiate, so a usage
+  // snippet would be a made-up tag. Skip it there; component pages keep it.
+  const snippet = useMemo(
+    () => ((meta as { component?: unknown }).component ? usageSnippet(entry.name, defaultArgs) : null),
+    [entry.name, defaultArgs, meta],
+  );
   const propCount = props ? props.reduce((total, component) => total + component.props.length, 0) : Object.keys(argTypes).length;
 
   return (
