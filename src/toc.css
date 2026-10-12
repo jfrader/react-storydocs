@@ -1,0 +1,108 @@
+[data-toc] {
+  scroll-margin-top: 76px;
+}
+
+[data-toc-slot] {
+  margin-left: auto;
+}
+.toc-copy {
+  font: inherit;
+  color: var(--sd-text-subtle);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.toc-copy:hover,
+.toc-copy:focus-visible {
+  color: var(--sd-text);
+  border-color: var(--sd-border);
+}
+.toc-sr,
+.toc-clipboard {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+}
+
+.toc-flash {
+  animation: toc-flash 2.4s ease-out;
+}
+@keyframes toc-flash {
+  0%,
+  45% {
+    box-shadow: 0 0 0 3px var(--sd-accent, currentColor);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toc-flash {
+    animation: none;
+    outline: 2px solid var(--sd-accent, currentColor);
+  }
+}
+
+.toc {
+  display: none;
+}
+@media (min-width: 1180px) {
+  .app.has-toc {
+    grid-template-columns: 276px minmax(0, 1fr) 224px;
+  }
+  .toc {
+    display: block;
+    grid-column: 3;
+    grid-row: 2;
+    position: sticky;
+    top: 56px;
+    align-self: start;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+    padding: 34px 18px 40px 6px;
+    font-size: 12.5px;
+  }
+  .toc-title {
+    margin-bottom: 8px;
+    color: var(--sd-text-subtle);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .toc ul ul {
+    margin: 2px 0 6px 10px;
+    border-left: 1px solid var(--sd-border);
+  }
+  .toc-link {
+    display: block;
+    width: 100%;
+    padding: 4px 8px;
+    font: inherit;
+    text-align: left;
+    color: var(--sd-text-muted);
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .toc-link:hover {
+    color: var(--sd-text);
+  }
+  .toc-link[aria-current='location'] {
+    color: var(--sd-text);
+    font-weight: 600;
+  }
+  .toc-story {
+    font-size: 12px;
+  }
+}

@@ -10,6 +10,7 @@ import { TypePage } from './pages/foundations-type';
 import { OverviewPage } from './pages/overview';
 import { SearchBox } from './search';
 import { STORYBOOK_DOCS_BASE } from './base';
+import { PageRail, hashPath } from './toc';
 
 type Route =
   | { kind: 'overview' }
@@ -20,7 +21,7 @@ type Route =
   | { kind: 'effects' };
 
 function parseRoute(hash: string): Route {
-  const path = hash.replace(new RegExp(`^#?\\/?${STORYBOOK_DOCS_BASE}`), '').replace(/^\/+/, '');
+  const path = hashPath(hash).replace(new RegExp(`^#?\\/?${STORYBOOK_DOCS_BASE}`), '').replace(/^\/+/, '');
   if (path.startsWith('components/')) {
     const slug = path.slice('components/'.length);
     if (catalog.some((entry) => entry.slug === slug)) return { kind: 'component', slug };
@@ -59,7 +60,7 @@ export function DocsApp() {
   ];
 
   return (
-    <div className="app">
+    <div className={route.kind === 'overview' ? 'app' : 'app has-toc'}>
       <header className="top">
         <span className="mark">{site.mark ?? site.title.slice(0, 1).toUpperCase()}</span>
         <span className="brand">{site.title}</span>
@@ -122,6 +123,7 @@ export function DocsApp() {
           <OverviewPage />
         )}
       </main>
+      {route.kind !== 'overview' ? <PageRail pageKey={activeSlug ?? route.kind} /> : null}
     </div>
   );
 }
