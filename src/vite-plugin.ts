@@ -454,7 +454,20 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
     config() {
       // The engine is usually consumed through a link, so React would otherwise resolve
       // twice (engine copy + consumer copy). One instance, always.
-      return { resolve: { dedupe: ['react', 'react-dom'] } };
+      // The story files live outside this project's root when the design system is linked;
+      // without them as optimizer entries, Vite serves their CJS dependencies raw and imports
+      // like `hoist-non-react-statics` fail with "does not provide an export named 'default'".
+      const entries: string[] = [];
+      try {
+        const storyRoot = resolveStoryRoot(config.stories.from, process.cwd());
+        entries.push(path.join(storyRoot, config.stories.pattern).split(path.sep).join('/'));
+      } catch {
+        // The root is unknown until configResolved; the resolution above is best-effort.
+      }
+      return {
+        resolve: { dedupe: ['react', 'react-dom'] },
+        optimizeDeps: { entries: ['index.html', ...entries] },
+      };
     },
     configResolved(resolved: ResolvedConfig) {
       projectRoot = options.root ?? resolved.root;
