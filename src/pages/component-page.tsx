@@ -131,7 +131,17 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const argTypes = meta.argTypes ?? {};
   const defaultArgs = meta.args ?? {};
   const description = meta.parameters?.docs?.description?.component;
-  const sections = useMemo(() => sectionStories(entry.stories), [entry.stories]);
+  // Storybook's `!autodocs` tag excludes a story from docs pages; those stories are usually
+  // authored that way because rendering them on a docs page is hostile (inert overlays).
+  const visibleStories = useMemo(() => {
+    if (!module) return entry.stories;
+    const metaTags = ((meta as { tags?: string[] }).tags ?? []).map(String);
+    return entry.stories.filter((name) => {
+      const storyTags = ((module[name] as { tags?: string[] } | undefined)?.tags ?? []).map(String);
+      return ![...metaTags, ...storyTags].includes('!autodocs');
+    });
+  }, [entry.stories, meta, module]);
+  const sections = useMemo(() => sectionStories(visibleStories), [visibleStories]);
   const snippet = useMemo(() => usageSnippet(entry.name, defaultArgs), [entry.name, defaultArgs]);
   const propCount = props ? props.reduce((total, component) => total + component.props.length, 0) : Object.keys(argTypes).length;
 
@@ -142,7 +152,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       </div>
       <h1>{entry.name}</h1>
       <div className="summary-row">
-        <span className="chip">{entry.stories.length} stories</span>
+        <span className="chip">{module ? visibleStories.length : entry.stories.length} stories</span>
         <span className="chip">{propCount} props</span>
         <span className="chip">from the story module + component source</span>
       </div>
