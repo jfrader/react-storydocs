@@ -4,8 +4,9 @@ import './toc.css';
 
 const STORY_PARAM = 'story';
 const SCROLL_OFFSET_PX = 76;
-const SETTLE_DELAY_MS = 650;
-const SETTLE_ATTEMPTS = 6;
+const SETTLE_TICK_MS = 250;
+const SETTLE_TICKS = 16;
+const SETTLE_TOLERANCE_PX = 4;
 const FLASH_MS = 2600;
 const COPIED_MS = 1800;
 const ACTIVE_ROOT_MARGIN = `-${SCROLL_OFFSET_PX}px 0px -60% 0px`;
@@ -99,19 +100,23 @@ const signature = (scan: Scan) =>
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Smooth-scrolls, then corrects once lazily mounted examples above the target have changed the layout. */
+/** Smooth-scrolls, then corrects once the scroll has stopped and lazily mounted examples have changed the layout. */
 function scrollToElement(element: HTMLElement) {
   element.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
-  let attempts = SETTLE_ATTEMPTS;
+  let ticks = SETTLE_TICKS;
+  let lastY = window.scrollY;
   const settle = () => {
-    if (!element.isConnected) return;
-    if (Math.abs(element.getBoundingClientRect().top - SCROLL_OFFSET_PX) > 4 && attempts > 0) {
-      attempts -= 1;
+    if (!element.isConnected || ticks === 0) return;
+    ticks -= 1;
+    const moving = window.scrollY !== lastY;
+    lastY = window.scrollY;
+    if (!moving && Math.abs(element.getBoundingClientRect().top - SCROLL_OFFSET_PX) > SETTLE_TOLERANCE_PX) {
       element.scrollIntoView({ behavior: 'auto', block: 'start' });
-      window.setTimeout(settle, SETTLE_DELAY_MS / 2);
+      lastY = window.scrollY;
     }
+    window.setTimeout(settle, SETTLE_TICK_MS);
   };
-  window.setTimeout(settle, SETTLE_DELAY_MS);
+  window.setTimeout(settle, SETTLE_TICK_MS);
 }
 
 async function copyText(text: string): Promise<boolean> {
