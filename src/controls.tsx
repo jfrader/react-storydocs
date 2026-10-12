@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { useId, useState } from 'react';
 import { usageSnippet } from './sections';
 import { LazySection, StoryView } from './story-view';

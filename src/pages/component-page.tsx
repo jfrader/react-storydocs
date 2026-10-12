@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { useMemo } from 'react';
 import type { CatalogEntry } from '../config';
 import { Guidance } from '../guidance';
