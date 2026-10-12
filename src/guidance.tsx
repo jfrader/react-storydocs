@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 /**
  * Optional authored guidance: plain Markdown files in the configured directories, one per
  * component slug (`button.md`) plus optionally `index.md` for the overview. Stories can

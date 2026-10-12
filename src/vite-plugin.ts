@@ -347,7 +347,7 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
         // `DialogTriggerProps extends ComponentPropsWithRef<'button'>` → note the native element
         // whose full prop set applies on top of the component's own props.
         let native: string | undefined;
-        for (const clause of node.heritageClauses ?? []) {
+        for (const clause of (ts.isInterfaceDeclaration(node) ? node.heritageClauses : undefined) ?? []) {
           for (const heritage of clause.types) {
             const text = heritage.expression.getText(source);
             if (!/ComponentProps|HTMLAttributes|DOMAttributes/.test(text)) continue;
