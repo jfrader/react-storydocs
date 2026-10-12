@@ -1,4 +1,4 @@
-import { catalog, stats } from 'virtual:storybook-docs/catalog';
+import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { site } from 'virtual:storybook-docs/site';
 import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
@@ -32,6 +32,31 @@ export function OverviewPage() {
           <b>Duplicated definitions</b>
           <span>No copied prop tables, no hand-maintained component lists.</span>
         </div>
+      </div>
+
+      <h2>Browse by area</h2>
+      <div className="group-grid">
+        {groups.map((group) => {
+          const inGroup = catalog.filter((entry) => entry.group === group);
+          const shown = inGroup.slice(0, 6);
+          return (
+            <div className="card group-card" key={group}>
+              <h3>
+                {group} <span className="count">{inGroup.length}</span>
+              </h3>
+              <ul>
+                {shown.map((entry) => (
+                  <li key={entry.slug}>
+                    <a href={hrefFor(`/components/${entry.slug}`)}>{entry.name}</a>
+                  </li>
+                ))}
+              </ul>
+              {inGroup.length > shown.length ? (
+                <p className="hint">+ {inGroup.length - shown.length} more in this area</p>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
       <h2>How this works</h2>
