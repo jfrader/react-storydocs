@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { Guidance } from '../guidance';
 import { sectionStories, usageSnippet } from '../sections';
@@ -23,6 +23,17 @@ interface MetaShape {
   parameters?: { docs?: { description?: { component?: string } } };
 }
 
+function TableFrame({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="table-scroll" role="region" aria-label={label} tabIndex={0}>
+      <table>
+        <caption className="sr-only">{label}</caption>
+        {children}
+      </table>
+    </div>
+  );
+}
+
 function PropsTable({
   components,
   argTypes,
@@ -44,22 +55,22 @@ function PropsTable({
                 Also accepts every native <code>&lt;{component.native}&gt;</code> prop.
               </p>
             ) : null}
-            <table>
+            <TableFrame label={`${component.name} props`}>
               <thead>
                 <tr>
-                  <th>Prop</th>
-                  <th>Type</th>
-                  <th>Default</th>
-                  <th>Notes</th>
+                  <th scope="col">Prop</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Default</th>
+                  <th scope="col">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {component.props.map((prop) => (
                   <tr key={prop.name}>
-                    <td>
+                    <th scope="row">
                       <code>{prop.name}</code>
                       {prop.required ? <span className="req">required</span> : null}
-                    </td>
+                    </th>
                     <td>
                       <code className="type">{prop.type}</code>
                     </td>
@@ -68,7 +79,7 @@ function PropsTable({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TableFrame>
           </section>
         ))}
       </>
@@ -76,28 +87,28 @@ function PropsTable({
   }
   if (Object.keys(argTypes).length > 0) {
     return (
-      <table>
+      <TableFrame label="Props">
         <thead>
           <tr>
-            <th>Prop</th>
-            <th>Control</th>
-            <th>Options</th>
-            <th>Default</th>
+            <th scope="col">Prop</th>
+            <th scope="col">Control</th>
+            <th scope="col">Options</th>
+            <th scope="col">Default</th>
           </tr>
         </thead>
         <tbody>
           {Object.entries(argTypes).map(([prop, definition]) => (
             <tr key={prop}>
-              <td>
+              <th scope="row">
                 <code>{prop}</code>
-              </td>
+              </th>
               <td>{formatValue(definition.control)}</td>
               <td>{definition.options ? formatValue(definition.options) : '—'}</td>
               <td>{formatValue(defaultArgs[prop])}</td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </TableFrame>
     );
   }
   return <p>The props were not extracted for this component; the types live in the component source.</p>;
