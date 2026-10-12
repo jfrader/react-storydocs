@@ -153,6 +153,8 @@ export function DocsApp() {
                   href={routeHref(`/components/${entry.slug}`)}
                   className={activeSlug === entry.slug ? 'on' : undefined}
                   aria-current={activeSlug === entry.slug ? 'page' : undefined}
+                  onMouseEnter={() => void entry.load()}
+                  onFocus={() => void entry.load()}
                 >
                   {entry.name}
                 </a>

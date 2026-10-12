@@ -32,6 +32,17 @@ through their exported `*Props` types; parts with no exported props type stay in
 need project-level Storybook decorators fail soft (an error boundary per story frame). Play functions,
 controls and a11y checks stay in Storybook — this front is for reading and browsing.
 
+## What it looks like
+
+| | |
+| --- | --- |
+| ![Overview: browse-by-area directory](docs/images/overview.png) | ![Search with highlighted matches and story-level results](docs/images/search.png) |
+| The overview: stat tiles, then a card per area with counts and links into every component. | ⌘K search: matches highlighted, story hits listed as `Component › Story`. |
+| ![A component page with examples and their controls](docs/images/component.png) | ![Authored guidance with Do and Don't callouts](docs/images/guidance.png) |
+| Every story renders in place, bucketed into sections, with live controls and a Code disclosure per frame. | Authored Markdown becomes typed React blocks: Do/Don't cards, tables, code with language. |
+| ![The releases page and version chip](docs/images/releases.png) | ![Foundations: spacing scale and radii from the token source](docs/images/foundations.png) |
+| Releases: the changelog rendered in place, with the current version read from the package. | Foundations: colour, type, spacing/shape and elevation/motion, all from the token module. |
+
 ## The reference consumer
 
 `examples/fixtures/` is a second, synthetic design system (Acme UI) used by the scanner tests and by CI

@@ -6,6 +6,7 @@ import { sectionStories, usageSnippet } from '../sections';
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
 import { useProps, type ComponentPropsDoc } from '../props';
+import { Skeleton } from '../skeleton';
 
 function formatValue(value: unknown): string {
   if (value === undefined) return '—';
@@ -45,6 +46,13 @@ function PropsTable({
   argTypes: Record<string, Record<string, unknown>>;
   defaultArgs: Record<string, unknown>;
 }) {
+  if (components === null) {
+    return (
+      <div className="skeleton-page" aria-busy="true">
+        <Skeleton lines={4} height={14} />
+      </div>
+    );
+  }
   if (components && components.length > 0) {
     const single = components.length === 1;
     return (
@@ -143,7 +151,13 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       </p>
 
       {error ? <div className="story-failed">Could not load the story module: {error}</div> : null}
-      {!module && !error ? <p>Loading stories…</p> : null}
+      {!module && !error ? (
+        <div className="skeleton-page" aria-busy="true">
+          <Skeleton width={260} height={16} />
+          <Skeleton height={150} />
+          <Skeleton height={150} />
+        </div>
+      ) : null}
 
       {module ? (
         <>

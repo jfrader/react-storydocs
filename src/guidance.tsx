@@ -7,6 +7,7 @@
 import { createElement, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { loadGuidance } from 'virtual:storybook-docs/guidance';
 import { parseGuidance, type Block, type CalloutTone, type Inline } from './guidance-model';
+import { Skeleton } from './skeleton';
 import './guidance.css';
 
 const CALLOUT_LABELS: Record<CalloutTone, string | null> = { do: 'Do', dont: "Don't", note: null };
@@ -147,6 +148,10 @@ export function Guidance({ slug, placeholder }: { slug: string; placeholder?: st
       </section>
     ) : null;
   }
-  if (blocks === null) return null;
+  if (blocks === null) return (
+    <section className="guidance" aria-busy="true">
+      <Skeleton lines={3} />
+    </section>
+  );
   return <section className="guidance">{renderBlocks(blocks)}</section>;
 }

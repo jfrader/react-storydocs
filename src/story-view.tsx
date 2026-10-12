@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { Component, createElement, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from './config';
+import { Skeleton } from './skeleton';
 
 /** The slice of CSF the docs front needs. Decorators, loaders and play functions stay in Storybook. */
 interface StoryDefinition {
@@ -101,5 +102,5 @@ export function LazySection({ children, placeholder = '…' }: { children: React
     observer.observe(element);
     return () => observer.disconnect();
   }, [visible]);
-  return <div ref={ref}>{visible ? children : <div className="lazy-placeholder">{placeholder}</div>}</div>;
+  return <div ref={ref}>{visible ? children : <div className="lazy-placeholder"><Skeleton width={190} /></div>}</div>;
 }

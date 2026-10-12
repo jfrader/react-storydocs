@@ -310,14 +310,22 @@ code {
   color: var(--sd-text-muted);
   font-size: 13px;
 }
-.lazy-placeholder::before {
-  content: '';
+
+/* Skeletons: one pulse shared by every loading state (frames, guidance, props, header). */
+.skeleton {
   display: block;
-  width: 180px;
-  height: 12px;
-  border-radius: 6px;
   background: var(--sd-surface-raised);
+  border-radius: 6px;
   animation: sd-pulse 1.4s ease-in-out infinite;
+}
+.skeleton-stack {
+  display: grid;
+  gap: 10px;
+}
+.skeleton-page {
+  display: grid;
+  gap: 16px;
+  margin: 18px 0;
 }
 @keyframes sd-pulse {
   0%,
@@ -332,7 +340,7 @@ code {
   html {
     scroll-behavior: auto;
   }
-  .lazy-placeholder::before {
+  .skeleton {
     animation: none;
   }
 }
