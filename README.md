@@ -32,6 +32,13 @@ through their exported `*Props` types; parts with no exported props type stay in
 need project-level Storybook decorators fail soft (an error boundary per story frame). Play functions,
 controls and a11y checks stay in Storybook — this front is for reading and browsing.
 
+## The reference consumer
+
+`examples/fixtures/` is a second, synthetic design system (Acme UI) used by the scanner tests and by CI
+as the build gate that needs no credentials — it proves the engine is not shaped around jfrader/ui.
+`examples/jfrader-ui/` is the real one; its `link:` paths resolve against the main clone layout, so a
+git worktree copy needs those symlinks repointed locally (see its `node_modules/@jfrader` entries).
+
 ## Development
 
 ```bash
