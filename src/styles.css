@@ -283,7 +283,6 @@ code {
 .frame {
   border: 1px solid var(--sd-border);
   border-radius: var(--sd-radius);
-  overflow: hidden;
   background: var(--sd-bg);
   margin: 14px 0;
 }
@@ -296,10 +295,21 @@ code {
   font-size: 12px;
   color: var(--sd-text-muted);
 }
+/* The example lane: a block container, like Storybook's canvas, so components that measure
+   their lane or grow inline get a real width. Stories that ask for `layout: 'centered'` get
+   the shrink-to-fit treatment on purpose (same trade-off Storybook documents). */
 .frame .shot {
   padding: 26px;
+  display: block;
+}
+.frame .story-lane[data-layout='centered'] {
   display: grid;
   place-items: center;
+  min-block-size: 96px;
+}
+/* Inline-level components stay visually centred; the lane itself is still full width. */
+.frame .story-lane[data-layout='inline'] {
+  text-align: center;
 }
 .story-failed {
   color: color-mix(in srgb, var(--sd-danger) 55%, var(--sd-text));

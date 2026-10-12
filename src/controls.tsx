@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useId, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import { usageSnippet } from './sections';
 import { LazySection, StoryView } from './story-view';
 import './controls.css';
@@ -86,6 +86,25 @@ export function ControlledStoryFrame({ module, story, componentName }: {
   const [edits, setEdits] = useState<Record<string, unknown>>({});
   const args = { ...defaults, ...edits };
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
+  // Storybook semantics: the story's own `layout` decides whether the lane is padded (block)
+  // or centred. Components that measure their own width need the padded, full-width lane.
+  const storyLayout =
+    ((definition as { parameters?: { layout?: string } }).parameters?.layout ??
+      (meta as { parameters?: { layout?: string } }).parameters?.layout) === 'centered'
+      ? 'centered'
+      : 'padded';
+  const [laneLayout, setLaneLayout] = useState<string>(storyLayout);
+  // A block lane is what components that measure their own width need; inline-level content
+  // (a lone button, badge, switch) can still be centred visually without shrinking the lane.
+  const laneRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+      const content = node.firstElementChild;
+      if (!(content instanceof HTMLElement)) return;
+      setLaneLayout(/^inline/.test(getComputedStyle(content).display) ? 'inline' : storyLayout);
+    },
+    [storyLayout],
+  );
   const snippet = typeof definition.render === 'function' || typeof meta.render === 'function'
     ? null
     : usageSnippet(componentName, args);
@@ -105,7 +124,11 @@ export function ControlledStoryFrame({ module, story, componentName }: {
         </fieldset>
       )}
       <div className="shot">
-        <LazySection><StoryView module={module} story={story} overrides={unavailable ? undefined : args} /></LazySection>
+        <LazySection>
+          <div className="story-lane" data-layout={laneLayout} ref={laneRef}>
+            <StoryView module={module} story={story} overrides={unavailable ? undefined : args} />
+          </div>
+        </LazySection>
       </div>
       {snippet ? (
         <details className="code-toggle"><summary>Code</summary><pre className="code">{snippet}</pre></details>
