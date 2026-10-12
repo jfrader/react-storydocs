@@ -75,6 +75,7 @@ const THEME_ROLES: ThemeRole[] = [
   'accentSoft',
   'accentContrast',
   'danger',
+  'success',
   'focusRing',
 ];
 
@@ -392,11 +393,13 @@ ${catalog.entries.map((entry) => `    case ${JSON.stringify(entry.slug)}: return
   const guidanceFiles = new Map<string, string>();
   const indexGuidance = () => {
     guidanceFiles.clear();
-    const directory = config.guidance ? path.resolve(projectRoot, config.guidance.dir) : null;
-    if (!directory || !existsSync(directory)) return;
-    for (const file of readdirSync(directory)) {
-      if (!file.endsWith('.md')) continue;
-      guidanceFiles.set(file.slice(0, -'.md'.length), path.join(directory, file));
+    for (const dir of [config.guidance?.dir ?? []].flat()) {
+      const directory = path.resolve(projectRoot, dir);
+      if (!existsSync(directory)) continue;
+      for (const file of readdirSync(directory)) {
+        if (!file.endsWith('.md')) continue;
+        guidanceFiles.set(file.slice(0, -'.md'.length), path.join(directory, file));
+      }
     }
   };
 

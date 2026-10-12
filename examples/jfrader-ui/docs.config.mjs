@@ -50,6 +50,7 @@ export default {
       accentSoft: 'var(--ui-color-accent-soft)',
       accentContrast: 'var(--ui-color-accent-contrast)',
       danger: 'var(--ui-color-danger)',
+      success: 'var(--ui-color-success)',
       focusRing: 'var(--ui-color-focus-ring)',
     },
   },
@@ -60,6 +61,7 @@ export default {
   },
   guidance: {
     // Markdown files named after components (`button.md`) plus optionally `index.md`.
-    dir: './guidance',
+    // Later directories win for the same slug.
+    dir: ['./guidance', './guidance-feedback'],
   },
 };
