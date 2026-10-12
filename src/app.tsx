@@ -3,15 +3,20 @@ import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
 import { ComponentPage } from './pages/component-page';
 import { ColorPage } from './pages/foundations-color';
+import { EffectsPage } from './pages/foundations-effects';
+import { SpacingPage } from './pages/foundations-spacing';
 import { TypePage } from './pages/foundations-type';
 import { OverviewPage } from './pages/overview';
+import { SearchBox } from './search';
 import { STORYBOOK_DOCS_BASE } from './base';
 
 type Route =
   | { kind: 'overview' }
   | { kind: 'component'; slug: string }
   | { kind: 'color' }
-  | { kind: 'typography' };
+  | { kind: 'typography' }
+  | { kind: 'spacing' }
+  | { kind: 'effects' };
 
 function parseRoute(hash: string): Route {
   const path = hash.replace(new RegExp(`^#?\\/?${STORYBOOK_DOCS_BASE}`), '').replace(/^\/+/, '');
@@ -21,6 +26,8 @@ function parseRoute(hash: string): Route {
   }
   if (path === 'tokens/color') return { kind: 'color' };
   if (path === 'tokens/typography') return { kind: 'typography' };
+  if (path === 'tokens/spacing') return { kind: 'spacing' };
+  if (path === 'tokens/effects') return { kind: 'effects' };
   return { kind: 'overview' };
 }
 
@@ -44,8 +51,10 @@ export function DocsApp() {
   const [darkMode, lightMode] = theme.values ?? ['dark', 'light'];
   const activeSlug = route.kind === 'component' ? route.slug : null;
   const foundations = [
-    ...(pages.color ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/color`, label: 'Color' }] : []),
-    ...(pages.typography ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/typography`, label: 'Typography' }] : []),
+    ...(pages.color ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/color`, label: 'Color', kind: 'color' }] : []),
+    ...(pages.typography ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/typography`, label: 'Typography', kind: 'typography' }] : []),
+    ...(pages.spacing ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/spacing`, label: 'Spacing & shape', kind: 'spacing' }] : []),
+    ...(pages.effects ? [{ href: `${STORYBOOK_DOCS_BASE}/tokens/effects`, label: 'Elevation & motion', kind: 'effects' }] : []),
   ];
 
   return (
@@ -54,7 +63,7 @@ export function DocsApp() {
         <span className="mark">{site.mark ?? site.title.slice(0, 1).toUpperCase()}</span>
         <span className="brand">{site.title}</span>
         <span className="chip">docs</span>
-        <span className="search">Search {stats.components} components…</span>
+        <SearchBox />
         <span className="spacer" />
         <button className="tool" onClick={() => setMode(mode === darkMode ? lightMode : darkMode)}>
           {mode === darkMode ? lightMode : darkMode}
@@ -72,16 +81,7 @@ export function DocsApp() {
         </a>
         {foundations.length > 0 ? <div className="grp">Foundations</div> : null}
         {foundations.map((item) => (
-          <a
-            key={item.href}
-            href={item.href}
-            className={
-              (route.kind === 'color' && item.href.endsWith('color')) ||
-              (route.kind === 'typography' && item.href.endsWith('typography'))
-                ? 'on'
-                : undefined
-            }
-          >
+          <a key={item.href} href={item.href} className={route.kind === item.kind ? 'on' : undefined}>
             {item.label}
           </a>
         ))}
@@ -113,6 +113,10 @@ export function DocsApp() {
           <ColorPage />
         ) : route.kind === 'typography' ? (
           <TypePage />
+        ) : route.kind === 'spacing' ? (
+          <SpacingPage />
+        ) : route.kind === 'effects' ? (
+          <EffectsPage />
         ) : (
           <OverviewPage />
         )}

@@ -38,6 +38,11 @@ function PropsTable({
         {components.map((component) => (
           <section key={component.name}>
             {!single ? <h3>{component.name}</h3> : null}
+            {component.native ? (
+              <p className="hint">
+                Also accepts every native <code>&lt;{component.native}&gt;</code> prop.
+              </p>
+            ) : null}
             <table>
               <thead>
                 <tr>

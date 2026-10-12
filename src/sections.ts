@@ -76,7 +76,8 @@ export function usageSnippet(componentName: string, args: Record<string, unknown
     if (value === undefined || value === null) continue;
     if (typeof value === 'string') attributes.push(`${key}="${value}"`);
     else if (typeof value === 'number') attributes.push(`${key}={${value}}`);
-    else if (typeof value === 'boolean') attributes.push(value ? key : `${key}={false}`);
+    // `false` is the default for most booleans — showing it adds noise to a usage snippet.
+    else if (typeof value === 'boolean' && value) attributes.push(key);
   }
   const children = typeof args.children === 'string' ? args.children : null;
   const opening = attributes.length > 0 ? `<${componentName} ${attributes.join(' ')}>` : `<${componentName}>`;

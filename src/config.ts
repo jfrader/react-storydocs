@@ -53,6 +53,8 @@ export interface StorybookDocsConfig {
     overview?: boolean;
     color?: boolean;
     typography?: boolean;
+    spacing?: boolean;
+    effects?: boolean;
     api?: boolean;
   };
 }

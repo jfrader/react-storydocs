@@ -29,5 +29,24 @@
   },
   "dependencies": {
     "react-docgen-typescript": "^2.4.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jfrader/storybook-docs.git"
+  },
+  "homepage": "https://github.com/jfrader/storybook-docs",
+  "keywords": [
+    "storybook",
+    "design-system",
+    "documentation",
+    "props",
+    "docs"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

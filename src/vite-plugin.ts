@@ -8,7 +8,9 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { withDefaultConfig } from 'react-docgen-typescript';
+import ts from 'typescript';
 import type { Plugin, ResolvedConfig } from 'vite';
+import { collectMatches, extractTitle, readStoryFile, toKebab } from './scan.ts';
 import type { CatalogEntry, StorybookDocsConfig, ThemeRole } from './config';
 
 export interface PropDoc {
@@ -22,6 +24,8 @@ export interface PropDoc {
 export interface ComponentPropsDoc {
   name: string;
   props: PropDoc[];
+  /** Native element whose full prop set also applies (e.g. `button` for Dialog.Trigger). */
+  native?: string;
 }
 
 /** Storybook's own approach: parse the component sources for their public props. */
@@ -39,13 +43,6 @@ const docgen = withDefaultConfig({
 
 const VIRTUAL_PREFIX = 'virtual:storybook-docs/';
 const FILE_PREFIX = 'storybook-docs-file:';
-
-const toKebab = (value: string) =>
-  value
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase();
 
 const DEFAULT_GROUP_ORDER = [
   'Getting started',
@@ -100,76 +97,6 @@ function resolveStoryRoot(from: string, root: string): string {
     }
     dir = parent;
   }
-}
-
-/** Minimal glob: `*` matches within a path segment, `**` matches any depth. */
-export function matchGlob(pattern: string, candidate: string): boolean {
-  const patternParts = pattern.split('/');
-  const candidateParts = candidate.split('/');
-  const segmentRegExp = (segment: string) =>
-    new RegExp(`^${segment.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`);
-  const walk = (patternIndex: number, candidateIndex: number): boolean => {
-    if (patternIndex === patternParts.length) return candidateIndex === candidateParts.length;
-    const patternPart = patternParts[patternIndex];
-    if (patternPart === '**') {
-      for (let skip = candidateIndex; skip <= candidateParts.length; skip += 1) {
-        if (walk(patternIndex + 1, skip)) return true;
-      }
-      return false;
-    }
-    if (candidateIndex >= candidateParts.length) return false;
-    if (segmentRegExp(patternPart ?? '').test(candidateParts[candidateIndex] ?? '')) {
-      return walk(patternIndex + 1, candidateIndex + 1);
-    }
-    return false;
-  };
-  return walk(0, 0);
-}
-
-function collectMatches(rootDir: string, pattern: string): string[] {
-  const matches: string[] = [];
-  const visit = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        visit(full);
-        continue;
-      }
-      const relative = path.relative(rootDir, full).split(path.sep).join('/');
-      if (matchGlob(pattern, relative)) matches.push(full);
-    }
-  };
-  visit(rootDir);
-  return matches.sort();
-}
-
-/** The meta title lives in the module's `meta` object — fixtures elsewhere in the file also
-    contain `title:` keys, so the scan is scoped to the meta declaration first. */
-function extractTitle(source: string): string | null {
-  const metaStart = source.search(/\bconst\s+meta\b/);
-  if (metaStart >= 0) {
-    const rest = source.slice(metaStart);
-    const end = rest.search(/export\s+default\s+meta|satisfies\s+Meta|\)\s*;\s*$/m);
-    const scope = end >= 0 ? rest.slice(0, end) : rest.slice(0, 6000);
-    const scoped = scope.match(/title:\s*'([^']+)'/) ?? scope.match(/title:\s*"([^"]+)"/);
-    if (scoped?.[1]) return scoped[1];
-  }
-  const anywhere = source.match(/title:\s*'([^']+)'/) ?? source.match(/title:\s*"([^"]+)"/);
-  return anywhere?.[1] ?? null;
-}
-
-interface StoryFileFacts {
-  title: string;
-  stories: string[];
-  hasComponent: boolean;
-}
-
-function readStoryFile(file: string): StoryFileFacts | null {
-  const source = readFileSync(file, 'utf8');
-  const title = extractTitle(source);
-  if (!title) return null;
-  const stories = [...source.matchAll(/^export const ([A-Za-z0-9_]+)/gm)].map((match) => match[1] ?? '');
-  return { title, stories, hasComponent: /component:\s*\w+/.test(source) };
 }
 
 function buildCatalog(config: StorybookDocsConfig, root: string) {
@@ -276,6 +203,8 @@ export const stats = ${JSON.stringify(catalog.stats)};
       api: config.pages?.api ?? true,
       color: (config.pages?.color ?? true) && hasTokens,
       typography: (config.pages?.typography ?? true) && hasTokens,
+      spacing: (config.pages?.spacing ?? true) && hasTokens,
+      effects: (config.pages?.effects ?? true) && hasTokens,
     };
     const theme = {
       attribute: config.theme?.attribute ?? 'data-theme',
@@ -358,12 +287,7 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
           const relevant = parsed.some((component) => matchesOwnName(component.name))
             ? parsed.filter((component) => matchesOwnName(component.name))
             : parsed;
-          const byName = new Map<string, ComponentPropsDoc>();
-          for (const component of relevant) {
-            const existing = byName.get(component.name);
-            if (!existing || component.props.length > existing.props.length) byName.set(component.name, component);
-          }
-          const components = [...byName.values()].sort((a, b) => b.props.length - a.props.length);
+          const components = mergePropsTables([...relevant, ...collectTypeProps(sources, entryName)]);
           propsCache.set(slug, components);
           return components;
         } catch (cause) {
@@ -373,6 +297,84 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
     }
     propsCache.set(slug, []);
     return [];
+  };
+
+  /** Exported `*Props` types in the folder — this is where compound parts live
+      (`Dialog.Trigger` etc. are Object.assign members, which docgen cannot see). */
+  const collectTypeProps = (sources: string[], entryName: string): ComponentPropsDoc[] => {
+    const program = ts.createProgram(sources, {
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      skipLibCheck: true,
+      strict: true,
+    });
+    const checker = program.getTypeChecker();
+    const tables: ComponentPropsDoc[] = [];
+    const isExternal = (fileName: string) => /(^|\/)node_modules\/(@types|typescript)(\/|$)/.test(fileName);
+
+    for (const file of sources) {
+      const source = program.getSourceFile(file);
+      if (!source) continue;
+      ts.forEachChild(source, (node) => {
+        const isTypeDeclaration = ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node);
+        if (!isTypeDeclaration) return;
+        const name = node.name.text;
+        if (!/Props$/.test(name) || name === 'Props') return;
+        const exported = node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+        if (!exported) return;
+        const type = checker.getTypeAtLocation(node);
+        const props: PropDoc[] = [];
+        for (const symbol of checker.getPropertiesOfType(type)) {
+          const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+          if (declaration && isExternal(declaration.getSourceFile().fileName)) continue;
+          const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? node);
+          const typeText = checker
+            .typeToString(propType, undefined, ts.TypeFormatFlags.NoTruncation)
+            .replace(/\s+/g, ' ')
+            .slice(0, 140);
+          props.push({
+            name: symbol.getName(),
+            type: typeText,
+            required: (symbol.flags & ts.SymbolFlags.Optional) === 0,
+            defaultValue: null,
+            description: ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
+          });
+        }
+        if (props.length === 0) return;
+        // `DialogTriggerProps extends ComponentPropsWithRef<'button'>` → note the native element
+        // whose full prop set applies on top of the component's own props.
+        let native: string | undefined;
+        for (const clause of node.heritageClauses ?? []) {
+          for (const heritage of clause.types) {
+            const text = heritage.expression.getText(source);
+            if (!/ComponentProps|HTMLAttributes|DOMAttributes/.test(text)) continue;
+            const argument = heritage.typeArguments?.[0];
+            const literal = argument?.getText(source).match(/'([a-z][a-z0-9]*)'/);
+            if (literal?.[1]) native = literal[1];
+          }
+        }
+        // `DialogTriggerProps` → `Dialog.Trigger`; anything else keeps its own name.
+        const bare = name.slice(0, -'Props'.length);
+        const label = bare === entryName ? bare : bare.startsWith(entryName) ? `${entryName}.${bare.slice(entryName.length)}` : bare;
+        tables.push({
+          name: label,
+          native,
+          props: props.sort((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name)),
+        });
+      });
+    }
+    return tables;
+  };
+
+  const mergePropsTables = (tables: ComponentPropsDoc[]): ComponentPropsDoc[] => {
+    const byName = new Map<string, ComponentPropsDoc>();
+    for (const table of tables) {
+      const existing = byName.get(table.name);
+      if (!existing || table.props.length > existing.props.length) byName.set(table.name, table);
+    }
+    return [...byName.values()].sort((a, b) => b.props.length - a.props.length);
   };
 
   const propsCode = (slug: string) =>
