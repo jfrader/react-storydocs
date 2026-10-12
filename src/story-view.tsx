@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { Component, createElement, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from './config';
 

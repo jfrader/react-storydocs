@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { vars } from 'virtual:storybook-docs/tokens';
 
 const token = vars as Record<string, unknown>;
