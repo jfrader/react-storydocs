@@ -6,10 +6,36 @@
  * an `index.html` and a two-line entry — no component list, no copied prop tables.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
+import { withDefaultConfig } from 'react-docgen-typescript';
 import type { Plugin, ResolvedConfig } from 'vite';
 import type { CatalogEntry, StorybookDocsConfig, ThemeRole } from './config';
+
+export interface PropDoc {
+  name: string;
+  type: string;
+  required: boolean;
+  defaultValue: string | null;
+  description: string;
+}
+
+export interface ComponentPropsDoc {
+  name: string;
+  props: PropDoc[];
+}
+
+/** Storybook's own approach: parse the component sources for their public props. */
+const docgen = withDefaultConfig({
+  savePropValueAsString: true,
+  shouldExtractLiteralValuesFromEnum: true,
+  shouldRemoveUndefinedFromOptional: true,
+  // Keep the component's own props (and its local types); drop inherited DOM/React props and
+  // the utility-type plumbing that TypeScript's own libs and DefinitelyTyped add. The check is
+  // by *package*, not by "contains node_modules" — when a design system is consumed from
+  // node_modules, that path test would drop every prop.
+  propFilter: (prop: { parent?: { fileName?: string } }) =>
+    !/(^|\/)node_modules\/(@types|typescript)(\/|$)/.test(prop.parent?.fileName ?? ''),
+});
 
 const VIRTUAL_PREFIX = 'virtual:storybook-docs/';
 const FILE_PREFIX = 'storybook-docs-file:';
@@ -117,6 +143,21 @@ function collectMatches(rootDir: string, pattern: string): string[] {
   return matches.sort();
 }
 
+/** The meta title lives in the module's `meta` object — fixtures elsewhere in the file also
+    contain `title:` keys, so the scan is scoped to the meta declaration first. */
+function extractTitle(source: string): string | null {
+  const metaStart = source.search(/\bconst\s+meta\b/);
+  if (metaStart >= 0) {
+    const rest = source.slice(metaStart);
+    const end = rest.search(/export\s+default\s+meta|satisfies\s+Meta|\)\s*;\s*$/m);
+    const scope = end >= 0 ? rest.slice(0, end) : rest.slice(0, 6000);
+    const scoped = scope.match(/title:\s*'([^']+)'/) ?? scope.match(/title:\s*"([^"]+)"/);
+    if (scoped?.[1]) return scoped[1];
+  }
+  const anywhere = source.match(/title:\s*'([^']+)'/) ?? source.match(/title:\s*"([^"]+)"/);
+  return anywhere?.[1] ?? null;
+}
+
 interface StoryFileFacts {
   title: string;
   stories: string[];
@@ -125,8 +166,7 @@ interface StoryFileFacts {
 
 function readStoryFile(file: string): StoryFileFacts | null {
   const source = readFileSync(file, 'utf8');
-  const titleMatch = source.match(/title:\s*'([^']+)'/) ?? source.match(/title:\s*"([^"]+)"/);
-  const title = titleMatch?.[1];
+  const title = extractTitle(source);
   if (!title) return null;
   const stories = [...source.matchAll(/^export const ([A-Za-z0-9_]+)/gm)].map((match) => match[1] ?? '');
   return { title, stories, hasComponent: /component:\s*\w+/.test(source) };
@@ -269,6 +309,84 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
     return imports.join('\n');
   };
 
+  const propsCache = new Map<string, ComponentPropsDoc[]>();
+
+  const toPropDoc = (prop: unknown): PropDoc => {
+    const value = prop as {
+      name: string;
+      type?: { name?: string };
+      required?: boolean;
+      defaultValue?: unknown;
+      description?: string;
+    };
+    return {
+      name: value.name,
+      type: value.type?.name ?? 'unknown',
+      required: Boolean(value.required),
+      defaultValue: value.defaultValue === undefined ? null : String(value.defaultValue),
+      description: value.description ?? '',
+    };
+  };
+
+  /** Parses every component declared in the folder — compound parts included. */
+  const collectProps = (slug: string): ComponentPropsDoc[] => {
+    const cached = propsCache.get(slug);
+    if (cached) return cached;
+    const storyFile = resolvedStoryFiles.get(slug);
+    if (storyFile) {
+      const directory = path.dirname(storyFile);
+      const sources = readdirSync(directory)
+        .filter((file) => /\.tsx?$/.test(file) && !file.endsWith('.stories.tsx'))
+        .map((file) => path.join(directory, file));
+      if (sources.length > 0) {
+        try {
+          const parsed = docgen
+            .parse(sources)
+            .map((result) => ({
+              name: result.displayName,
+              props: Object.values(result.props ?? {})
+                .map(toPropDoc)
+                .sort((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name)),
+            }))
+            .filter((component) => component.props.length > 0);
+          // The same component is often reported twice (declaration + index re-export); keep the
+          // richest. Candidates that do not belong to this component (helpers, unrelated types)
+          // are dropped when a name-matching candidate exists.
+          const entryName = catalog.entries.find((candidate) => candidate.slug === slug)?.name ?? '';
+          const matchesOwnName = (name: string) =>
+            entryName.length > 0 && name.toLowerCase().startsWith(entryName.toLowerCase());
+          const relevant = parsed.some((component) => matchesOwnName(component.name))
+            ? parsed.filter((component) => matchesOwnName(component.name))
+            : parsed;
+          const byName = new Map<string, ComponentPropsDoc>();
+          for (const component of relevant) {
+            const existing = byName.get(component.name);
+            if (!existing || component.props.length > existing.props.length) byName.set(component.name, component);
+          }
+          const components = [...byName.values()].sort((a, b) => b.props.length - a.props.length);
+          propsCache.set(slug, components);
+          return components;
+        } catch (cause) {
+          console.warn(`storybook-docs: could not read props for "${slug}" (${String(cause)})`);
+        }
+      }
+    }
+    propsCache.set(slug, []);
+    return [];
+  };
+
+  const propsCode = (slug: string) =>
+    `export const components = ${JSON.stringify(collectProps(slug))};`;
+
+  const propsIndexCode = () => `
+export function loadProps(slug) {
+  switch (slug) {
+${catalog.entries.map((entry) => `    case ${JSON.stringify(entry.slug)}: return import(${JSON.stringify(`${VIRTUAL_PREFIX}props/${entry.slug}`)});`).join('\n')}
+    default: return Promise.resolve({ components: [] });
+  }
+}
+`;
+
   // The catalog's loaders are rebuilt lazily because Vite resolves the project root late.
   const resolveStoryFile = (entry: CatalogEntry): string => {
     const found = resolvedStoryFiles.get(entry.slug);
@@ -317,6 +435,8 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
       if (name === 'tokens') return tokensCode();
       if (name === 'global-styles') return globalStylesCode();
       if (name === 'stub-storybook-test') return STORYBOOK_TEST_STUB;
+      if (name === 'props') return propsIndexCode();
+      if (name.startsWith('props/')) return propsCode(name.slice('props/'.length));
       return null;
     },
   };

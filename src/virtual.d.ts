@@ -18,4 +18,9 @@ declare module 'virtual:storybook-docs/tokens' {
   export const vars: Record<string, unknown>;
 }
 
+declare module 'virtual:storybook-docs/props' {
+  import type { ComponentPropsDoc } from './vite-plugin';
+  export function loadProps(slug: string): Promise<{ components: ComponentPropsDoc[] }>;
+}
+
 declare module 'virtual:storybook-docs/global-styles';

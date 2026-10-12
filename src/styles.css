@@ -254,6 +254,64 @@ code {
   color: var(--sd-text-subtle);
   font-size: 13px;
 }
+.lazy-placeholder::before {
+  content: '';
+  display: block;
+  width: 180px;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--sd-surface-raised);
+  animation: sd-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sd-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lazy-placeholder::before {
+    animation: none;
+  }
+}
+
+pre.code {
+  background: var(--sd-surface);
+  border: 1px solid var(--sd-border);
+  border-radius: var(--sd-radius);
+  padding: 16px 18px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--sd-text);
+  margin: 10px 0;
+}
+.hint,
+.section-blurb {
+  font-size: 13px;
+  color: var(--sd-text-subtle);
+}
+.section-blurb {
+  margin: -2px 0 10px;
+}
+th + th,
+td + td {
+  border-left: 1px solid var(--sd-border-subtle);
+}
+code.type {
+  white-space: pre-wrap;
+}
+.req {
+  margin-left: 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sd-danger);
+}
 
 table {
   width: 100%;

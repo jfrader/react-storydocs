@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import type { CatalogEntry } from '../config';
-import { pages } from 'virtual:storybook-docs/site';
-import { hrefFor } from '../base';
+import { sectionStories, usageSnippet } from '../sections';
 import { LazySection, StoryView, useStoryModule } from '../story-view';
+import { useProps, type ComponentPropsDoc } from '../props';
 
 function formatValue(value: unknown): string {
   if (value === undefined) return '—';
@@ -21,12 +22,91 @@ interface MetaShape {
   parameters?: { docs?: { description?: { component?: string } } };
 }
 
+function PropsTable({
+  components,
+  argTypes,
+  defaultArgs,
+}: {
+  components: ComponentPropsDoc[] | null;
+  argTypes: Record<string, Record<string, unknown>>;
+  defaultArgs: Record<string, unknown>;
+}) {
+  if (components && components.length > 0) {
+    const single = components.length === 1;
+    return (
+      <>
+        {components.map((component) => (
+          <section key={component.name}>
+            {!single ? <h3>{component.name}</h3> : null}
+            <table>
+              <thead>
+                <tr>
+                  <th>Prop</th>
+                  <th>Type</th>
+                  <th>Default</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {component.props.map((prop) => (
+                  <tr key={prop.name}>
+                    <td>
+                      <code>{prop.name}</code>
+                      {prop.required ? <span className="req">required</span> : null}
+                    </td>
+                    <td>
+                      <code className="type">{prop.type}</code>
+                    </td>
+                    <td>{prop.defaultValue ?? '—'}</td>
+                    <td>{prop.description || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ))}
+      </>
+    );
+  }
+  if (Object.keys(argTypes).length > 0) {
+    return (
+      <table>
+        <thead>
+          <tr>
+            <th>Prop</th>
+            <th>Control</th>
+            <th>Options</th>
+            <th>Default</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(argTypes).map(([prop, definition]) => (
+            <tr key={prop}>
+              <td>
+                <code>{prop}</code>
+              </td>
+              <td>{formatValue(definition.control)}</td>
+              <td>{definition.options ? formatValue(definition.options) : '—'}</td>
+              <td>{formatValue(defaultArgs[prop])}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+  return <p>The props were not extracted for this component; the types live in the component source.</p>;
+}
+
 export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const { module, error } = useStoryModule(entry);
+  const props = useProps(entry.slug);
   const meta = (module?.default ?? {}) as MetaShape;
   const argTypes = meta.argTypes ?? {};
   const defaultArgs = meta.args ?? {};
   const description = meta.parameters?.docs?.description?.component;
+  const sections = useMemo(() => sectionStories(entry.stories), [entry.stories]);
+  const snippet = useMemo(() => usageSnippet(entry.name, defaultArgs), [entry.name, defaultArgs]);
+  const propCount = props ? props.reduce((total, component) => total + component.props.length, 0) : Object.keys(argTypes).length;
 
   return (
     <>
@@ -36,11 +116,11 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       <h1>{entry.name}</h1>
       <div className="summary-row">
         <span className="chip">{entry.stories.length} stories</span>
-        <span className="chip">{Object.keys(argTypes).length} documented props</span>
-        <span className="chip">generated from the story module</span>
+        <span className="chip">{propCount} props</span>
+        <span className="chip">from the story module + component source</span>
       </div>
       <p className="lede">
-        {description ?? `Every story in ${entry.storybookTitle} is rendered below — same module, same args.`}
+        {description ?? `${entry.name} — every story in ${entry.storybookTitle} is rendered below, in sections.`}
       </p>
 
       {error ? <div className="story-failed">Could not load the story module: {error}</div> : null}
@@ -48,62 +128,43 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
 
       {module ? (
         <>
-          <h2>Examples</h2>
-          {entry.stories.map((story) => (
-            <div className="frame" key={story}>
-              <header>
-                <span>{story}</span>
-              </header>
-              <div className="shot">
-                <LazySection>
-                  <StoryView module={module} story={story} />
-                </LazySection>
-              </div>
-            </div>
+          {snippet ? (
+            <>
+              <h2>Usage</h2>
+              <pre className="code">{snippet}</pre>
+              <p className="hint">Derived from the default story’s arguments, so it never drifts from what is rendered.</p>
+            </>
+          ) : null}
+
+          {sections.map((section) => (
+            <section key={section.title}>
+              <h2>{section.title}</h2>
+              <p className="section-blurb">{section.blurb}</p>
+              {section.stories.map((story) => (
+                <div className="frame" key={story}>
+                  <header>
+                    <span>{story}</span>
+                  </header>
+                  <div className="shot">
+                    <LazySection>
+                      <StoryView module={module} story={story} />
+                    </LazySection>
+                  </div>
+                </div>
+              ))}
+            </section>
           ))}
         </>
       ) : null}
 
-      {pages.api ? (
-        <>
-          <h2>API</h2>
-          {Object.keys(argTypes).length > 0 ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Prop</th>
-                  <th>Control</th>
-                  <th>Options</th>
-                  <th>Default</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(argTypes).map(([prop, definition]) => (
-                  <tr key={prop}>
-                    <td>
-                      <code>{prop}</code>
-                    </td>
-                    <td>{formatValue(definition.control)}</td>
-                    <td>{definition.options ? formatValue(definition.options) : '—'}</td>
-                    <td>{formatValue(defaultArgs[prop])}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>This story module declares no argTypes; the props live in the component source.</p>
-          )}
-        </>
-      ) : null}
+      <h2>Props</h2>
+      <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
 
       <h2>Guidance</h2>
       <p>
         Editorial guidance — when to reach for this component, when not to, and the accessibility notes that do not fit
         in a prop table — belongs on this page next to the examples. That prose is the one thing stories cannot
         generate; it is written once, in the repository, and stays next to the code.
-      </p>
-      <p>
-        <a href={hrefFor('/')}>← back to the overview</a>
       </p>
     </>
   );

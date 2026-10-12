@@ -95,7 +95,7 @@ export function LazySection({ children, placeholder = '…' }: { children: React
           observer.disconnect();
         }
       },
-      { rootMargin: '320px 0px' },
+      { rootMargin: '640px 0px' },
     );
     observer.observe(element);
     return () => observer.disconnect();
