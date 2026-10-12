@@ -19,16 +19,16 @@ interface MetaDefinition {
   parameters?: { docs?: { description?: { component?: string } } };
 }
 
-class StoryBoundary extends Component<{ children: ReactNode; story: string }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
+class StoryBoundary extends Component<{ children: ReactNode; story: string }, { failed: boolean; message: string }> {
+  state = { failed: false, message: '' };
+  static getDerivedStateFromError(error: unknown) {
+    return { failed: true, message: error instanceof Error ? error.message : String(error) };
   }
   render() {
     if (this.state.failed) {
       return (
         <div className="story-failed">
-          “{this.props.story}” needs project-level Storybook decorators to render outside Storybook.
+          “{this.props.story}” failed to render here: {this.state.message.slice(0, 240)}
         </div>
       );
     }

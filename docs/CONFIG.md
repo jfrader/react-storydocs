@@ -153,19 +153,38 @@ consumer contract:
 Run `pnpm exec vite` in the docs app. Match your stories' JSX runtime and install
 their imports in the consumer. The reference consumer is `examples/jfrader-ui`.
 
+### When the design system is linked rather than installed
+
+Stories are rendered from the design system's own files, so its imports resolve
+next to those files, not next to your app. Three things follow, and all three
+show up as stories that render wrong rather than as errors:
+
+- **Dedupe the styling runtime.** If the design system ships its own copy of
+  Emotion, styled-components or similar, a story that provides a cache or reads
+  a context sees a different instance than the components do. Add the runtime to
+  `resolve.dedupe` in the consumer so it resolves from your app.
+- **Provide optional peers.** A story may import a package the design system
+  treats as optional (its own Storybook installs it, your app does not). Install
+  it in the consumer and dedupe it too; an unresolved import fails the whole
+  story module, not just the story.
+- **Generate the design system's CSS.** Token CSS is usually generated and
+  gitignored, so a linked checkout can hold a build from before your tokens
+  changed. Regenerate it before `vite` (`pnpm --dir <design-system>/packages/tokens
+  generate` in the reference setup). A stale file loses variables silently:
+  every component that sizes itself from a token collapses to zero.
+
 ## Known limits
 
 - Compound parts hidden from docgen (including `Object.assign` compounds and
   `Dialog.Content = …`) rely on exported `*Props` types. Parts without exported
   props types remain invisible.
-- Stories needing project-level Storybook decorators fail soft within a story
-  error boundary; the engine does not recreate that decorator environment.
+- Meta and story decorators are applied in Storybook's order. Project-level
+  decorators from `.storybook/preview` are not recreated: theme, global styles
+  and layout come from the docs config instead. A story that throws shows its
+  error in place rather than disappearing.
 - Play functions, interactive controls and accessibility checks do not run here.
 - Search scans the in-memory catalog's component, group and story names. There is
   no generated full-text search index for guidance, props or rendered content.
-- The reference consumer currently fails production builds because its Emotion
-  JSX runtime cannot resolve from linked engine sources. The build gate reports
-  this rather than externalizing the runtime or adding Emotion to the engine.
 
 ## Verification and CI
 
