@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+=======
+/** @jsxImportSource react */
+import { useEffect, useMemo, useRef, useState } from 'react';
+>>>>>>> master
 import { catalog } from 'virtual:storybook-docs/catalog';
 import { hrefFor } from './base';
 import {

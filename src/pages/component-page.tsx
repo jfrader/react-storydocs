@@ -1,8 +1,10 @@
+/** @jsxImportSource react */
 import { useMemo } from 'react';
 import type { CatalogEntry } from '../config';
 import { Guidance } from '../guidance';
 import { sectionStories, usageSnippet } from '../sections';
-import { LazySection, StoryView, useStoryModule } from '../story-view';
+import { useStoryModule } from '../story-view';
+import { ControlledStoryFrame } from '../controls';
 import { useProps, type ComponentPropsDoc } from '../props';
 
 function formatValue(value: unknown): string {
@@ -151,31 +153,9 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             <section key={section.title}>
               <h2>{section.title}</h2>
               <p className="section-blurb">{section.blurb}</p>
-              {section.stories.map((story) => {
-                const definition = (module[story] ?? {}) as { render?: unknown; args?: Record<string, unknown> };
-                const storySnippet =
-                  typeof definition.render === 'function'
-                    ? null
-                    : usageSnippet(entry.name, { ...meta.args, ...definition.args });
-                return (
-                  <div className="frame" key={story}>
-                    <header>
-                      <span>{story}</span>
-                    </header>
-                    <div className="shot">
-                      <LazySection>
-                        <StoryView module={module} story={story} />
-                      </LazySection>
-                    </div>
-                    {storySnippet ? (
-                      <details className="code-toggle">
-                        <summary>Code</summary>
-                        <pre className="code">{storySnippet}</pre>
-                      </details>
-                    ) : null}
-                  </div>
-                );
-              })}
+              {section.stories.map((story) => (
+                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} />
+              ))}
             </section>
           ))}
         </>

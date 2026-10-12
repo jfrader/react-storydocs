@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import 'virtual:storybook-docs/global-styles';
 import { StrictMode, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
