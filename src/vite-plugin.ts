@@ -418,6 +418,27 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
     return `export const markdown = ${JSON.stringify(markdown)};`;
   };
 
+  const releasesCode = () => {
+    const readIfPresent = (candidate: string | undefined): string | null => {
+      if (!candidate) return null;
+      const resolved = path.resolve(projectRoot, candidate);
+      return existsSync(resolved) ? readFileSync(resolved, 'utf8') : null;
+    };
+    let version = config.site.version ?? null;
+    if (!version && config.releases?.versionFrom) {
+      const manifest = readIfPresent(config.releases.versionFrom);
+      if (manifest) {
+        try {
+          version = (JSON.parse(manifest) as { version?: string }).version ?? null;
+        } catch {
+          version = null;
+        }
+      }
+    }
+    const changelog = readIfPresent(config.releases?.changelog);
+    return `export const releases = ${JSON.stringify({ version, changelog })};`;
+  };
+
   // The catalog's loaders are rebuilt lazily because Vite resolves the project root late.
   const resolveStoryFile = (entry: CatalogEntry): string => {
     const found = resolvedStoryFiles.get(entry.slug);
@@ -471,6 +492,7 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
       if (name.startsWith('props/')) return propsCode(name.slice('props/'.length));
       if (name === 'guidance') return guidanceIndexCode();
       if (name.startsWith('guidance/')) return guidanceCode(name.slice('guidance/'.length));
+      if (name === 'releases') return releasesCode();
       return null;
     },
   };

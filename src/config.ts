@@ -9,6 +9,18 @@ export interface StorybookDocsConfig {
     mark?: string;
     tagline?: string;
     links?: Array<{ label: string; href: string }>;
+    /** Shown as a chip in the header; leave unset to read it from `releases.versionFrom`. */
+    version?: string;
+  };
+
+  /**
+   * Optional release information. Point `changelog` at the design system's changelog file
+   * (rendered as a Releases page) and `versionFrom` at the package whose `version` field is
+   * the current release.
+   */
+  releases?: {
+    changelog?: string;
+    versionFrom?: string;
   };
 
   /**

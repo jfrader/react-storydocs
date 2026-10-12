@@ -4,7 +4,7 @@
  * component slug (`button.md`) plus optionally `index.md` for the overview. Stories can
  * generate examples and props; they cannot write "when to use this" — that prose lives here.
  */
-import { createElement, useEffect, useState, type ReactNode } from 'react';
+import { createElement, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { loadGuidance } from 'virtual:storybook-docs/guidance';
 import { parseGuidance, type Block, type CalloutTone, type Inline } from './guidance-model';
 import './guidance.css';
@@ -105,6 +105,12 @@ function renderBlocks(blocks: Block[]): ReactNode[] {
         return <hr key={index} />;
     }
   });
+}
+
+/** Renders parsed guidance Markdown — reused by the Releases page for the changelog. */
+export function MarkdownView({ markdown, className = 'guidance' }: { markdown: string; className?: string }) {
+  const blocks = useMemo(() => parseGuidance(markdown), [markdown]);
+  return <section className={className}>{renderBlocks(blocks)}</section>;
 }
 
 export function Guidance({ slug, placeholder }: { slug: string; placeholder?: string }) {

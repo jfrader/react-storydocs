@@ -64,4 +64,8 @@ export default {
     // Later directories win for the same slug.
     dir: ['./guidance', './guidance-feedback'],
   },
+  releases: {
+    changelog: './CHANGELOG.md',
+    versionFrom: 'node_modules/@jfrader/ui/package.json',
+  },
 };

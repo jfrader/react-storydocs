@@ -8,7 +8,9 @@ import { EffectsPage } from './pages/foundations-effects';
 import { SpacingPage } from './pages/foundations-spacing';
 import { TypePage } from './pages/foundations-type';
 import { OverviewPage } from './pages/overview';
+import { ReleasesPage } from './pages/releases';
 import { SearchBox } from './search';
+import { releases } from 'virtual:storybook-docs/releases';
 import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath } from './toc';
 
@@ -16,6 +18,7 @@ const routeHref = (path: string) => `#${hrefFor(path)}`;
 
 type Route =
   | { kind: 'overview' }
+  | { kind: 'releases' }
   | { kind: 'component'; slug: string }
   | { kind: 'color' }
   | { kind: 'typography' }
@@ -28,6 +31,7 @@ function parseRoute(hash: string): Route {
     const slug = path.slice('components/'.length);
     if (catalog.some((entry) => entry.slug === slug)) return { kind: 'component', slug };
   }
+  if (path === 'releases') return { kind: 'releases' };
   if (path === 'tokens/color') return { kind: 'color' };
   if (path === 'tokens/typography') return { kind: 'typography' };
   if (path === 'tokens/spacing') return { kind: 'spacing' };
@@ -89,7 +93,7 @@ export function DocsApp() {
         </button>
         <span className="mark" aria-hidden="true">{site.mark ?? site.title.slice(0, 1).toUpperCase()}</span>
         <span className="brand">{site.title}</span>
-        <span className="chip">docs</span>
+        <span className="chip">docs{releases.version ? ` · v${releases.version}` : ''}</span>
         <SearchBox />
         <span className="spacer" />
         <button
@@ -110,6 +114,14 @@ export function DocsApp() {
       <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation">
         <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
+        </a>
+        <a
+          href={routeHref('/releases')}
+          className={route.kind === 'releases' ? 'on' : undefined}
+          aria-current={route.kind === 'releases' ? 'page' : undefined}
+        >
+          Releases
+          {releases.version ? <span className="nav-count">v{releases.version}</span> : null}
         </a>
         {foundations.length > 0 ? (
           <div role="group" aria-labelledby="nav-grp-foundations">
@@ -163,6 +175,8 @@ export function DocsApp() {
           <SpacingPage />
         ) : route.kind === 'effects' ? (
           <EffectsPage />
+        ) : route.kind === 'releases' ? (
+          <ReleasesPage />
         ) : (
           <OverviewPage />
         )}

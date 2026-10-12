@@ -123,43 +123,7 @@ body {
   outline: 2px solid var(--sd-focus-ring);
   outline-offset: 1px;
 }
-.search-results {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  background: var(--sd-surface);
-  border: 1px solid var(--sd-border);
-  border-radius: var(--sd-radius);
-  box-shadow: 0 18px 40px rgb(0 0 0 / 0.35);
-  max-height: 340px;
-  overflow: auto;
-  z-index: 20;
-}
-.search-results li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.search-results li[aria-selected='true'] {
-  background: var(--sd-accent-soft);
-  outline: 2px solid var(--sd-focus-ring);
-  outline-offset: -2px;
-}
-.search-results li b {
-  font-size: 13.5px;
-}
-.search-results li span {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--sd-text-muted);
-}
+/* The results list, options, marks and empty state live in src/search.css. */
 .spacer {
   flex: 1;
 }
