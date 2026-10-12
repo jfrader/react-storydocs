@@ -51,10 +51,11 @@ export interface StorybookDocsConfig {
   /**
    * Optional authored prose. A directory of Markdown files named after component slugs
    * (`button.md`) plus optionally `index.md` for the overview; each is rendered on that
-   * component's page. This is the part stories cannot generate.
+   * component's page. This is the part stories cannot generate. Several directories may be
+   * listed; for the same slug, a later directory wins.
    */
   guidance?: {
-    dir: string;
+    dir: string | string[];
   };
 
   /** Optional page switches. Foundations pages require `tokens`. */
@@ -83,6 +84,7 @@ export type ThemeRole =
   | 'accentSoft'
   | 'accentContrast'
   | 'danger'
+  | 'success'
   | 'focusRing';
 
 export interface CatalogEntry {
