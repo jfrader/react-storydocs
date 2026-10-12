@@ -96,6 +96,7 @@ export type ThemeRole =
   | 'accentSoft'
   | 'accentContrast'
   | 'danger'
+  | 'dangerText'
   | 'success'
   | 'focusRing';
 

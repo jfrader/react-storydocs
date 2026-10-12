@@ -50,6 +50,7 @@ export default {
       accentSoft: 'var(--ui-color-accent-soft)',
       accentContrast: 'var(--ui-color-accent-contrast)',
       danger: 'var(--ui-color-danger)',
+      dangerText: 'var(--ui-color-danger-text)',
       success: 'var(--ui-color-success)',
       focusRing: 'var(--ui-color-focus-ring)',
     },

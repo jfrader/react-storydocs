@@ -43,7 +43,7 @@
   background: color-mix(in srgb, var(--sd-success) 8%, var(--sd-surface));
 }
 .guidance-callout-dont {
-  --callout-tone: var(--sd-danger);
+  --callout-tone: var(--sd-danger-text, var(--sd-danger));
   background: color-mix(in srgb, var(--sd-danger) 8%, var(--sd-surface));
 }
 .guidance-callout-label {

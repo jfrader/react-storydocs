@@ -69,7 +69,8 @@ property name. These are all supported `ThemeRole` keys (each is an optional
 | `theme.vars.accentText` | `--sd-accent-text` | Accent text. |
 | `theme.vars.accentSoft` | `--sd-accent-soft` | Subdued accent surfaces. |
 | `theme.vars.accentContrast` | `--sd-accent-contrast` | Text on accent surfaces. |
-| `theme.vars.danger` | `--sd-danger` | Error text and boundaries. |
+| `theme.vars.danger` | `--sd-danger` | Error boundaries and tinted callouts. |
+| `theme.vars.dangerText` | `--sd-danger-text` | Danger **text**; use a tone that passes 4.5:1 on your surface (axe checks it). |
 | `theme.vars.focusRing` | `--sd-focus-ring` | Keyboard focus outlines. |
 
 ## Tokens and guidance

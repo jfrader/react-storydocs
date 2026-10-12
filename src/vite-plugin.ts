@@ -75,6 +75,7 @@ const THEME_ROLES: ThemeRole[] = [
   'accentSoft',
   'accentContrast',
   'danger',
+  'dangerText',
   'success',
   'focusRing',
 ];
