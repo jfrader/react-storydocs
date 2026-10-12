@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { site } from 'virtual:storybook-docs/site';
 import { hrefFor } from '../base';

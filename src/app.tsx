@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { useEffect, useState } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
