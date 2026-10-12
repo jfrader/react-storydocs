@@ -1,0 +1,79 @@
+import { catalog, stats } from 'virtual:storybook-docs/catalog';
+import { site } from 'virtual:storybook-docs/site';
+import { hrefFor } from '../base';
+
+export function OverviewPage() {
+  const startHere = catalog.slice(0, 6);
+  return (
+    <>
+      <div className="crumb">Overview</div>
+      <h1>{site.title}</h1>
+      <p className="lede">
+        {site.tagline ??
+          'Documentation generated from the design system’s own Storybook stories: the navigation is the story index, the examples are the story modules, and the API tables come from the stories’ argTypes.'}
+      </p>
+
+      <div className="tiles">
+        <div className="card tile">
+          <div className="num">{stats.components}</div>
+          <b>Components</b>
+          <span>Every component with a story file, discovered automatically.</span>
+        </div>
+        <div className="card tile">
+          <div className="num">{stats.stories}</div>
+          <b>Stories</b>
+          <span>Each one rendered in place — nothing links out to another tool.</span>
+        </div>
+        <div className="card tile">
+          <div className="num">0</div>
+          <b>Duplicated definitions</b>
+          <span>No copied prop tables, no hand-maintained component lists.</span>
+        </div>
+      </div>
+
+      <h2>How this works</h2>
+      <div className="grid2">
+        <div className="card">
+          <h3>1 · The config points at the stories</h3>
+          <p>
+            The host app declares where its story files live (a package name or a path) and a glob inside it. The Vite
+            plugin reads them, takes each module&apos;s <code>title</code> and exported stories, and builds the sidebar —
+            including any group renames, so authored titles can stay as they are.
+          </p>
+        </div>
+        <div className="card">
+          <h3>2 · Examples are the story modules</h3>
+          <p>
+            Opening a component lazily imports the same module Storybook renders and evaluates it here: the meta&apos;s{' '}
+            <code>component</code>, merged <code>args</code>, or the story&apos;s own <code>render</code>. A design system
+            gets a docs page without writing one.
+          </p>
+        </div>
+        <div className="card">
+          <h3>3 · API tables are argTypes</h3>
+          <p>
+            Each page&apos;s prop table is derived from the story meta&apos;s <code>argTypes</code> and default{' '}
+            <code>args</code> at runtime. Add a control to a story and the table follows.
+          </p>
+        </div>
+        <div className="card">
+          <h3>4 · The chrome uses the system&apos;s tokens</h3>
+          <p>
+            Optional theme and token bridges map the engine&apos;s semantic roles to the design system&apos;s CSS
+            variables and token module — which is why the theme toggle restyles this site through the system&apos;s own
+            theme attribute.
+          </p>
+        </div>
+      </div>
+
+      <h2>Start here</h2>
+      <ul>
+        {startHere.map((entry) => (
+          <li key={entry.slug}>
+            <a href={hrefFor(`/components/${entry.slug}`)}>{entry.name}</a> — {entry.stories.length} stories
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}

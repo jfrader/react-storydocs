@@ -1,0 +1,30 @@
+{
+  "name": "@jfrader/storybook-docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A documentation front for any design system that has Storybook: navigation, live examples and API tables are generated from the story files themselves.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vite": "./src/vite-plugin.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^6.0.0 || ^7.0.0 || ^8.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "packageManager": "pnpm@10.12.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

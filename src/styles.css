@@ -1,0 +1,317 @@
+﻿/* The docs chrome reads --sd-* roles, which the consumer maps to its own design tokens.
+   Fallbacks keep the engine usable with no theme at all; nothing here is design-system specific. */
+:root {
+  --sd-bg: #0b0c0e;
+  --sd-surface: #121316;
+  --sd-surface-raised: #17181c;
+  --sd-surface-hover: #1d1e23;
+  --sd-border: #26272d;
+  --sd-border-subtle: #1e2025;
+  --sd-text: #f5f6f8;
+  --sd-text-muted: #9aa0ab;
+  --sd-text-subtle: #7b818c;
+  --sd-accent: #8b7cf6;
+  --sd-accent-text: #a99bff;
+  --sd-accent-soft: rgba(139, 124, 246, 0.16);
+  --sd-accent-contrast: #10111a;
+  --sd-danger: #cf3f3f;
+  --sd-focus-ring: #a99bff;
+  --sd-radius: 12px;
+}
+/* The consumer's theme bridge is injected later and overrides these defaults. */
+
+html,
+body {
+  margin: 0;
+  background: var(--sd-bg);
+  color: var(--sd-text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Inter, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 276px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: var(--sd-surface);
+  border-bottom: 1px solid var(--sd-border);
+}
+.mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--sd-accent-contrast);
+  background: var(--sd-accent);
+}
+.brand {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.search {
+  flex: 0 1 430px;
+  border: 1px solid var(--sd-border);
+  background: var(--sd-bg);
+  border-radius: 10px;
+  padding: 7px 10px;
+  color: var(--sd-text-subtle);
+  font-size: 13px;
+}
+.spacer {
+  flex: 1;
+}
+.chip {
+  font-size: 11px;
+  border: 1px solid var(--sd-border);
+  color: var(--sd-text-muted);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.tool {
+  border: 1px solid var(--sd-border);
+  background: var(--sd-surface-raised);
+  color: var(--sd-text);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.tool:hover {
+  background: var(--sd-surface-hover);
+}
+.tool:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--sd-focus-ring);
+  outline-offset: 2px;
+}
+
+.nav {
+  border-right: 1px solid var(--sd-border);
+  background: var(--sd-surface);
+  padding: 14px 12px 80px;
+}
+.nav a {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--sd-text-muted);
+  font-size: 13.5px;
+  text-decoration: none;
+}
+.nav a:hover {
+  background: var(--sd-surface-hover);
+  color: var(--sd-text);
+}
+.nav a.on {
+  background: var(--sd-accent-soft);
+  color: var(--sd-text);
+  font-weight: 600;
+}
+.grp {
+  margin: 16px 0 4px;
+  padding: 0 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--sd-text-subtle);
+  font-weight: 700;
+}
+.nav-note {
+  margin: 22px 10px 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--sd-text-subtle);
+}
+
+.main {
+  padding: 34px 42px 160px;
+  min-width: 0;
+}
+.crumb {
+  font-size: 12.5px;
+  color: var(--sd-text-subtle);
+  margin-bottom: 10px;
+}
+h1 {
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+h2 {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  margin: 36px 0 8px;
+}
+h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+p,
+li {
+  color: var(--sd-text-muted);
+  line-height: 1.65;
+  font-size: 14.5px;
+}
+.lede {
+  font-size: 16.5px;
+  max-width: 76ch;
+}
+a {
+  color: var(--sd-accent-text);
+}
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: var(--sd-surface-raised);
+  border: 1px solid var(--sd-border-subtle);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.card {
+  border: 1px solid var(--sd-border);
+  background: var(--sd-surface);
+  border-radius: var(--sd-radius);
+  padding: 16px 18px;
+  margin: 12px 0;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.tile .num {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.tile b {
+  display: block;
+  margin: 2px 0 4px;
+  font-size: 14px;
+}
+.tile span {
+  color: var(--sd-text-muted);
+  font-size: 13px;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+
+.frame {
+  border: 1px solid var(--sd-border);
+  border-radius: var(--sd-radius);
+  overflow: hidden;
+  background: var(--sd-bg);
+  margin: 14px 0;
+}
+.frame > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--sd-border);
+  font-size: 12px;
+  color: var(--sd-text-muted);
+}
+.frame .shot {
+  padding: 26px;
+  display: grid;
+  place-items: center;
+}
+.story-failed {
+  color: var(--sd-danger);
+  font-size: 13px;
+}
+.lazy-placeholder {
+  padding: 26px;
+  color: var(--sd-text-subtle);
+  font-size: 13px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  margin: 10px 0;
+}
+th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--sd-text-subtle);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--sd-border);
+}
+td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--sd-border-subtle);
+  vertical-align: top;
+  color: var(--sd-text-muted);
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+  gap: 12px;
+}
+.sw {
+  border: 1px solid var(--sd-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.sw .c {
+  height: 54px;
+}
+.sw .n {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--sd-text-subtle);
+}
+.sw .n b {
+  display: block;
+  font-size: 12.5px;
+  color: var(--sd-text);
+}
+
+.scale-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--sd-border-subtle);
+}
+.scale-row .meta {
+  width: 200px;
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--sd-text-subtle);
+}
