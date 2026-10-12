@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test, typecheck and reference build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: storybook-docs
+    steps:
+      - name: Checkout engine
+        uses: actions/checkout@v6
+        with:
+          path: storybook-docs
+          persist-credentials: false
+
+      - name: Install pinned pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: storybook-docs/package.json
+
+      - name: Set up Node 22.23.3 and pnpm cache
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.3'
+          cache: pnpm
+          cache-dependency-path: |
+            storybook-docs/pnpm-lock.yaml
+            storybook-docs/examples/jfrader-ui/pnpm-lock.yaml
+
+      - name: Install engine dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Test engine
+        run: pnpm test
+
+      - name: Typecheck engine and tests
+        run: pnpm typecheck
+
+      - name: Check reference checkout credentials
+        env:
+          REFERENCE_UI_TOKEN: ${{ secrets.REFERENCE_UI_TOKEN }}
+        run: |
+          if [ -z "$REFERENCE_UI_TOKEN" ]; then
+            echo "::error::Set REFERENCE_UI_TOKEN to a read-only token for jfrader/jfrader-ui. Fork PRs need a trusted branch run; no privileged pull_request_target workflow is used."
+            exit 1
+          fi
+
+      - name: Checkout reference design system
+        uses: actions/checkout@v6
+        with:
+          repository: jfrader/jfrader-ui
+          ref: c990db09c143a183f5666d404c35cf2fe324cf9d
+          token: ${{ secrets.REFERENCE_UI_TOKEN }}
+          path: jfrader-ui
+          persist-credentials: false
+
+      - name: Install reference design system dependencies
+        run: pnpm --dir ../jfrader-ui --filter @jfrader/ui... install --frozen-lockfile --prefer-offline
+
+      - name: Generate reference tokens
+        run: pnpm --dir ../jfrader-ui --filter @jfrader/tokens generate
+
+      - name: Install reference consumer dependencies
+        run: pnpm --dir examples/jfrader-ui install --frozen-lockfile --prefer-offline
+
+      - name: Build reference consumer
+        run: pnpm build
