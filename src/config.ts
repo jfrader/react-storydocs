@@ -48,6 +48,15 @@ export interface StorybookDocsConfig {
     css?: string[];
   };
 
+  /**
+   * Optional authored prose. A directory of Markdown files named after component slugs
+   * (`button.md`) plus optionally `index.md` for the overview; each is rendered on that
+   * component's page. This is the part stories cannot generate.
+   */
+  guidance?: {
+    dir: string;
+  };
+
   /** Optional page switches. Foundations pages require `tokens`. */
   pages?: {
     overview?: boolean;

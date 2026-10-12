@@ -1,6 +1,7 @@
 import { catalog, stats } from 'virtual:storybook-docs/catalog';
 import { site } from 'virtual:storybook-docs/site';
 import { hrefFor } from '../base';
+import { Guidance } from '../guidance';
 
 export function OverviewPage() {
   const startHere = catalog.slice(0, 6);
@@ -12,6 +13,8 @@ export function OverviewPage() {
         {site.tagline ??
           'Documentation generated from the design system’s own Storybook stories: the navigation is the story index, the examples are the story modules, and the API tables come from the stories’ argTypes.'}
       </p>
+
+      <Guidance slug="index" />
 
       <div className="tiles">
         <div className="card tile">

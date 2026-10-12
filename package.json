@@ -28,6 +28,7 @@
     ]
   },
   "dependencies": {
+    "marked": "^18.1.1",
     "react-docgen-typescript": "^2.4.0"
   },
   "license": "MIT",

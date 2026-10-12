@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { CatalogEntry } from '../config';
+import { Guidance } from '../guidance';
 import { sectionStories, usageSnippet } from '../sections';
 import { LazySection, StoryView, useStoryModule } from '../story-view';
 import { useProps, type ComponentPropsDoc } from '../props';
@@ -141,22 +142,40 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             </>
           ) : null}
 
+          <Guidance
+            slug={entry.slug}
+            placeholder="Authored guidance belongs here: what this component is for, when not to use it, and the accessibility notes a prop table cannot carry. Write it once in the configured guidance directory."
+          />
+
           {sections.map((section) => (
             <section key={section.title}>
               <h2>{section.title}</h2>
               <p className="section-blurb">{section.blurb}</p>
-              {section.stories.map((story) => (
-                <div className="frame" key={story}>
-                  <header>
-                    <span>{story}</span>
-                  </header>
-                  <div className="shot">
-                    <LazySection>
-                      <StoryView module={module} story={story} />
-                    </LazySection>
+              {section.stories.map((story) => {
+                const definition = (module[story] ?? {}) as { render?: unknown; args?: Record<string, unknown> };
+                const storySnippet =
+                  typeof definition.render === 'function'
+                    ? null
+                    : usageSnippet(entry.name, { ...meta.args, ...definition.args });
+                return (
+                  <div className="frame" key={story}>
+                    <header>
+                      <span>{story}</span>
+                    </header>
+                    <div className="shot">
+                      <LazySection>
+                        <StoryView module={module} story={story} />
+                      </LazySection>
+                    </div>
+                    {storySnippet ? (
+                      <details className="code-toggle">
+                        <summary>Code</summary>
+                        <pre className="code">{storySnippet}</pre>
+                      </details>
+                    ) : null}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </section>
           ))}
         </>
@@ -165,11 +184,10 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       <h2>Props</h2>
       <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
 
-      <h2>Guidance</h2>
+      <h2>Notes</h2>
       <p>
-        Editorial guidance — when to reach for this component, when not to, and the accessibility notes that do not fit
-        in a prop table — belongs on this page next to the examples. That prose is the one thing stories cannot
-        generate; it is written once, in the repository, and stays next to the code.
+        Everything above is generated from this component’s story module and source files. Editorial judgement —
+        when to reach for it, when not to — is written next to the code and rendered as guidance above.
       </p>
     </>
   );

@@ -23,4 +23,8 @@ declare module 'virtual:storybook-docs/props' {
   export function loadProps(slug: string): Promise<{ components: ComponentPropsDoc[] }>;
 }
 
+declare module 'virtual:storybook-docs/guidance' {
+  export function loadGuidance(slug: string): Promise<{ markdown: string }>;
+}
+
 declare module 'virtual:storybook-docs/global-styles';

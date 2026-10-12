@@ -360,6 +360,48 @@ code.type {
   color: var(--sd-danger);
 }
 
+/* Authored guidance (Markdown) */
+.guidance {
+  margin: 18px 0 6px;
+}
+.guidance h2 {
+  margin-top: 26px;
+}
+.guidance h3 {
+  margin: 18px 0 4px;
+  font-size: 14px;
+}
+.guidance blockquote {
+  margin: 10px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--sd-accent);
+  background: var(--sd-surface);
+  border-radius: 0 var(--sd-radius) var(--sd-radius) 0;
+}
+.guidance blockquote p {
+  margin: 0;
+  color: var(--sd-text);
+}
+.guidance ul {
+  margin: 6px 0 0;
+}
+details.code-toggle {
+  border-top: 1px solid var(--sd-border);
+  background: var(--sd-surface);
+}
+details.code-toggle summary {
+  cursor: pointer;
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--sd-text-muted);
+}
+details.code-toggle pre.code {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--sd-surface);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

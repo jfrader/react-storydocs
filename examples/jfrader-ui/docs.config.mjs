@@ -58,4 +58,8 @@ export default {
     varsExport: 'vars',
     css: ['@jfrader/tokens/tokens.css', '@jfrader/tokens/base.css'],
   },
+  guidance: {
+    // Markdown files named after components (`button.md`) plus optionally `index.md`.
+    dir: './guidance',
+  },
 };

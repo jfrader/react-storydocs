@@ -389,6 +389,32 @@ ${catalog.entries.map((entry) => `    case ${JSON.stringify(entry.slug)}: return
 }
 `;
 
+  const guidanceFiles = new Map<string, string>();
+  const indexGuidance = () => {
+    guidanceFiles.clear();
+    const directory = config.guidance ? path.resolve(projectRoot, config.guidance.dir) : null;
+    if (!directory || !existsSync(directory)) return;
+    for (const file of readdirSync(directory)) {
+      if (!file.endsWith('.md')) continue;
+      guidanceFiles.set(file.slice(0, -'.md'.length), path.join(directory, file));
+    }
+  };
+
+  const guidanceIndexCode = () => `
+export function loadGuidance(slug) {
+  switch (slug) {
+${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: return import(${JSON.stringify(`${VIRTUAL_PREFIX}guidance/${slug}`)});`).join('\n')}
+    default: return Promise.resolve({ markdown: '' });
+  }
+}
+`;
+
+  const guidanceCode = (slug: string) => {
+    const file = guidanceFiles.get(slug);
+    const markdown = file ? readFileSync(file, 'utf8') : '';
+    return `export const markdown = ${JSON.stringify(markdown)};`;
+  };
+
   // The catalog's loaders are rebuilt lazily because Vite resolves the project root late.
   const resolveStoryFile = (entry: CatalogEntry): string => {
     const found = resolvedStoryFiles.get(entry.slug);
@@ -408,6 +434,7 @@ ${catalog.entries.map((entry) => `    case ${JSON.stringify(entry.slug)}: return
     configResolved(resolved: ResolvedConfig) {
       projectRoot = options.root ?? resolved.root;
       catalog = buildCatalog(config, projectRoot);
+      indexGuidance();
       resolvedStoryFiles.clear();
       for (const file of collectMatches(resolveStoryRoot(config.stories.from, projectRoot), config.stories.pattern)) {
         const facts = readStoryFile(file);
@@ -439,6 +466,8 @@ ${catalog.entries.map((entry) => `    case ${JSON.stringify(entry.slug)}: return
       if (name === 'stub-storybook-test') return STORYBOOK_TEST_STUB;
       if (name === 'props') return propsIndexCode();
       if (name.startsWith('props/')) return propsCode(name.slice('props/'.length));
+      if (name === 'guidance') return guidanceIndexCode();
+      if (name.startsWith('guidance/')) return guidanceCode(name.slice('guidance/'.length));
       return null;
     },
   };
