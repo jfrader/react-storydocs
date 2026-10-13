@@ -1,11 +1,13 @@
 /** @jsxImportSource react */
 /**
- * Optional authored guidance: plain Markdown files in the configured directories, one per
- * component slug (`button.md`) plus optionally `index.md` for the overview. Stories can
- * generate examples and props; they cannot write "when to use this" — that prose lives here.
+ * Authored guidance: plain Markdown files in the configured directories, one per component slug
+ * (`button.md`) plus optionally `index.md` for the overview. It carries the editorial layer the
+ * story files do not — when to reach for a component, when not to, accessibility notes — on top of
+ * the usage prose each story authors for itself.
  */
 import { createElement, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { loadGuidance } from 'virtual:storybook-docs/guidance';
+import { CodeBlock } from './code';
 import { parseGuidance, type Block, type CalloutTone, type Inline } from './guidance-model';
 import { Skeleton } from './skeleton';
 import './guidance.css';
@@ -61,11 +63,7 @@ function renderBlocks(blocks: Block[]): ReactNode[] {
         );
       }
       case 'code':
-        return (
-          <pre key={index} className="code" data-lang={block.lang || undefined}>
-            {block.text}
-          </pre>
-        );
+        return <CodeBlock key={index} code={block.text} language={block.lang || undefined} />;
       case 'table':
         return (
           <div key={index} className="guidance-table">

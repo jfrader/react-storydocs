@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useId, useState } from 'react';
+import { CodeBlock } from './code';
 import { usageSnippet, type DocsParameters } from './sections';
 import { LazySection, StoryView } from './story-view';
 import './controls.css';
@@ -113,6 +114,7 @@ export function ControlledStoryFrame({ module, story, componentName }: {
   const docsMeta = (meta as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
   const authoredCode = docsOverride?.source?.code ?? docsMeta?.source?.code;
   const authoredStory = docsOverride?.description?.story;
+  const codeLanguage = docsOverride?.source?.language ?? docsMeta?.source?.language ?? 'tsx';
   const snippet = authoredCode ?? (!(meta as { component?: unknown }).component || typeof definition.render === 'function' || typeof meta.render === 'function'
     ? null
     : usageSnippet(componentName, args));
@@ -140,7 +142,7 @@ export function ControlledStoryFrame({ module, story, componentName }: {
         </LazySection>
       </div>
       {snippet ? (
-        <details className="code-toggle"><summary>Code</summary><pre className="code">{snippet}</pre></details>
+        <details className="code-toggle"><summary>Code</summary><CodeBlock code={snippet} language={codeLanguage} /></details>
       ) : null}
     </div>
   );

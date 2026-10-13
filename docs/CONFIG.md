@@ -38,9 +38,36 @@ a docs site needs no second copy of the prose:
 | `parameters.docs.description.story` | Blurb on that story's example. |
 | `parameters.docs.usage` | Usage section, rendered as Markdown (headings, lists, tables, callouts) above the examples. |
 | `parameters.docs.source.code` | The example's Code panel, and the page-level snippet when authored, instead of the snippet derived from default arguments. |
+| `parameters.docs.source.language` | Language id handed to the consumer's code renderer; the derived snippet is `tsx`. |
 | `tags: ['!autodocs']` | Story is left off docs pages, as in Storybook. Meta and story tags both apply. |
 
 Meta parameters apply to every story; a story's own parameters win.
+
+### Rendering code with the design system's own block
+
+Code renders in the engine's plain block unless the consumer names a renderer:
+
+```js
+export default {
+  // …
+  code: { module: './src/code.tsx' },
+};
+```
+
+```tsx
+// src/code.tsx — the module's default export receives { code, language }.
+import { CodeBlock } from '@acme/ui';
+import { loadShikiHighlight } from '@acme/ui/code-block/shiki';
+
+export default function Code({ code, language }: { code: string; language?: string }) {
+  return <CodeBlock code={code} language={language} highlight={loadShikiHighlight} copyable />;
+}
+```
+
+The same renderer is used for the page snippet, every example's Code panel and every fenced block
+in authored Markdown. A design system that highlights code opt-in per component (a `highlight`
+loader, as Storybook does) wires it here once for the whole docs site. If the renderer throws, that
+block falls back to plain text rather than failing the page.
 
 ## Groups
 

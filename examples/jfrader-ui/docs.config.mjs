@@ -69,4 +69,7 @@ export default {
     changelog: './CHANGELOG.md',
     versionFrom: 'node_modules/@jfrader/ui/package.json',
   },
+  code: {
+    module: './src/code.tsx',
+  },
 };

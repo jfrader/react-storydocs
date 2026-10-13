@@ -419,6 +419,21 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
     return `export const markdown = ${JSON.stringify(markdown)};`;
   };
 
+  /**
+   * The consumer's own code renderer, when it names one. Re-exported through a virtual module so
+   * the engine's components can render code with the design system's block (and its highlighter)
+   * without importing any design system itself.
+   */
+  const codeModuleCode = () => {
+    const module = config.code?.module;
+    if (!module) return 'export const provided = false;\nexport const Code = undefined;\n';
+    const resolved = path.resolve(projectRoot, module);
+    if (!existsSync(resolved)) {
+      throw new Error(`storybook-docs: code.module "${module}" does not exist (looked in ${resolved})`);
+    }
+    return `export { default as Code } from ${JSON.stringify(resolved)};\nexport const provided = true;\n`;
+  };
+
   const releasesCode = () => {
     const readIfPresent = (candidate: string | undefined): string | null => {
       if (!candidate) return null;
@@ -507,6 +522,7 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
       if (name === 'guidance') return guidanceIndexCode();
       if (name.startsWith('guidance/')) return guidanceCode(name.slice('guidance/'.length));
       if (name === 'releases') return releasesCode();
+      if (name === 'code') return codeModuleCode();
       return null;
     },
   };

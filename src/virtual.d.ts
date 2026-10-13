@@ -32,3 +32,10 @@ declare module 'virtual:storybook-docs/releases' {
 }
 
 declare module 'virtual:storybook-docs/global-styles';
+
+declare module 'virtual:storybook-docs/code' {
+  import type { ComponentType } from 'react';
+  export const provided: boolean;
+  /** The consumer's code renderer, or undefined when the config names none. */
+  export const Code: ComponentType<{ code: string; language?: string }> | undefined;
+}

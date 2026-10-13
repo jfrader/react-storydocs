@@ -70,6 +70,16 @@ export interface StorybookDocsConfig {
     dir: string | string[];
   };
 
+  /**
+   * Optional code renderer. `module` is a path to a module in the consumer app (relative to the
+   * config) whose default export renders `{ code, language }` — normally the design system's own
+   * code block, wired to its highlighter, so examples look exactly as they do in the system.
+   * Without it, code renders in the engine's plain block.
+   */
+  code?: {
+    module: string;
+  };
+
   /** Optional page switches. Foundations pages require `tokens`. */
   pages?: {
     overview?: boolean;

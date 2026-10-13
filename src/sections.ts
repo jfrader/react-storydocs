@@ -5,7 +5,7 @@ export type DocsParameters = {
   description?: { component?: string; story?: string };
   /** Plain text or `- ` bulleted lines about behaviour and composition. */
   usage?: string;
-  source?: { code?: string };
+  source?: { code?: string; language?: string };
 };
 
 /**
