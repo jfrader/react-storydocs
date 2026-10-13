@@ -196,10 +196,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             </>
           ) : null}
 
-          <Guidance
-            slug={entry.slug}
-            placeholder="Authored guidance belongs here: what this component is for, when not to use it, and the accessibility notes a prop table cannot carry. Write it once in the configured guidance directory."
-          />
+          <Guidance slug={entry.slug} />
 
           {sections.map((section) => (
             <section key={section.title}>
