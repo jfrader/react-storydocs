@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { CodeBlock } from './code';
 import { mergeAnnotations, usageSnippet, type DocsParameters } from './sections';
 import { LazySection, StoryView } from './story-view';
@@ -128,6 +128,10 @@ function ControlInput({ control, value, onChange }: {
   );
 }
 
+export function hasHorizontalOverflow({ scrollWidth, clientWidth }: Pick<HTMLElement, 'scrollWidth' | 'clientWidth'>) {
+  return scrollWidth > clientWidth;
+}
+
 export function ControlledStoryFrame({ module, story, componentName, componentDefaults }: {
   module: Record<string, unknown>;
   story: string;
@@ -140,6 +144,30 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const { args: defaults, controls, unavailable } = getStoryControls(meta, definition, componentDefaults);
   const [edits, setEdits] = useState<Record<string, unknown>>({});
   const [codeOpen, setCodeOpen] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const content = canvas?.firstElementChild;
+    if (!canvas || !content) return;
+    const measure = () => setScrollable(hasHorizontalOverflow(canvas));
+    let frame = 0;
+    const scheduleMeasure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    measure();
+    const resize = new ResizeObserver(scheduleMeasure);
+    resize.observe(canvas);
+    resize.observe(content);
+    const mutations = new MutationObserver(scheduleMeasure);
+    mutations.observe(content, { childList: true, subtree: true, attributes: true, characterData: true });
+    return () => {
+      resize.disconnect();
+      mutations.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [module, story]);
   const args = { ...defaults, ...edits };
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
   // Storybook semantics: the story's own `layout` decides whether the lane is padded (block)
@@ -190,19 +218,22 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
           </div>
         </fieldset>
       )}
-      <div className="shot" data-layout={storyLayout}>
+      <div className="shot" data-layout={storyLayout} ref={canvasRef}
+        tabIndex={scrollable ? 0 : undefined} role={scrollable ? 'region' : undefined}
+        aria-label={scrollable ? storyName : undefined}>
         <LazySection>
           <div className="story-lane" data-layout={laneLayout} ref={laneRef}>
             <StoryView module={module} story={story} overrides={edits} />
           </div>
         </LazySection>
       </div>
-      {snippet ? (
-        <details className="code-toggle" onToggle={(event) => setCodeOpen(event.currentTarget.open)}>
-          <summary>Code</summary>
-          {codeOpen ? <CodeBlock code={snippet} language={codeLanguage} /> : null}
-        </details>
-      ) : null}
+      <details className="code-toggle" onToggle={(event) => setCodeOpen(event.currentTarget.open)}>
+        <summary>Code</summary>
+        {codeOpen ? snippet
+          ? <CodeBlock code={snippet} language={codeLanguage} />
+          : <p>No usage code is authored for this component.</p>
+          : null}
+      </details>
     </div>
   );
 }
