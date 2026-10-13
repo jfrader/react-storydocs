@@ -1,10 +1,12 @@
 /** @jsxImportSource react */
+
+import type { ReactNode } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { site } from 'virtual:storybook-docs/site';
 import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
 
-export function OverviewPage() {
+export function OverviewPage(): ReactNode {
   const startHere = catalog.slice(0, 6);
   return (
     <>

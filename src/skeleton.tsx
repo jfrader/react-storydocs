@@ -1,4 +1,6 @@
 /** @jsxImportSource react */
+
+import type { ReactNode } from 'react';
 /**
  * Loading placeholders. One primitive, reused wherever something async is coming:
  * example frames, the guidance block, the props table and the component header.
@@ -11,7 +13,7 @@ export function Skeleton({
   width?: number | string;
   height?: number;
   lines?: number;
-}) {
+}): ReactNode {
   if (lines > 1) {
     return (
       <span className="skeleton-stack" aria-hidden="true">

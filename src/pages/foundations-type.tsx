@@ -1,4 +1,6 @@
 /** @jsxImportSource react */
+
+import type { ReactNode } from 'react';
 import { vars } from 'virtual:storybook-docs/tokens';
 
 const token = vars as Record<string, unknown>;
@@ -6,7 +8,7 @@ const sizes = Object.entries((token.textSize as Record<string, string>) ?? {});
 const weights = Object.entries((token.fontWeight as Record<string, string>) ?? {});
 const families = Object.entries((token.font as Record<string, string>) ?? {});
 
-export function TypePage() {
+export function TypePage(): ReactNode {
   return (
     <>
       <div className="crumb">Foundations / Typography</div>

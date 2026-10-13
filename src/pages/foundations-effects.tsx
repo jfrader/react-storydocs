@@ -1,4 +1,6 @@
 /** @jsxImportSource react */
+
+import type { ReactNode } from 'react';
 import { vars } from 'virtual:storybook-docs/tokens';
 
 const token = vars as Record<string, unknown>;
@@ -7,7 +9,7 @@ const motion = (token.motion as Record<string, Record<string, string>>) ?? {};
 const duration = Object.entries(motion.duration ?? {});
 const easing = Object.entries(motion.ease ?? motion.easing ?? {});
 
-export function EffectsPage() {
+export function EffectsPage(): ReactNode {
   return (
     <>
       <div className="crumb">Foundations / Elevation &amp; motion</div>

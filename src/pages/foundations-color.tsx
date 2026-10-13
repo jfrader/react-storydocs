@@ -1,10 +1,12 @@
 /** @jsxImportSource react */
+
+import type { ReactNode } from 'react';
 import { vars } from 'virtual:storybook-docs/tokens';
 
 const colorSection = (vars as Record<string, unknown>).color as Record<string, string> | undefined;
 const roles = Object.entries(colorSection ?? {}).sort(([a], [b]) => a.localeCompare(b));
 
-export function ColorPage() {
+export function ColorPage(): ReactNode {
   return (
     <>
       <div className="crumb">Foundations / Color</div>

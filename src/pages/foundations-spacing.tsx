@@ -1,4 +1,6 @@
 /** @jsxImportSource react */
+
+import type { ReactNode } from 'react';
 import { vars } from 'virtual:storybook-docs/tokens';
 
 const token = vars as Record<string, unknown>;
@@ -6,7 +8,7 @@ const space = Object.entries((token.space as Record<string, string>) ?? {});
 const radius = Object.entries((token.radius as Record<string, string>) ?? {});
 const sizes = Object.entries((token.size as Record<string, string>) ?? {});
 
-export function SpacingPage() {
+export function SpacingPage(): ReactNode {
   return (
     <>
       <div className="crumb">Foundations / Spacing & shape</div>

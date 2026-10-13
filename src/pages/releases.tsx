@@ -1,8 +1,10 @@
 /** @jsxImportSource react */
+
+import type { ReactNode } from 'react';
 import { releases } from 'virtual:storybook-docs/releases';
 import { MarkdownView } from '../guidance';
 
-export function ReleasesPage() {
+export function ReleasesPage(): ReactNode {
   return (
     <>
       <div className="crumb">Releases</div>
