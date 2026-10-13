@@ -1,3 +1,13 @@
+/** Storybook's docs parameters, as this design system authors them: a component description, a
+ * per-story description, authoring prose and an optional code sample that overrides the snippet
+ * the engine would generate. */
+export type DocsParameters = {
+  description?: { component?: string; story?: string };
+  /** Plain text or `- ` bulleted lines about behaviour and composition. */
+  usage?: string;
+  source?: { code?: string };
+};
+
 /**
  * Story names carry the structure of a component's docs: which stories are variants,
  * which are states, which are environments. Bucketing them beats one flat list.

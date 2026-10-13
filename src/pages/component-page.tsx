@@ -2,7 +2,8 @@
 import { useMemo, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { Guidance } from '../guidance';
-import { sectionStories, usageSnippet } from '../sections';
+import { MarkdownView } from '../guidance';
+import { sectionStories, usageSnippet, type DocsParameters } from '../sections';
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
 import { useProps, type ComponentPropsDoc } from '../props';
@@ -23,8 +24,9 @@ function formatValue(value: unknown): string {
 interface MetaShape {
   argTypes?: Record<string, Record<string, unknown>>;
   args?: Record<string, unknown>;
-  parameters?: { docs?: { description?: { component?: string } } };
+  parameters?: { docs?: DocsParameters };
 }
+
 
 function TableFrame({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -131,6 +133,8 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const argTypes = meta.argTypes ?? {};
   const defaultArgs = meta.args ?? {};
   const description = meta.parameters?.docs?.description?.component;
+  const usage = meta.parameters?.docs?.usage;
+  const authoredCode = meta.parameters?.docs?.source?.code;
   // Storybook's `!autodocs` tag excludes a story from docs pages; those stories are usually
   // authored that way because rendering them on a docs page is hostile (inert overlays).
   const visibleStories = useMemo(() => {
@@ -145,8 +149,10 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   // Foundations pages are stories-only metas: there is no component to instantiate, so a usage
   // snippet would be a made-up tag. Skip it there; component pages keep it.
   const snippet = useMemo(
-    () => ((meta as { component?: unknown }).component ? usageSnippet(entry.name, defaultArgs) : null),
-    [entry.name, defaultArgs, meta],
+    () =>
+      authoredCode ??
+      ((meta as { component?: unknown }).component ? usageSnippet(entry.name, defaultArgs) : null),
+    [authoredCode, entry.name, defaultArgs, meta],
   );
   const propCount = props ? props.reduce((total, component) => total + component.props.length, 0) : Object.keys(argTypes).length;
 
@@ -180,7 +186,13 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             <>
               <h2>Usage</h2>
               <pre className="code">{snippet}</pre>
-              <p className="hint">Derived from the default story’s arguments, so it never drifts from what is rendered.</p>
+              <p className="hint">{authoredCode ? 'Copied from the story’s docs parameters.' : 'Derived from the default story’s arguments, so it never drifts from what is rendered.'}</p>
+            </>
+          ) : null}
+          {usage ? (
+            <>
+              {snippet ? null : <h2>Usage</h2>}
+              <MarkdownView markdown={usage} />
             </>
           ) : null}
 

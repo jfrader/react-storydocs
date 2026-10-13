@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useId, useState } from 'react';
-import { usageSnippet } from './sections';
+import { usageSnippet, type DocsParameters } from './sections';
 import { LazySection, StoryView } from './story-view';
 import './controls.css';
 
@@ -107,12 +107,19 @@ export function ControlledStoryFrame({ module, story, componentName }: {
   );
   // A stories-only meta (foundations pages) has no component to instantiate, so there is no
   // honest usage snippet to show: skip it rather than inventing a tag from the page name.
-  const snippet = !(meta as { component?: unknown }).component || typeof definition.render === 'function' || typeof meta.render === 'function'
+  // Storybook's own precedence: an authored `docs.source.code` wins over a generated snippet, and
+  // `docs.description.story` documents the individual example.
+  const docsOverride = (definition as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
+  const docsMeta = (meta as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
+  const authoredCode = docsOverride?.source?.code ?? docsMeta?.source?.code;
+  const authoredStory = docsOverride?.description?.story;
+  const snippet = authoredCode ?? (!(meta as { component?: unknown }).component || typeof definition.render === 'function' || typeof meta.render === 'function'
     ? null
-    : usageSnippet(componentName, args);
+    : usageSnippet(componentName, args));
   return (
     <div className="frame">
       <header><span>{story}</span></header>
+      {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
       {unavailable ? <p className="sd-controls-note">{unavailable}</p> : (
         <fieldset className="sd-controls">
           <legend>Controls for {story}</legend>

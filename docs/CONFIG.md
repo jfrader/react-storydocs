@@ -27,6 +27,21 @@ explicitly. Published packages must include their story sources, or
 `stories.from` must point at a checkout. The scanner supports `*` within one path
 segment and `**` across directories.
 
+### Authored documentation already in the stories
+
+Anything a story file documents in its own Storybook parameters is rendered, so
+a docs site needs no second copy of the prose:
+
+| Storybook parameter | Where it appears |
+| --- | --- |
+| `parameters.docs.description.component` | Page introduction under the title. |
+| `parameters.docs.description.story` | Blurb on that story's example. |
+| `parameters.docs.usage` | Usage section, rendered as Markdown (headings, lists, tables, callouts) above the examples. |
+| `parameters.docs.source.code` | The example's Code panel, and the page-level snippet when authored, instead of the snippet derived from default arguments. |
+| `tags: ['!autodocs']` | Story is left off docs pages, as in Storybook. Meta and story tags both apply. |
+
+Meta parameters apply to every story; a story's own parameters win.
+
 ## Groups
 
 | Key | Type | Default | Effect |
