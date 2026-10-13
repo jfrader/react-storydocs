@@ -6,6 +6,9 @@
   margin-left: auto;
 }
 .toc-copy {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 24px;
   font: inherit;
   color: var(--sd-text-subtle);
   background: none;
@@ -84,8 +87,11 @@
     border-left: 1px solid var(--sd-border);
   }
   .toc-link {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
+    /* Touch screens: the rail is a list of targets, not a block of text. */
+    min-block-size: 24px;
     padding: 4px 8px;
     font: inherit;
     text-align: left;
@@ -104,5 +110,10 @@
   }
   .toc-story {
     font-size: 12px;
+  }
+  /* Authored sub-headings sit closer to the section than its examples do. */
+  .toc-sub {
+    font-size: 12.5px;
+    color: var(--sd-text-subtle);
   }
 }

@@ -42,6 +42,7 @@ interface SectionItem {
   element: HTMLElement;
   heading: HTMLElement;
   stories: StoryItem[];
+  subs: Array<{ id: string; title: string; element: HTMLElement }>;
 }
 
 interface Scan {
@@ -69,6 +70,8 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
   };
   const sections: SectionItem[] = [];
   const frames: StoryItem[] = [];
+  /** Authored `###` headings belong in the rail, nested under the `h2` they follow. */
+  const subHeadings = [...root.querySelectorAll<HTMLElement>('h3')].filter((heading) => heading.textContent);
   root.querySelectorAll<HTMLElement>('h2').forEach((heading) => {
     if (!heading.textContent) return;
     heading.id ||= unique('section', heading.textContent);
@@ -91,13 +94,27 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
       stories.push(item);
       frames.push(item);
     });
-    sections.push({ id: heading.id, title: heading.textContent, element: section ?? heading, heading, stories });
+    // Everything between this h2 and the next belongs to this section.
+    const following = [...root.querySelectorAll<HTMLElement>('h2, h3')];
+    const start = following.indexOf(heading);
+    const end = following.findIndex((candidate, index) => index > start && candidate.tagName === 'H2');
+    const subs = following
+      .slice(start + 1, end === -1 ? undefined : end)
+      .filter((candidate) => candidate.tagName === 'H3' && subHeadings.includes(candidate))
+      .map((candidate) => {
+        candidate.id ||= unique('sub', candidate.textContent ?? '');
+        candidate.dataset.toc = '';
+        return { id: candidate.id, title: candidate.textContent ?? '', element: candidate };
+      });
+    sections.push({ id: heading.id, title: heading.textContent, element: section ?? heading, heading, stories, subs });
   });
   return { pageKey, sections, frames };
 }
 
 const signature = (scan: Scan) =>
-  `${scan.pageKey}|${scan.sections.map((s) => `${s.id}:${s.stories.map((st) => st.id).join(',')}`).join(';')}`;
+  `${scan.pageKey}|${scan.sections
+    .map((s) => `${s.id}(${s.subs.map((sub) => sub.id).join('+')}):${s.stories.map((st) => st.id).join(',')}`)
+    .join(';')}`;
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -255,6 +272,17 @@ export function PageRail({ pageKey }: { pageKey: string }) {
                 >
                   {section.title}
                 </button>
+                {section.subs.length > 0 ? (
+                  <ul>
+                    {section.subs.map((sub) => (
+                      <li key={sub.id}>
+                        <button type="button" className="toc-link toc-sub" onClick={() => go(sub.element)}>
+                          {sub.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 {section.stories.length > 0 ? (
                   <ul>
                     {section.stories.map((story) => (
