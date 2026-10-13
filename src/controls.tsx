@@ -84,7 +84,7 @@ export function getStoryControls(meta: StoryShape, story: StoryShape, componentD
   return {
     args,
     controls,
-    unavailable: controls.length === 0 ? 'Controls unavailable: this story has no supported argTypes.' : null,
+    unavailable: controls.length === 0 ? 'No controls.' : null,
   };
 }
 
@@ -177,7 +177,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
     <div className="frame" data-story={story}>
       <header><span>{storyName}</span></header>
       {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
-      {skipped.length ? <p className="sd-controls-note">Not applied here: {skipped.join(', ')}. Open this story in Storybook.</p> : null}
+      {skipped.length ? <p className="sd-controls-note">Not run here: {skipped.join(', ')}. See it in Storybook.</p> : null}
       {unavailable ? <p className="sd-controls-note">{unavailable}</p> : (
         <fieldset className="sd-controls">
           <legend>Controls for {storyName}</legend>

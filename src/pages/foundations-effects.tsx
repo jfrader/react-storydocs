@@ -15,8 +15,7 @@ export function EffectsPage(): ReactNode {
       <div className="crumb">Foundations / Elevation &amp; motion</div>
       <h1>Elevation &amp; motion</h1>
       <p className="lede">
-        Shadow roles and motion timings. Every one of these is a token, so reduced-motion overrides and forced-colors
-        rules stay central instead of being repeated per component.
+        Shadow roles and motion timings.
       </p>
 
       {shadow.length > 0 ? (

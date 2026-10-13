@@ -14,8 +14,7 @@ export function SpacingPage(): ReactNode {
       <div className="crumb">Foundations / Spacing & shape</div>
       <h1>Spacing &amp; shape</h1>
       <p className="lede">
-        The space scale, corner radii and fixed sizes components are built from. Layout primitives read these — the
-        bars below are the real values, not illustrations.
+        The space scale, corner radii and fixed sizes.
       </p>
 
       {space.length > 0 ? (

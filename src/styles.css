@@ -406,13 +406,6 @@ pre.code {
   margin: 10px 0;
 }
 .hint,
-.section-blurb {
-  font-size: 13px;
-  color: var(--sd-text-muted);
-}
-.section-blurb {
-  margin: -2px 0 10px;
-}
 th + th,
 td + td {
   border-left: 0;

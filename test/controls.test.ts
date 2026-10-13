@@ -76,7 +76,7 @@ test('unsupported, disabled and optionless controls are ignored without changing
   } }, {});
   assert.deepEqual(result.controls, []);
   assert.deepEqual(result.args, { color: 'red' });
-  assert.match(result.unavailable!, /no supported argTypes/);
+  assert.match(result.unavailable!, /No controls\./);
 });
 
 test('custom renders accept controls and retain story defaults', () => {
@@ -86,7 +86,7 @@ test('custom renders accept controls and retain story defaults', () => {
   assert.deepEqual(custom.controls, [{ name: 'loading', type: 'boolean' }]);
   assert.equal(custom.unavailable, null);
   assert.equal(getStoryControls({ ...meta, render: () => null }, {}).unavailable, null);
-  assert.match(getStoryControls({}, {}).unavailable!, /no supported argTypes/);
+  assert.match(getStoryControls({}, {}).unavailable!, /No controls\./);
   const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
     componentName: 'Button', story: 'Example',
     module: { default: meta, Example: {

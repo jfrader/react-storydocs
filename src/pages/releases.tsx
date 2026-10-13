@@ -9,16 +9,11 @@ export function ReleasesPage(): ReactNode {
     <>
       <div className="crumb">Releases</div>
       <h1>Releases</h1>
-      <p className="lede">
-        {releases.version ? (
-          <>
-            Current release <span className="chip">v{releases.version}</span> — the changelog below is read from the
-            repository, so it cannot drift from the code that shipped.
-          </>
-        ) : (
-          'The changelog below is read from the repository, so it cannot drift from the code that shipped.'
-        )}
-      </p>
+      {releases.version ? (
+        <p className="lede">
+          Current release <span className="chip">v{releases.version}</span>
+        </p>
+      ) : null}
 
       {releases.changelog ? (
         <MarkdownView markdown={releases.changelog} />

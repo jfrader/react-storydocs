@@ -12,8 +12,7 @@ export function ColorPage(): ReactNode {
       <div className="crumb">Foundations / Color</div>
       <h1>Color</h1>
       <p className="lede">
-        {roles.length} color roles, read live from the design system&apos;s token module. The swatches follow the theme
-        toggle, because they are the real variables rather than copies of them.
+        The design system&apos;s colour roles.
       </p>
 
       <h2>Roles</h2>

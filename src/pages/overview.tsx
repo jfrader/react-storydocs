@@ -12,10 +12,7 @@ export function OverviewPage(): ReactNode {
     <>
       <div className="crumb">Overview</div>
       <h1>{site.title}</h1>
-      <p className="lede">
-        {site.tagline ??
-          'Documentation generated from the design system’s own Storybook stories: the navigation is the story index, the examples are the story modules, and the API tables come from the stories’ argTypes.'}
-      </p>
+      {site.tagline ? <p className="lede">{site.tagline}</p> : null}
 
       <Guidance slug="index" />
 
@@ -23,17 +20,10 @@ export function OverviewPage(): ReactNode {
         <div className="card tile">
           <div className="num">{stats.components}</div>
           <b>Components</b>
-          <span>Every component with a story file, discovered automatically.</span>
         </div>
         <div className="card tile">
           <div className="num">{stats.stories}</div>
           <b>Stories</b>
-          <span>Each one rendered in place — nothing links out to another tool.</span>
-        </div>
-        <div className="card tile">
-          <div className="num">0</div>
-          <b>Duplicated definitions</b>
-          <span>No copied prop tables, no hand-maintained component lists.</span>
         </div>
       </div>
 

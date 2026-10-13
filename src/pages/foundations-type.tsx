@@ -14,8 +14,7 @@ export function TypePage(): ReactNode {
       <div className="crumb">Foundations / Typography</div>
       <h1>Typography</h1>
       <p className="lede">
-        The type scale, weights and families the components read from the token source. Every row is shown at its real
-        value — this is a specimen, not a screenshot.
+        The type scale, weights and families.
       </p>
 
       {families.length > 0 ? (

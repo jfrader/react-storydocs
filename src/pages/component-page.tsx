@@ -167,7 +167,7 @@ function PropsTable({
       </TableFrame>
     );
   }
-  return <p>The props were not extracted for this component; the types live in the component source.</p>;
+  return <p>No props.</p>;
 }
 
 export function ComponentPage({ entry }: { entry: CatalogEntry }) {
@@ -216,7 +216,6 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       <div className="summary-row">
         <span className="chip">{module ? visibleStories.length : entry.stories.length} stories</span>
         <span className="chip">{propCount} props</span>
-        <span className="chip">from the story module + component source</span>
       </div>
       <p className="lede">
         {description ?? `${entry.name} — every story in ${entry.storybookTitle} is rendered below, in sections.`}
@@ -237,7 +236,6 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             <>
               <h2>Usage</h2>
               <CodeBlock code={snippet} language={codeLanguage} />
-              <p className="hint">{authoredCode ? 'Copied from the story’s docs parameters.' : 'Derived from the default story’s arguments, so it never drifts from what is rendered.'}</p>
             </>
           ) : null}
           {usage ? (
@@ -252,7 +250,6 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
           {sections.map((section) => (
             <section key={section.title}>
               <h2>{section.title}</h2>
-              <p className="section-blurb">{section.blurb}</p>
               {section.stories.map((story) => (
                 <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} />
               ))}
