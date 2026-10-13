@@ -63,6 +63,8 @@
   },
   "keywords": [
     "storybook",
+    "react",
+    "vite",
     "design-system",
     "documentation",
     "props",
@@ -73,14 +75,17 @@
     "typecheck": "tsc --noEmit",
     "build": "pnpm build:package && pnpm --dir examples/jfrader-ui build",
     "build:package": "node scripts/build.mjs",
+    "smoke:package": "node scripts/smoke-package.mjs",
     "check:frames": "node scripts/check-example-frames.mjs",
     "prepack": "pnpm build:package"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   },
   "files": [
     "dist",
+    "docs/CONFIG.md",
+    "docs/RELEASING.md",
     "LICENSE",
     "README.md"
   ],

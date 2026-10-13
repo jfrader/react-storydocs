@@ -55,7 +55,8 @@ git worktree copy needs those symlinks repointed locally (see its `node_modules/
 ```bash
 pnpm install
 pnpm test                 # engine unit tests (glob, title extraction, sections, snippets)
-pnpm dev                  # the reference consumer in examples/ (port 4310)
+pnpm --dir examples/fixtures install
+pnpm --dir examples/fixtures dev # the synthetic consumer (port 4334)
 ```
 
 To check what a running docs site actually renders, point the frame check at it. It visits every
@@ -74,12 +75,18 @@ are reported as notes: an empty group or a progress bar at zero is legitimate.
 ## Use it
 
 ```bash
-pnpm add -D @jfrader/storybook-docs @vitejs/plugin-react
+pnpm add react@^19 react-dom@^19
+pnpm add -D @jfrader/storybook-docs vite @vitejs/plugin-react @types/node @types/react @types/react-dom
 ```
 
-Published packages ship built JavaScript and types (`dist/`); this repository's own checkouts use the
-TypeScript sources directly, which is why `exports` points at `src/` here and at `dist/` in
-`publishConfig`.
+Use Node 22.12 or newer (maintainer tests need Node 22.18 or newer). React 19 and Vite 6, 7 or 8
+are peers supplied by the consumer. Published packages and linked checkouts both expose built
+JavaScript and types (`dist/`); run `pnpm build:package` after editing a linked engine checkout.
+The browser entry imports its CSS automatically; no stylesheet subpath or manual `virtual.d.ts`
+reference is needed. Importing the root entry also loads the virtual-module declarations.
+
+Maintainers can run `pnpm smoke:package` to pack, install and typecheck/build an isolated minimal
+consumer without links or private dependencies. See [release instructions](docs/RELEASING.md).
 
 The consumer contract is four files:
 
