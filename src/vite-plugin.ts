@@ -7,7 +7,7 @@
  */
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { withDefaultConfig } from 'react-docgen-typescript';
+import { withCompilerOptions } from 'react-docgen-typescript';
 import ts from 'typescript';
 import type { Plugin, ResolvedConfig } from 'vite';
 import { collectMatches, extractTitle, readStoryFile, toKebab } from './scan.ts';
@@ -29,7 +29,23 @@ export interface ComponentPropsDoc {
 }
 
 /** Storybook's own approach: parse the component sources for their public props. */
-const docgen = withDefaultConfig({
+const DOCGEN_COMPILER_OPTIONS: ts.CompilerOptions = {
+  jsx: ts.JsxEmit.React,
+  module: ts.ModuleKind.CommonJS,
+  target: ts.ScriptTarget.Latest,
+  esModuleInterop: true,
+};
+
+const TYPE_PROPS_COMPILER_OPTIONS: ts.CompilerOptions = {
+  jsx: ts.JsxEmit.ReactJSX,
+  target: ts.ScriptTarget.ES2022,
+  module: ts.ModuleKind.ESNext,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  skipLibCheck: true,
+  strict: true,
+};
+
+const docgen = withCompilerOptions(DOCGEN_COMPILER_OPTIONS, {
   savePropValueAsString: true,
   shouldExtractLiteralValuesFromEnum: true,
   shouldRemoveUndefinedFromOptional: true,
@@ -241,6 +257,29 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
   };
 
   const propsCache = new Map<string, ComponentPropsDoc[]>();
+  let isBuild = false;
+  const programCaches = new Map<ts.CompilerOptions, { host: ts.CompilerHost; program?: ts.Program }>();
+  const createPropsProgram = (sources: string[], compilerOptions: ts.CompilerOptions) => {
+    if (!isBuild) return ts.createProgram(sources, compilerOptions);
+    let cache = programCaches.get(compilerOptions);
+    if (!cache) {
+      const host = ts.createCompilerHost(compilerOptions);
+      const getSourceFile = host.getSourceFile;
+      const sourceFiles = new Map<string, ts.SourceFile>();
+      host.getSourceFile = (fileName, languageVersion, onError, shouldCreateNewSourceFile) => {
+        const key = host.getCanonicalFileName(fileName);
+        const cached = sourceFiles.get(key);
+        if (cached && !shouldCreateNewSourceFile) return cached;
+        const source = getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile);
+        if (source) sourceFiles.set(key, source);
+        return source;
+      };
+      cache = { host };
+      programCaches.set(compilerOptions, cache);
+    }
+    cache.program = ts.createProgram(sources, compilerOptions, cache.host, cache.program);
+    return cache.program;
+  };
 
   const toPropDoc = (prop: unknown): PropDoc => {
     const value = prop as {
@@ -283,7 +322,7 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
       if (sources.length > 0) {
         try {
           const parsed = docgen
-            .parse(sources)
+            .parseWithProgramProvider(sources, () => createPropsProgram(sources, DOCGEN_COMPILER_OPTIONS))
             .map((result) => ({
               name: result.displayName,
               props: Object.values(result.props ?? {})
@@ -315,14 +354,7 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
   /** Exported `*Props` types in the folder — this is where compound parts live
       (`Dialog.Trigger` etc. are Object.assign members, which docgen cannot see). */
   const collectTypeProps = (sources: string[], entryName: string): ComponentPropsDoc[] => {
-    const program = ts.createProgram(sources, {
-      jsx: ts.JsxEmit.ReactJSX,
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ESNext,
-      moduleResolution: ts.ModuleResolutionKind.Bundler,
-      skipLibCheck: true,
-      strict: true,
-    });
+    const program = createPropsProgram(sources, TYPE_PROPS_COMPILER_OPTIONS);
     const checker = program.getTypeChecker();
     const tables: ComponentPropsDoc[] = [];
     const isExternal = (fileName: string) => /(^|\/)node_modules\/(@types|typescript)(\/|$)/.test(fileName);
@@ -453,7 +485,7 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
     if (!existsSync(resolved)) {
       throw new Error(`storybook-docs: code.module "${module}" does not exist (looked in ${resolved})`);
     }
-    return `export { default as Code } from ${JSON.stringify(resolved)};\nexport const provided = true;\n`;
+    return `import { lazy } from 'react';\nexport const Code = lazy(() => import(${JSON.stringify(resolved)}));\nexport const provided = true;\n`;
   };
 
   const releasesCode = () => {
@@ -507,6 +539,7 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
       };
     },
     configResolved(resolved: ResolvedConfig) {
+      isBuild = resolved.command === 'build';
       projectRoot = options.root ?? resolved.root;
       catalog = buildCatalog(config, projectRoot);
       indexGuidance();
@@ -520,6 +553,13 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
       this.info?.(
         `storybook-docs: ${catalog.stats.components} components, ${catalog.stats.stories} stories, ${catalog.stats.groups} groups from ${config.stories.from}`,
       );
+    },
+    buildStart() {
+      propsCache.clear();
+      programCaches.clear();
+    },
+    closeBundle() {
+      programCaches.clear();
     },
     resolveId(id: string) {
       if (id.startsWith(VIRTUAL_PREFIX)) return `\0${id}`;
