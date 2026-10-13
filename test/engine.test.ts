@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { matchGlob } from '../src/scan.ts';
-import { sectionStories, usageSnippet } from '../src/sections.ts';
+import { sectionStories, usageSnippet, buildUsageSnippet, selectExample } from '../src/sections.ts';
 
 test('matchGlob: one segment wildcard', () => {
   assert.equal(matchGlob('src/components/*/*.stories.tsx', 'src/components/button/button.stories.tsx'), true);
@@ -31,7 +31,7 @@ test('sectionStories: never loses an unrecognised story', () => {
   assert.equal(sections.flatMap((section) => section.stories).length, 2);
 });
 
-test('usageSnippet: primitives only, handlers and node children dropped', () => {
+test('usageSnippet: preserves authored booleans and omits handlers', () => {
   const snippet = usageSnippet('Button', {
     variant: 'solid',
     size: 'md',
@@ -40,11 +40,76 @@ test('usageSnippet: primitives only, handlers and node children dropped', () => 
     onClick: () => undefined,
     children: 'Save',
   });
-  assert.equal(snippet, '<Button variant="solid" size="md" disabled>Save</Button>');
+  assert.equal(snippet, '<Button variant="solid" size="md" loading={false} disabled>Save</Button>');
 });
 
-test('usageSnippet: returns null without args and renders an ellipsis for node children', () => {
+test('usageSnippet: unavailable arguments never become a made-up fragment', () => {
   assert.equal(usageSnippet('Button', undefined), null);
   const snippet = usageSnippet('Card', { children: { $$typeof: Symbol('react.element') } });
-  assert.equal(snippet, '<Card>\n  …\n</Card>');
+  assert.equal(snippet, null);
+  assert.equal(usageSnippet('Card', {}), null);
+  assert.equal(usageSnippet('Card', { onClick: () => undefined }), null);
+});
+
+test('selectExample: rich compositions introduce a component before its bare Default', () => {
+  assert.equal(selectExample(['Default', 'HighlightedLight', 'Highlighted', 'HighlightedTsx'].map((name) => ({ name }))), 'Highlighted');
+  assert.equal(selectExample(['Default', 'Text', 'Circle', 'Card'].map((name) => ({ name }))), 'Card');
+});
+
+test('selectExample: Default/Primary then descriptions and showcases, never debug states', () => {
+  assert.equal(selectExample(['WithIcons', 'Default', 'Sizes'].map((name) => ({ name }))), 'Default');
+  assert.equal(selectExample(['WithIcons', 'Primary'].map((name) => ({ name }))), 'Primary');
+  assert.equal(selectExample([{ name: 'Sizes' }, { name: 'Composition', description: 'A complete form.' }]), 'Composition');
+  assert.equal(selectExample([{ name: 'Other' }, { name: 'WithIcons' }]), 'WithIcons');
+  assert.equal(selectExample([{ name: 'Other' }, { name: 'Demo', description: 'A useful example.' }]), 'Demo');
+  assert.equal(selectExample(['Loading', 'Disabled', 'Error', 'RTL', 'ForcedColors', 'KeyboardActivation', 'HighlightFailure'].map((name) => ({ name, description: 'State.' }))), null);
+  assert.equal(selectExample([]), null);
+});
+
+test('selectExample: stable ties and moving the selection keep each story once', () => {
+  const stories = ['Loading', 'Sizes', 'WithIcons', 'Other'];
+  const chosen = selectExample(stories.map((name) => ({ name })));
+  assert.equal(chosen, 'Sizes');
+  const remaining = sectionStories(stories.filter((name) => name !== chosen)).flatMap((section) => section.stories);
+  assert.deepEqual([chosen, ...remaining].sort(), [...stories].sort());
+});
+
+test('buildUsageSnippet: root import and a complete args-derived example', () => {
+  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@acme/ui', args: { variant: 'solid', children: 'Save' } }),
+    "import { Button } from '@acme/ui';\n\n<Button variant=\"solid\">Save</Button>");
+  assert.equal(buildUsageSnippet({ componentName: 'Skeleton', from: '@acme/ui', args: { width: 240, height: 16 } }),
+    "import { Skeleton } from '@acme/ui';\n\n<Skeleton width={240} height={16} />");
+  assert.equal(buildUsageSnippet({ componentName: 'Dialog.Content', from: '@acme/ui', args: { children: 'Hello' } }),
+    "import { Dialog } from '@acme/ui';\n\n<Dialog.Content>Hello</Dialog.Content>");
+  assert.equal(buildUsageSnippet({ componentName: 'Dialog', jsxName: 'Dialog.Content', from: '@acme/ui', args: { children: 'Hello' } }),
+    "import { Dialog } from '@acme/ui';\n\n<Dialog.Content>Hello</Dialog.Content>");
+  assert.equal(buildUsageSnippet({ componentName: 'Dialog', component: { displayName: 'Dialog.Content' }, from: '@acme/ui', args: { children: 'Hello' } }),
+    "import { Dialog } from '@acme/ui';\n\n<Dialog.Content>Hello</Dialog.Content>");
+});
+
+test('buildUsageSnippet: compound root args do not invent its missing anatomy', () => {
+  const component = Object.assign(() => null, { List: () => null, Panel: () => null });
+  assert.equal(buildUsageSnippet({ componentName: 'Tabs', component, from: '@acme/ui', args: { defaultValue: 'one' } }), null);
+  assert.equal(buildUsageSnippet({ componentName: 'Tabs', component, from: '@acme/ui', source: '<Tabs><Tabs.Panel value="one">One</Tabs.Panel></Tabs>' }),
+    "import { Tabs } from '@acme/ui';\n\n<Tabs><Tabs.Panel value=\"one\">One</Tabs.Panel></Tabs>");
+});
+
+test('buildUsageSnippet: preserves authored compound JSX, helper imports and existing imports', () => {
+  const source = "import { helper } from '@acme/ui/helper';\n\n<Dialog><Dialog.Content>Hello</Dialog.Content></Dialog>";
+  assert.equal(buildUsageSnippet({ componentName: 'Dialog', from: '@acme/ui', source }), "import { Dialog } from '@acme/ui';\n\n" + source);
+  const imported = 'import { Dialog, Button } from "@acme/ui";\n<Dialog.Content>Hello</Dialog.Content>';
+  assert.equal(buildUsageSnippet({ componentName: 'Dialog', from: '@acme/ui', source: imported }), imported);
+  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@acme/ui', source: '<Button>Authored</Button>', args: { children: 'Args' } }),
+    "import { Button } from '@acme/ui';\n\n<Button>Authored</Button>");
+  assert.equal(buildUsageSnippet({ componentName: 'Dialog', from: '@acme/ui' }), null);
+});
+
+test('usageSnippet: escapes JSX, keeps JSON props and rejects unrepresentable values', () => {
+  assert.equal(usageSnippet('Input', { label: '"quoted" & <tag>', children: '{hello}' }), '<Input label={"\\"quoted\\" & <tag>"}>{"{hello}"}</Input>');
+  assert.equal(usageSnippet('Input', { inputProps: { readOnly: true }, value: 0, optional: null }), '<Input inputProps={{"readOnly":true}} value={0} optional={null} />');
+  assert.equal(usageSnippet('Table', { columns: [{ accessor: () => 1 }] }), null);
+  assert.equal(usageSnippet('Input', { value: Number.NaN }), null);
+  const cyclic: Record<string, unknown> = {};
+  cyclic.self = cyclic;
+  assert.equal(usageSnippet('Input', { options: cyclic }), null);
 });

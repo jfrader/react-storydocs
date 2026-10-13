@@ -174,5 +174,5 @@ test('component defaults are display-only, never injected into stories or usage 
   assert.match(markup, /value="sm"/, 'the control displays the source-derived default');
   assert.deepEqual(storyOverrides, [{}], 'only explicit reader edits override the story');
   assert.deepEqual(snippetArgs, [{ label: 'Example' }], 'source defaults are not JSX arguments');
-  assert.deepEqual(snippets, ['<Widget label="Example">\n  …\n</Widget>'], 'the real snippet omits source defaults');
+  assert.deepEqual(snippets, ['<Widget label="Example" />'], 'the real snippet omits source defaults');
 });

@@ -10,6 +10,7 @@ declare module 'virtual:storybook-docs/site' {
 declare module 'virtual:storybook-docs/catalog' {
   type CatalogEntry = import('./config.js').CatalogEntry;
   export const catalog: CatalogEntry[];
+  export const storySource: string;
   export const groups: string[];
   export const stats: { components: number; stories: number; groups: number };
 }

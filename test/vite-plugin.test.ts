@@ -85,7 +85,8 @@ export const Disabled = { args: { disabled: true } };
 test('virtual catalog preserves group order, slugs and tagged story exports inside the linked package', async () => {
   const consumer = await fixture();
   try {
-    const { catalog, groups, stats } = await consumer.evaluate('catalog');
+    const { catalog, groups, stats, storySource } = await consumer.evaluate('catalog');
+    assert.equal(storySource, '@fixture/ui');
     assert.deepEqual(catalog.map(({ slug, name, group, stories, hasComponent }: CatalogEntry) => ({ slug, name, group, stories, hasComponent })), [
       { slug: 'button', name: 'Button', group: 'Actions', stories: ['Default', 'Disabled'], hasComponent: true },
       { slug: 'icon-button', name: 'IconButton', group: 'Actions', stories: ['Default', 'Disabled'], hasComponent: true },

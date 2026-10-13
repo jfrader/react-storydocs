@@ -84,19 +84,76 @@ export function sectionStories(stories: string[]): StorySection[] {
   return sections;
 }
 
-/** A first-pass usage snippet from the default story's own args. */
+export interface ExampleStory {
+  name: string;
+  description?: string;
+}
+
+const DEBUG_STORY = /\b(?:loading|disabled|error|invalid|pending|failure|failed|reject(?:ed)?|rtl|ltr|forced|keyboard|light|dark|theme|motion|controlled|uncontrolled|empty|missing|boundary|boundaries|ref|veto|open|closed|focus|hover|pressed|busy|checked|selected|readonly|read only|indeterminate|success|a11y|aria|contrast|locale|zoom)\b/i;
+const SHOWCASE_STORY = /^(highlighted|card|patterns?|composition|showcase|playground)$/i;
+const CONTENT_STORY = /withicons|sizes|variants|patterns|composition|example|content/i;
+
+/** Prefer a complete composition (a highlighted block or placeholder card) over a bare
+ * Default. Otherwise lead with Default/Primary, then authored or named showcases.
+ * State, environment and test fixtures never introduce a component. Ties keep source order. */
+export function selectExample(stories: ExampleStory[]): string | null {
+  const candidates = stories.filter((story) => !DEBUG_STORY.test(story.name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ')));
+  return (candidates.find((story) => SHOWCASE_STORY.test(story.name))
+    ?? candidates.find((story) => /^(default|primary)$/i.test(story.name))
+    ?? candidates.find((story) => story.description?.trim())
+    ?? candidates.find((story) => CONTENT_STORY.test(story.name))
+    ?? candidates[0])?.name ?? null;
+}
+
+function serializable(value: unknown, ancestors = new Set<unknown>()): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object' || ancestors.has(value)) return false;
+  if (!Array.isArray(value) && (Object.getPrototypeOf(value) !== Object.prototype || '$$typeof' in value)) return false;
+  ancestors.add(value);
+  const result = Object.values(value).every((item) => serializable(item, ancestors));
+  ancestors.delete(value);
+  return result;
+}
+
+/** Only story-authored values: never synthesize children or component defaults. */
 export function usageSnippet(componentName: string, args: Record<string, unknown> | undefined): string | null {
-  if (!args) return null;
+  if (!args || Object.keys(args).length === 0) return null;
   const attributes: string[] = [];
   for (const [key, value] of Object.entries(args)) {
-    if (key === 'children' || key.startsWith('on')) continue;
-    if (value === undefined || value === null) continue;
-    if (typeof value === 'string') attributes.push(`${key}="${value}"`);
-    else if (typeof value === 'number') attributes.push(`${key}={${value}}`);
-    // `false` is the default for most booleans — showing it adds noise to a usage snippet.
-    else if (typeof value === 'boolean' && value) attributes.push(key);
+    if (key === 'children' || /^on[A-Z]/.test(key) || value === undefined) continue;
+    if (!serializable(value)) return null;
+    if (typeof value === 'string' && !/["&<>\n\r]/.test(value)) attributes.push(`${key}="${value}"`);
+    else if (value === true) attributes.push(key);
+    else attributes.push(`${key}={${JSON.stringify(value)}}`);
   }
-  const children = typeof args.children === 'string' ? args.children : null;
-  const opening = attributes.length > 0 ? `<${componentName} ${attributes.join(' ')}>` : `<${componentName}>`;
-  return children ? `${opening}${children}</${componentName}>` : `${opening}\n  …\n</${componentName}>`;
+  const opening = `<${componentName}${attributes.length ? ` ${attributes.join(' ')}` : ''}`;
+  if (args.children === undefined) return attributes.length ? `${opening} />` : null;
+  if (!serializable(args.children) || (args.children !== null && typeof args.children === 'object')) return null;
+  const children = typeof args.children === 'string' && !/[&<>{}]/.test(args.children)
+    ? args.children : `{${JSON.stringify(args.children)}}`;
+  return `${opening}>${children}</${componentName}>`;
+}
+
+export function buildUsageSnippet({ componentName, from, args, source, jsxName, component }: {
+  componentName: string;
+  from: string;
+  args?: Record<string, unknown>;
+  source?: string;
+  jsxName?: string;
+  component?: unknown;
+}): string | null {
+  const rootName = componentName.split('.')[0]!;
+  const identity = component as { displayName?: unknown } | undefined;
+  const tag = jsxName ?? (typeof identity?.displayName === 'string' && identity.displayName.startsWith(`${rootName}.`)
+    ? identity.displayName : componentName);
+  const compound = component != null && Object.entries(component).some(([name, part]) => /^[A-Z]/.test(name)
+    && (typeof part === 'function' || (part !== null && typeof part === 'object' && '$$typeof' in part)));
+  // Root arguments cannot describe a compound's anatomy. Require authored composition code,
+  // or the identity of the specific part, rather than showing an empty provider/root tag.
+  const example = source?.trim() || (compound && !tag.includes('.') ? null : usageSnippet(tag, args));
+  if (!example) return null;
+  const imports = [...example.matchAll(/import\s*\{([^}]+)\}\s*from\s*(['"])(.*?)\2/g)];
+  const imported = imports.some((match) => match[3] === from && match[1]!.split(',').some((name) => name.trim() === rootName));
+  return imported ? example : `import { ${rootName} } from '${from}';\n\n${example}`;
 }
