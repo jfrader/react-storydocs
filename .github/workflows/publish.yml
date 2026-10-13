@@ -69,4 +69,8 @@ jobs:
           pnpm pack --pack-destination "$RUNNER_TEMP/release"
 
       - name: Publish to npmjs
+        # setup-node writes an .npmrc that reads this variable; without it the publish goes out
+        # unauthenticated and npm answers 404 on the PUT, which reads like a missing package.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish "$RUNNER_TEMP"/release/*.tgz --access public --provenance
