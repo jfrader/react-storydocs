@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as sections from '../src/sections.ts';
-import type { getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault, ControlledStoryFrame as Frame } from '../src/controls.tsx';
+import type { getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault, ControlledStoryFrame as Frame, hasHorizontalOverflow as HasHorizontalOverflow } from '../src/controls.tsx';
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../src/controls.tsx', import.meta.url), 'utf8');
@@ -19,7 +19,7 @@ const snippetArgs: unknown[] = [];
 const snippets: (string | null)[] = [];
 
 function loadControls(observeStories = false) {
-  const exports: { getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault; ControlledStoryFrame?: typeof Frame } = {};
+  const exports: { getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault; ControlledStoryFrame?: typeof Frame; hasHorizontalOverflow?: typeof HasHorizontalOverflow } = {};
   const sectionsModule = observeStories ? {
     ...sections,
     usageSnippet: (name: string, args: Record<string, unknown> | undefined) => {
@@ -42,6 +42,23 @@ function loadControls(observeStories = false) {
 
 const exports = loadControls();
 const getStoryControls = exports.getStoryControls!;
+
+test('canvas keyboard access requires actual horizontal overflow', () => {
+  const overflow = exports.hasHorizontalOverflow!;
+  assert.equal(overflow({ scrollWidth: 501, clientWidth: 500 }), true);
+  assert.equal(overflow({ scrollWidth: 500, clientWidth: 500 }), false);
+  assert.equal(overflow({ scrollWidth: 499, clientWidth: 500 }), false);
+  assert.equal(overflow({ scrollWidth: 0, clientWidth: 0 }), false);
+});
+
+test('stories without snippets retain a deferred Code panel and no initial canvas tab stop', () => {
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Flex', story: 'Default', module: { default: {}, Default: { render: () => null } },
+  }));
+  assert.match(html, /<summary>Code<\/summary><\/details>/);
+  assert.ok(!html.includes('No usage code'), 'fallback is deferred until the panel opens');
+  assert.ok(!html.includes('tabindex'), 'unmeasured canvases do not enter the tab order');
+});
 
 test('controls merge annotations without replacing explicit args with argType defaults', () => {
   const meta = {
