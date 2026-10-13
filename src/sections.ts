@@ -88,6 +88,7 @@ export interface ExampleStory {
   name: string;
   description?: string;
   args?: Record<string, unknown>;
+  play?: unknown;
 }
 
 const DEBUG_STORY = /\b(?:loading|disabled|error|invalid|pending|failure|failed|reject(?:ed)?|rtl|ltr|forced|keyboard|light|dark|theme|motion|controlled|uncontrolled|empty|missing|boundary|boundaries|ref|veto|open|closed|focus|hover|pressed|busy|checked|selected|readonly|read only|indeterminate|success|a11y|aria|contrast|locale|zoom)\b/i;
@@ -102,15 +103,21 @@ function storyWords(name: string): string {
 
 /** Prefer a complete composition (a highlighted block or placeholder card) over a bare
  * Default. Otherwise lead with Default/Primary, then authored or named showcases.
- * Overlay anatomy (an invoker plus a floating part) and an open sibling together identify
- * overlays without component-name lists. Prefer an Open/Persistent showcase, then a safe
+ * Overlay anatomy (an invoker plus a floating/list part), or an Open/PersistentOpen sibling
+ * plus boolean open args and an onOpenChange callback, identifies surfaces without component-name
+ * lists. The latter conservatively excludes plays referencing userEvent/fireEvent: open permission
+ * can still require focus, typing or caret setup. It leaves already-open introductions and unrelated
+ * expanded/viewer states alone. Prefer an Open/Persistent showcase, then a safe
  * composition with authored open args. Suffixed names require open args; plain Open/Persistent
  * names can stand alone. Only those names may bypass the `open` state filter;
  * controlled, disabled, theme and other debug fixtures remain excluded. Callers exclude !autodocs.
- * Without an eligible open sibling, retain the normal choice. Ties keep source order. */
-export function selectExample(stories: ExampleStory[], parts: string[] = []): string | null {
-  const overlay = parts.some((part) => /^(trigger|target|input)$/i.test(part))
-    && parts.some((part) => /^(content|panel|popup)$/i.test(part));
+ * Provider/Viewport anatomy and a Persistent name alone do not imply populated notifications:
+ * a queue may still need a click. Without an eligible open sibling, retain the normal choice.
+ * Null defaults defer single-widget inference until their initial visibility is known.
+ * Ties keep source order. */
+export function selectExample(stories: ExampleStory[], parts: string[] = [], defaults: Record<string, unknown> | null = {}): string | null {
+  const anatomy = parts.some((part) => /^(trigger|target|input)$/i.test(part))
+    && parts.some((part) => /^(content|panel|popup|list)$/i.test(part));
   const isOpenShowcase = (story: ExampleStory) => OPEN_SHOWCASE.test(storyWords(story.name))
     && !DEBUG_STORY.test(storyWords(story.name).replace(/\b(?:open|persistent)\b/gi, ''))
     && !OVERLAY_FIXTURE.test(storyWords(story.name));
@@ -118,18 +125,29 @@ export function selectExample(stories: ExampleStory[], parts: string[] = []): st
     || story.args?.defaultOpen === true || (/^(?:open|persistent(?: open)?)$/i.test(storyWords(story.name))
       && story.args?.defaultOpen !== false));
   const candidates = stories.filter((story) => !DEBUG_STORY.test(storyWords(story.name))
-    && (!overlay || !OVERLAY_FIXTURE.test(storyWords(story.name))));
-  if (overlay) {
-    const open = stories.find((story) => isOpenShowcase(story) && isOpen(story))
-      ?? candidates.find(isOpen);
-    if (open) return open.name;
-  }
-  return (candidates.find((story) => SHOWCASE_STORY.test(story.name))
+    && (!anatomy || !OVERLAY_FIXTURE.test(storyWords(story.name))));
+  const current = candidates.find((story) => SHOWCASE_STORY.test(story.name))
     ?? candidates.find((story) => /^(default|primary)$/i.test(story.name))
     ?? candidates.find((story) => story.description?.trim())
     ?? candidates.find((story) => CONTENT_STORY.test(story.name))
     ?? candidates.find((story) => /^initial(snapshot|state)$/i.test(story.name))
-    ?? candidates[0])?.name ?? null;
+    ?? candidates[0];
+  const currentArgs = { ...defaults, ...current?.args };
+  const standaloneOpen = (story: ExampleStory) => /^(?:open|persistent open)$/i.test(storyWords(story.name))
+    && isOpen(story) && !(typeof story.play === 'function'
+      && /\b(?:userEvent|fireEvent)\b/.test(Function.prototype.toString.call(story.play)));
+  const widget = defaults !== null
+    && !(currentArgs.open === true || (currentArgs.open === undefined && currentArgs.defaultOpen === true))
+    && stories.some(standaloneOpen)
+    && stories.some(({ args }) => typeof args?.onOpenChange === 'function'
+      && (typeof args.open === 'boolean' || typeof args.defaultOpen === 'boolean'));
+  const overlay = anatomy || widget;
+  if (overlay) {
+    const open = stories.find((story) => isOpenShowcase(story) && isOpen(story) && (anatomy || standaloneOpen(story)))
+      ?? (anatomy ? candidates.find(isOpen) : undefined);
+    if (open) return open.name;
+  }
+  return current?.name ?? null;
 }
 
 function serializable(value: unknown, ancestors = new Set<unknown>()): boolean {
