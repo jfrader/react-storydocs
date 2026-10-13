@@ -8,7 +8,7 @@ import { MarkdownView } from '../guidance';
 import { sectionStories, usageSnippet, type DocsParameters } from '../sections';
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
-import { useProps, type ComponentPropsDoc } from '../props';
+import { useProps, type ComponentPropsDoc, type PropDoc } from '../props';
 import { Skeleton } from '../skeleton';
 
 function formatValue(value: unknown): string {
@@ -41,6 +41,51 @@ function TableFrame({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+function PropNotes({ prop }: { prop: PropDoc }) {
+  return (
+    <>
+      {prop.description ? <MarkdownView markdown={prop.description} /> : null}
+      {prop.tags?.map((tag, index) => (
+        <div key={`${tag.name}:${index}`}>
+          <strong>{tag.name === 'deprecated' ? 'Deprecated' : tag.name === 'since' ? 'Since' : 'Example'}</strong>
+          {tag.name === 'example' ? <pre><code>{tag.text}</code></pre> : tag.text ? <MarkdownView markdown={tag.text} /> : null}
+        </div>
+      ))}
+      {prop.inheritedFrom ? <small>Inherited from <code>{prop.inheritedFrom}</code></small> : null}
+      {!prop.description && !prop.tags?.length && !prop.inheritedFrom ? '—' : null}
+    </>
+  );
+}
+
+function PropRows({ props }: { props: PropDoc[] }) {
+  return props.map((prop) => (
+    <tr key={prop.name}>
+      <th scope="row">
+        <code>{prop.name}</code>
+        {prop.required ? <span className="req">required</span> : null}
+      </th>
+      <td>
+        <code className="type">{prop.typeUnavailable ? 'Not resolved' : prop.type}</code>
+        {prop.members?.length ? (
+          <details>
+            <summary>{prop.name === 'slotProps' ? 'Slots' : 'Fields'}</summary>
+            <dl>
+              {prop.members.map((member) => (
+                <div key={member.name}>
+                  <dt><code>{member.name}</code>{member.required ? ' (required)' : ''}</dt>
+                  <dd><code>{member.type}</code><PropNotes prop={member} /></dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        ) : null}
+      </td>
+      <td><code>{prop.defaultValue === 'undefined' ? '—' : prop.defaultValue ?? '—'}</code></td>
+      <td><PropNotes prop={prop} /></td>
+    </tr>
+  ));
+}
+
 function PropsTable({
   components,
   argTypes,
@@ -66,10 +111,10 @@ function PropsTable({
             {!single ? <h3>{component.name}</h3> : null}
             {component.native ? (
               <p className="hint">
-                Also accepts every native <code>&lt;{component.native}&gt;</code> prop.
+                Native element: <code>&lt;{component.native}&gt;</code>.
               </p>
             ) : null}
-            <TableFrame label={`${component.name} props`}>
+            {component.props.some((prop) => !prop.inheritedFrom) ? <TableFrame label={`${component.name} props`}>
               <thead>
                 <tr>
                   <th scope="col">Prop</th>
@@ -79,21 +124,18 @@ function PropsTable({
                 </tr>
               </thead>
               <tbody>
-                {component.props.map((prop) => (
-                  <tr key={prop.name}>
-                    <th scope="row">
-                      <code>{prop.name}</code>
-                      {prop.required ? <span className="req">required</span> : null}
-                    </th>
-                    <td>
-                      <code className="type">{prop.type}</code>
-                    </td>
-                    <td>{prop.defaultValue ?? '—'}</td>
-                    <td>{prop.description || '—'}</td>
-                  </tr>
-                ))}
+                <PropRows props={component.props.filter((prop) => !prop.inheritedFrom)} />
               </tbody>
-            </TableFrame>
+            </TableFrame> : <p>No component-specific props.</p>}
+            {component.props.some((prop) => prop.inheritedFrom) ? (
+              <details>
+                <summary>Inherited props ({component.props.filter((prop) => prop.inheritedFrom).length})</summary>
+                <TableFrame label={`${component.name} inherited props`}>
+                  <thead><tr><th scope="col">Prop</th><th scope="col">Type</th><th scope="col">Default</th><th scope="col">Notes</th></tr></thead>
+                  <tbody><PropRows props={component.props.filter((prop) => prop.inheritedFrom)} /></tbody>
+                </TableFrame>
+              </details>
+            ) : null}
           </section>
         ))}
       </>
@@ -117,7 +159,7 @@ function PropsTable({
                 <code>{prop}</code>
               </th>
               <td>{formatValue(definition.control)}</td>
-              <td>{definition.options ? formatValue(definition.options) : '—'}</td>
+              <td>{Array.isArray(definition.options) ? definition.options.map((option) => formatValue(option)).join(' | ') : '—'}</td>
               <td>{formatValue(defaultArgs[prop])}</td>
             </tr>
           ))}
@@ -161,8 +203,8 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const propCount = props ? props.reduce((total, component) => total + component.props.length, 0) : Object.keys(argTypes).length;
   // Controls show the component's own defaults until the reader changes them.
   const componentDefaults = useMemo(
-    () => defaultsFromProps(props?.flatMap((component) => component.props) ?? []),
-    [props],
+    () => defaultsFromProps(props?.find((component) => component.name === entry.name)?.props ?? []),
+    [props, entry.name],
   );
 
   return (

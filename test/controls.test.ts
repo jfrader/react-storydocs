@@ -120,3 +120,20 @@ test('component defaults fill args only where the story declares nothing', () =>
   assert.equal(withStoryArgs.args.size, 'lg', 'story args win over the component default');
   assert.equal(withStoryArgs.args.disabled, false, 'component default used when nothing declares it');
 });
+
+test('literal defaults keep objects, arrays and null; expressions never become bogus argument strings', () => {
+  const parse = exports.parseDefault!;
+  assert.deepEqual(parse('{"count":2,"labels":["one"]}'), { count: 2, labels: ['one'] });
+  assert.deepEqual(parse('[]'), []);
+  assert.equal(parse('null'), null);
+  assert.equal(parse('undefined'), undefined);
+  assert.equal(parse('fallback()'), undefined);
+  assert.equal(parse('vars.space[2]'), undefined);
+  assert.equal(parse('"a\\nb"'), 'a\nb');
+  assert.deepEqual(exports.defaultsFromProps!([
+    { name: 'items', defaultValue: '[]' },
+    { name: 'nullable', defaultValue: 'null' },
+    { name: 'expression', defaultValue: 'fallback()' },
+    { name: 'absent', defaultValue: 'undefined' },
+  ]), { items: [], nullable: null });
+});
