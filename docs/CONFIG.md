@@ -228,6 +228,20 @@ show up as stories that render wrong rather than as errors:
 - Search scans the in-memory catalog's component, group and story names. There is
   no generated full-text search index for guidance, props or rendered content.
 
+### Checking a running site
+
+The engine ships a frame check for the thing unit tests cannot see: whether the examples a docs site
+renders are actually right. From a directory where `playwright` resolves:
+
+```bash
+node scripts/check-example-frames.mjs http://localhost:4320 [--json report.json]
+```
+
+It reports stories that fail to render (including modules that never loaded), content painted outside
+its frame, zero-size interactive controls, and component roots that collapsed to nothing. Invisible
+helpers — measure probes, closed dialogs, top-layer overlays, aria-hidden duplicates — are ignored, so
+findings are real. Exit code is 1 when a component has a finding.
+
 ## Verification and CI
 
 From the engine root, run `pnpm test`, `pnpm typecheck` (engine and tests), and

@@ -67,6 +67,7 @@
     "typecheck": "tsc --noEmit",
     "build": "pnpm build:package && pnpm --dir examples/jfrader-ui build",
     "build:package": "node scripts/build.mjs",
+    "check:frames": "node scripts/check-example-frames.mjs",
     "prepack": "pnpm build:package"
   },
   "engines": {

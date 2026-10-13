@@ -58,12 +58,28 @@ pnpm test                 # engine unit tests (glob, title extraction, sections,
 pnpm dev                  # the reference consumer in examples/ (port 4310)
 ```
 
+To check what a running docs site actually renders, point the frame check at it. It visits every
+component page, mounts the lazy frames, and reports stories that fail to render, content painted
+outside its frame, zero-size controls and components that collapsed to nothing — the check that
+caught a component rendering at 0×0 with its own tests green. It needs Playwright, so run it from a
+directory where that resolves (normally your Storybook app):
+
+```bash
+node scripts/check-example-frames.mjs http://localhost:4320 [--json report.json]
+```
+
+It exits non-zero when a component has a real finding, so it can gate CI. Zero-size component roots
+are reported as notes: an empty group or a progress bar at zero is legitimate.
+
 ## Use it
 
 ```bash
-pnpm install
-pnpm --filter <your docs app> dev      # or: vite --config examples/jfrader-ui/vite.config.ts
+pnpm add -D @jfrader/storybook-docs @vitejs/plugin-react
 ```
+
+Published packages ship built JavaScript and types (`dist/`); this repository's own checkouts use the
+TypeScript sources directly, which is why `exports` points at `src/` here and at `dist/` in
+`publishConfig`.
 
 The consumer contract is four files:
 
