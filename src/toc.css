@@ -10,7 +10,7 @@
   align-items: center;
   min-block-size: 24px;
   font: inherit;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   background: none;
   border: 1px solid transparent;
   border-radius: 6px;
