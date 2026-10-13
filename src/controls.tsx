@@ -116,6 +116,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const definition = (module[story] ?? {}) as StoryShape;
   const { args: defaults, controls, unavailable } = getStoryControls(meta, definition, componentDefaults);
   const [edits, setEdits] = useState<Record<string, unknown>>({});
+  const [codeOpen, setCodeOpen] = useState(false);
   const args = { ...defaults, ...edits };
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
   // Storybook semantics: the story's own `layout` decides whether the lane is padded (block)
@@ -173,7 +174,10 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
         </LazySection>
       </div>
       {snippet ? (
-        <details className="code-toggle"><summary>Code</summary><CodeBlock code={snippet} language={codeLanguage} /></details>
+        <details className="code-toggle" onToggle={(event) => setCodeOpen(event.currentTarget.open)}>
+          <summary>Code</summary>
+          {codeOpen ? <CodeBlock code={snippet} language={codeLanguage} /> : null}
+        </details>
       ) : null}
     </div>
   );

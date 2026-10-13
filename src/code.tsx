@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { Component, useMemo, type ComponentType, type ReactNode } from 'react';
+import { Component, Suspense, useMemo, type ComponentType, type ReactNode } from 'react';
 // Present only when the consumer names one: see `code.module` in docs.config.
 import { Code as ProvidedCode, provided as hasProvidedCode } from 'virtual:storybook-docs/code';
 
@@ -40,7 +40,9 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
   if (!hasProvidedCode || !Provided) return <PlainCode code={trimmed} language={language} />;
   return (
     <CodeBoundary code={trimmed} language={language}>
-      <Provided code={trimmed} language={language} />
+      <Suspense fallback={<PlainCode code={trimmed} language={language} />}>
+        <Provided code={trimmed} language={language} />
+      </Suspense>
     </CodeBoundary>
   );
 }
