@@ -137,3 +137,12 @@ test('props presentation shows allowed values, JSDoc and collapsed inherited pro
   assert.match(markup, /<details><summary>Inherited props \(1\)<\/summary>/);
   assert.doesNotMatch(markup, /\[object Object\]|undefined/);
 });
+
+test('docgen fallback keeps local children when catalog and component names differ', () => {
+  const tables = extract(`
+    import type { ReactNode } from 'react';
+    export function ActualWidget({ children }: { children?: ReactNode }) { return <div>{children}</div>; }
+  `);
+  assert.equal(tables[0]?.name, 'ActualWidget');
+  assert.equal(tables[0]?.props.find((prop) => prop.name === 'children')?.type, 'ReactNode');
+});

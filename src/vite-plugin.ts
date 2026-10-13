@@ -59,6 +59,7 @@ const docgen = withCompilerOptions(DOCGEN_COMPILER_OPTIONS, {
   savePropValueAsString: true,
   shouldExtractLiteralValuesFromEnum: true,
   shouldRemoveUndefinedFromOptional: true,
+  skipChildrenPropWithoutDoc: false,
   // Keep the component's own props (and its local types); drop inherited DOM/React props and
   // the utility-type plumbing that TypeScript's own libs and DefinitelyTyped add. The check is
   // by *package*, not by "contains node_modules" — when a design system is consumed from

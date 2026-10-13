@@ -4,22 +4,43 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { runInThisContext } from 'node:vm';
 import ts from 'typescript';
-import { createElement } from 'react';
+import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as sections from '../src/sections.ts';
-import type { ControlledStoryFrame as Frame, getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault } from '../src/controls.tsx';
+import type { getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault, ControlledStoryFrame as Frame } from '../src/controls.tsx';
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../src/controls.tsx', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const exports: { ControlledStoryFrame?: typeof Frame; getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault } = {};
-runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
-  name === './sections' ? sections
-    : name === './story-view' ? { LazySection: () => null }
-      : name === './code' ? { CodeBlock: () => { throw new Error('Closed Code panel rendered eagerly'); } }
-        : name.startsWith('./') ? {} : require(name), exports);
+const storyOverrides: unknown[] = [];
+const snippetArgs: unknown[] = [];
+const snippets: (string | null)[] = [];
+
+function loadControls(observeStories = false) {
+  const exports: { getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault; ControlledStoryFrame?: typeof Frame } = {};
+  const sectionsModule = observeStories ? {
+    ...sections,
+    usageSnippet: (name: string, args: Record<string, unknown> | undefined) => {
+      const snippet = sections.usageSnippet(name, args);
+      snippetArgs.push(args);
+      snippets.push(snippet);
+      return snippet;
+    },
+  } : sections;
+  runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
+    name === './sections' ? sectionsModule
+      : name === './story-view' ? {
+        LazySection: observeStories ? ({ children }: { children: ReactNode }) => children : () => null,
+        StoryView: ({ overrides }: { overrides: unknown }) => { storyOverrides.push(overrides); return null; },
+      }
+        : name === './code' ? { CodeBlock: () => { throw new Error('Closed Code panel rendered eagerly'); } }
+          : name.startsWith('./') ? {} : require(name), exports);
+  return exports;
+}
+
+const exports = loadControls();
 const getStoryControls = exports.getStoryControls!;
 
 test('controls merge annotations without replacing explicit args with argType defaults', () => {
@@ -136,4 +157,22 @@ test('literal defaults keep objects, arrays and null; expressions never become b
     { name: 'expression', defaultValue: 'fallback()' },
     { name: 'absent', defaultValue: 'undefined' },
   ]), { items: [], nullable: null });
+});
+
+test('component defaults are display-only, never injected into stories or usage snippets', () => {
+  const module = {
+    default: { component: () => null, args: { label: 'Story' }, argTypes: { size: { control: 'text' } } },
+    Default: { args: { label: 'Example' } },
+  };
+  storyOverrides.length = 0;
+  snippetArgs.length = 0;
+  snippets.length = 0;
+  const observing = loadControls(true);
+  const markup = renderToStaticMarkup(createElement(observing.ControlledStoryFrame!, {
+    module, story: 'Default', componentName: 'Widget', componentDefaults: { size: 'sm' },
+  }));
+  assert.match(markup, /value="sm"/, 'the control displays the source-derived default');
+  assert.deepEqual(storyOverrides, [{}], 'only explicit reader edits override the story');
+  assert.deepEqual(snippetArgs, [{ label: 'Example' }], 'source defaults are not JSX arguments');
+  assert.deepEqual(snippets, ['<Widget label="Example">\n  …\n</Widget>'], 'the real snippet omits source defaults');
 });
