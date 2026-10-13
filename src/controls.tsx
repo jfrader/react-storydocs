@@ -2,8 +2,9 @@
 import { useState } from 'react';
 import { ComponentDemo } from './component-demo';
 export { hasHorizontalOverflow } from './component-demo';
-import { mergeAnnotations, usageSnippet, type DocsParameters } from './sections';
+import { mergeAnnotations, buildUsageSnippet, type DocsParameters } from './sections';
 import { StoryView } from './story-view';
+import { storySource } from 'virtual:storybook-docs/catalog';
 
 interface StoryShape {
   name?: string;
@@ -117,9 +118,20 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const skipped: string[] = (['loaders', 'beforeEach'] as const).filter((key) => meta[key] || definition[key]);
   if (definition.parameters?.viewport ?? meta.parameters?.viewport) skipped.push('viewport');
   const codeLanguage = docsOverride?.source?.language ?? docsMeta?.source?.language ?? 'tsx';
-  const snippet = authoredCode ?? (!(meta as { component?: unknown }).component || typeof definition.render === 'function' || typeof meta.render === 'function'
-    ? null
-    : usageSnippet(componentName, { ...meta.args, ...definition.args, ...edits }));
+  // One rule for a snippet, shared with the page: authored source first, otherwise the story's own
+  // arguments, always with the import. Previously the frame skipped the derived branch whenever a
+  // story used a custom render, so its Code panel claimed no code existed while the page above it
+  // showed one.
+  const snippet = buildUsageSnippet({
+    componentName,
+    from: storySource,
+    args: { ...meta.args, ...definition.args, ...edits },
+    source: authoredCode,
+    // A story name is not a component name: only a part-qualified name (the rare `Dialog.Content`
+    // story) is worth using as the JSX tag, otherwise the component's own name is the honest one.
+    jsxName: storyName.includes('.') ? storyName : undefined,
+    component: (meta as { component?: unknown }).component,
+  });
   return (
     <ComponentDemo story={story} storyName={storyName} authoredStory={authoredStory}
       skipped={skipped} controls={controls} args={args} unavailable={unavailable} changed={changed}

@@ -41,6 +41,7 @@ function loadControls(observeStories = false) {
         StoryView: ({ overrides }: { overrides: unknown }) => { storyOverrides.push(overrides); return null; },
       }
         : name === './code' ? { CodeBlock: () => { throw new Error('Closed Code panel rendered eagerly'); } }
+          : name === 'virtual:storybook-docs/catalog' ? { storySource: '@jfrader/ui' }
           : name.startsWith('./') ? {} : require(name);
   runInThisContext(`(function(require, exports) { ${demoCompiled}\n})`)(resolve, demoExports);
   runInThisContext(`(function(require, exports) { ${compiled}\n})`)(resolve, exports);
@@ -218,6 +219,14 @@ test('component defaults are display-only, never injected into stories or usage 
   }));
   assert.match(markup, /value="sm"/, 'the control displays the source-derived default');
   assert.deepEqual(storyOverrides, [{}], 'only explicit reader edits override the story');
-  assert.deepEqual(snippetArgs, [{ label: 'Example' }], 'source defaults are not JSX arguments');
-  assert.deepEqual(snippets, ['<Widget label="Example" />'], 'the real snippet omits source defaults');
+  // The frame and the page share one builder now, so assert it directly: the story's own arguments
+  // become JSX arguments, and the component's source-derived default (size: 'sm' above) never does.
+  const built = sections.buildUsageSnippet({
+    componentName: 'Widget',
+    from: '@jfrader/ui',
+    args: { label: 'Example' },
+    component: () => null,
+  });
+  assert.equal(built, `import { Widget } from '@jfrader/ui';\n\n<Widget label="Example" />`);
+  assert.ok(!/size/.test(built ?? ''), 'the source-derived default never becomes a JSX argument');
 });
