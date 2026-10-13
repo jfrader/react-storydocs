@@ -47,6 +47,27 @@ test('component page moves its selected frame above Usage exactly once', () => {
   assert.doesNotMatch(markup, /data-story="Hidden"/);
 });
 
+test('component page uses overlay anatomy and open args without admitting !autodocs fixtures', () => {
+  const component = Object.assign(() => null, { Trigger: () => null, Content: () => null });
+  const markup = renderPage({
+    default: { component }, Default: {},
+    Open: { tags: ['!autodocs'], args: { defaultOpen: true } },
+    PersistentOpen: { args: { defaultOpen: true } },
+    DisabledOpen: { args: { open: true } },
+  }, 'Dialog');
+  assert.ok(markup.indexOf('data-story="PersistentOpen"') < markup.indexOf('<h2>Usage</h2>'));
+  assert.equal(markup.match(/data-story="PersistentOpen"/g)?.length, 1);
+  assert.doesNotMatch(markup, /data-story="Open"/);
+});
+
+test('documentation table styling cannot leak into story or portalled calendar tables', () => {
+  const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(css, /(?:^|\n)(?:table|th|td|tbody th|th \+ th|td \+ td)\s*[{,]/);
+  for (const selector of ['table', 'table th', 'table tbody th', 'table td']) {
+    assert.ok(css.includes(`:is(.table-scroll, .guidance-table) > ${selector} {`));
+  }
+});
+
 test('component Usage merges default-story args, even when its render is custom', () => {
   const markup = renderPage({
     default: { component: {}, args: { variant: 'solid', children: 'Meta' } },

@@ -102,6 +102,34 @@ test('selectExample: Default/Primary then descriptions and showcases, never debu
   assert.equal(selectExample([]), null);
 });
 
+test('selectExample: overlay anatomy prefers an open showcase over its trigger-only Default', () => {
+  const stories = [{ name: 'Default' }, { name: 'CustomPreview', args: { defaultOpen: true } },
+    { name: 'PersistentOpen', args: { defaultOpen: true } }];
+  assert.equal(selectExample(stories, ['Trigger', 'Content']), 'PersistentOpen');
+  assert.equal(selectExample(stories, ['Target', 'Panel']), 'PersistentOpen');
+  assert.equal(selectExample(stories, ['Input', 'Popup']), 'PersistentOpen');
+  assert.equal(selectExample(stories), 'Default');
+  assert.equal(selectExample(stories, ['Trigger']), 'Default');
+  assert.equal(selectExample(stories.slice(0, 2), ['Trigger', 'Content']), 'CustomPreview');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'Open' }], ['Trigger', 'Content']), 'Open');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'PlanZeroAndLongIdentity', args: { open: true } },
+    { name: 'OpenDesktop', args: { defaultOpen: true } }], ['Trigger', 'Content']), 'OpenDesktop');
+});
+
+test('selectExample: open siblings never admit debug states or override explicit closed args', () => {
+  const stories = ['ControlledOpen', 'Disabled', 'Error', 'RTL', 'PersistentOpenLight', 'KeyboardOpen',
+    'OpenControlled', 'OpenInvalid', 'PersistentOpenKeyboard', 'OutsidePress', 'PlanZero', 'OpenNoDescription']
+    .map((name) => ({ name, args: { open: true } }));
+  assert.equal(selectExample([{ name: 'Default' }, ...stories], ['Trigger', 'Content']), 'Default');
+  assert.equal(selectExample(stories, ['Trigger', 'Content']), null);
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'Open', args: { open: false } }], ['Trigger', 'Content']), 'Default');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'Persistent', args: { defaultOpen: false } }], ['Trigger', 'Content']), 'Default');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'OpenOnClickOptIn' }], ['Trigger', 'Content']), 'Default');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'Open', args: { defaultOpen: true, open: false } }], ['Trigger', 'Content']), 'Default');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'First', args: { open: true } },
+    { name: 'Second', args: { open: true } }], ['Trigger', 'Content']), 'First');
+});
+
 test('selectExample: stable ties and moving the selection keep each story once', () => {
   const stories = ['Loading', 'Sizes', 'WithIcons', 'Other'];
   const chosen = selectExample(stories.map((name) => ({ name })));

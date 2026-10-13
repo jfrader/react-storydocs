@@ -87,17 +87,43 @@ export function sectionStories(stories: string[]): StorySection[] {
 export interface ExampleStory {
   name: string;
   description?: string;
+  args?: Record<string, unknown>;
 }
 
 const DEBUG_STORY = /\b(?:loading|disabled|error|invalid|pending|failure|failed|reject(?:ed)?|rtl|ltr|forced|keyboard|light|dark|theme|motion|controlled|uncontrolled|empty|missing|boundary|boundaries|ref|veto|open|closed|focus|hover|pressed|busy|checked|selected|readonly|read only|indeterminate|success|a11y|aria|contrast|locale|zoom)\b/i;
 const SHOWCASE_STORY = /^(highlighted|card|patterns?|composition|showcase|playground)$/i;
 const CONTENT_STORY = /withicons|sizes|variants|patterns|composition|example|content/i;
+const OPEN_SHOWCASE = /^(?:open|persistent)\b/i;
+const OVERLAY_FIXTURE = /\b(?:debug|test|fixture|zero|falsy|external|refs?|styling|sx|isolation|cleanup|unmount|broken|escape|outside|scroll|prevent|veto|rebase|no description)\b/i;
+
+function storyWords(name: string): string {
+  return name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ');
+}
 
 /** Prefer a complete composition (a highlighted block or placeholder card) over a bare
  * Default. Otherwise lead with Default/Primary, then authored or named showcases.
- * State, environment and test fixtures never introduce a component. Ties keep source order. */
-export function selectExample(stories: ExampleStory[]): string | null {
-  const candidates = stories.filter((story) => !DEBUG_STORY.test(story.name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ')));
+ * Overlay anatomy (an invoker plus a floating part) and an open sibling together identify
+ * overlays without component-name lists. Prefer an Open/Persistent showcase, then a safe
+ * composition with authored open args. Suffixed names require open args; plain Open/Persistent
+ * names can stand alone. Only those names may bypass the `open` state filter;
+ * controlled, disabled, theme and other debug fixtures remain excluded. Callers exclude !autodocs.
+ * Without an eligible open sibling, retain the normal choice. Ties keep source order. */
+export function selectExample(stories: ExampleStory[], parts: string[] = []): string | null {
+  const overlay = parts.some((part) => /^(trigger|target|input)$/i.test(part))
+    && parts.some((part) => /^(content|panel|popup)$/i.test(part));
+  const isOpenShowcase = (story: ExampleStory) => OPEN_SHOWCASE.test(storyWords(story.name))
+    && !DEBUG_STORY.test(storyWords(story.name).replace(/\b(?:open|persistent)\b/gi, ''))
+    && !OVERLAY_FIXTURE.test(storyWords(story.name));
+  const isOpen = (story: ExampleStory) => story.args?.open !== false && (story.args?.open === true
+    || story.args?.defaultOpen === true || (/^(?:open|persistent(?: open)?)$/i.test(storyWords(story.name))
+      && story.args?.defaultOpen !== false));
+  const candidates = stories.filter((story) => !DEBUG_STORY.test(storyWords(story.name))
+    && (!overlay || !OVERLAY_FIXTURE.test(storyWords(story.name))));
+  if (overlay) {
+    const open = stories.find((story) => isOpenShowcase(story) && isOpen(story))
+      ?? candidates.find(isOpen);
+    if (open) return open.name;
+  }
   return (candidates.find((story) => SHOWCASE_STORY.test(story.name))
     ?? candidates.find((story) => /^(default|primary)$/i.test(story.name))
     ?? candidates.find((story) => story.description?.trim())

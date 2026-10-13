@@ -198,7 +198,8 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const example = selectExample(visibleStories.map((name) => ({
     name,
     description: (module?.[name] as UsageStory | undefined)?.parameters?.docs?.description?.story,
-  })));
+    args: { ...defaultArgs, ...(module?.[name] as UsageStory | undefined)?.args },
+  })), Object.keys(meta.component ?? {}));
   const sections = useMemo(() => sectionStories(visibleStories.filter((story) => story !== example)), [visibleStories, example]);
   const defaultStory = (module?.[visibleStories.find((name) => /^default$/i.test(name)) ?? example ?? ''] ?? {}) as UsageStory;
   // Another authored sample can document compound anatomy that Default's args cannot express.
