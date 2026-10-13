@@ -1,6 +1,5 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import './toc.css';
 
 const STORY_PARAM = 'story';
@@ -9,7 +8,6 @@ const SETTLE_TICK_MS = 250;
 const SETTLE_TICKS = 16;
 const SETTLE_TOLERANCE_PX = 4;
 const FLASH_MS = 2600;
-const COPIED_MS = 1800;
 const ACTIVE_ROOT_MARGIN = `-${SCROLL_OFFSET_PX}px 0px -60% 0px`;
 
 /** The hash without its query: `#/components/button?story=Variants` → `#/components/button`. */
@@ -34,7 +32,6 @@ interface StoryItem {
   name: string;
   story: string;
   element: HTMLElement;
-  slot: HTMLElement;
 }
 
 interface SectionItem {
@@ -83,16 +80,10 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
       const header = frame.querySelector<HTMLElement>(':scope > header');
       const name = header?.querySelector('span')?.textContent;
       if (!header || !name) return;
-      let slot = header.querySelector<HTMLElement>(':scope > [data-toc-slot]');
-      if (!slot) {
-        slot = document.createElement('span');
-        slot.dataset.tocSlot = '';
-        header.append(slot);
-      }
       const story = frame.dataset.story ?? name;
       frame.id ||= unique('story', story);
       frame.dataset.toc = '';
-      const item = { id: frame.id, name, story, element: frame, slot };
+      const item = { id: frame.id, name, story, element: frame };
       stories.push(item);
       frames.push(item);
     });
@@ -139,47 +130,6 @@ function scrollToElement(element: HTMLElement) {
   window.setTimeout(settle, SETTLE_TICK_MS);
 }
 
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const area = document.createElement('textarea');
-    area.value = text;
-    area.setAttribute('readonly', '');
-    area.className = 'toc-clipboard';
-    document.body.append(area);
-    area.select();
-    const copied = document.execCommand('copy');
-    area.remove();
-    return copied;
-  }
-}
-
-function CopyLink({ name, story }: { name: string; story: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), COPIED_MS);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-  return (
-    <>
-      <button
-        type="button"
-        className="toc-copy"
-        aria-label={`Copy link to ${name}`}
-        onClick={async () => setCopied(await copyText(storyLink(window.location, story)))}
-      >
-        {copied ? 'Copied' : 'Copy link'}
-      </button>
-      <span role="status" className="toc-sr">
-        {copied ? `Link to ${name} copied` : ''}
-      </span>
-    </>
-  );
-}
-
 function useActiveIds(scan: Scan | null) {
   const [active, setActive] = useState<{ section: string | null; story: string | null }>({ section: null, story: null });
   useEffect(() => {
@@ -203,7 +153,7 @@ function useActiveIds(scan: Scan | null) {
   return active;
 }
 
-/** The "On this page" rail, the per-story copy-link buttons and the `?story=` deep-link landing. */
+/** The "On this page" rail and the `?story=` deep-link landing. */
 export function PageRail({ pageKey }: { pageKey: string }) {
   const [scan, setScan] = useState<Scan | null>(null);
   const pageKeyRef = useRef(pageKey);
@@ -308,7 +258,6 @@ export function PageRail({ pageKey }: { pageKey: string }) {
           </ul>
         </aside>
       ) : null}
-      {scan.frames.map((frame) => createPortal(<CopyLink name={frame.name} story={frame.story} />, frame.slot, frame.id))}
     </>
   );
 }
