@@ -26,7 +26,9 @@ try {
   run('tar', ['-xzf', archive, '-C', 'unpacked']);
   const packed = JSON.parse(await readFile(path.join(temporary, 'unpacked/package/package.json'), 'utf8'));
   assert.equal(packed.version, manifest.version);
-  assert.deepEqual(packed.exports, manifest.publishConfig.exports, 'Pack must apply published exports');
+  // One shape: what the manifest declares is what ships. The entries still have to point into
+  // dist and exist in the tarball, which the checks below enforce.
+  assert.deepEqual(packed.exports, manifest.exports, 'Packed entries must match the manifest');
   assert.deepEqual(packed.sideEffects, ['**/*.css'], 'CSS must survive consumer tree shaking');
   for (const entry of Object.values(packed.exports)) {
     for (const target of Object.values(entry)) {
