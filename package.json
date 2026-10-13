@@ -49,17 +49,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      },
-      "./vite": {
-        "types": "./dist/vite-plugin.d.ts",
-        "import": "./dist/vite-plugin.js"
-      }
-    }
+    "registry": "https://registry.npmjs.org"
   },
   "keywords": [
     "storybook",
