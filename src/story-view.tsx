@@ -2,27 +2,39 @@
 import { Component, createElement, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from './config';
 import { Skeleton } from './skeleton';
+import { mergeAnnotations } from './sections';
 
-/** The slice of CSF the docs front needs. Decorators, loaders and play functions stay in Storybook. */
 interface StoryDefinition {
-  decorators?: unknown[];
+  decorators?: DecoratorLike[];
   render?: (args: Record<string, unknown>, context: unknown) => ReactNode;
   args?: Record<string, unknown>;
-}
-
-interface MetaDefinition {
-  render?: (args: Record<string, unknown>, context: unknown) => ReactNode;
-  decorators?: unknown[];
-  component?: ComponentType<Record<string, unknown>>;
-  args?: Record<string, unknown>;
+  name?: string;
+  globals?: Record<string, unknown>;
   argTypes?: Record<string, Record<string, unknown>>;
-  parameters?: { docs?: { description?: { component?: string } } };
+  parameters?: Record<string, unknown>;
 }
 
-class StoryBoundary extends Component<{ children: ReactNode; story: string }, { failed: boolean; message: string }> {
+interface MetaDefinition extends StoryDefinition {
+  title?: string;
+  component?: ComponentType<Record<string, unknown>>;
+}
+
+interface StoryBoundaryProps {
+  children: ReactNode;
+  story: string;
+  module: Record<string, unknown>;
+  overrides?: Record<string, unknown>;
+}
+
+class StoryBoundary extends Component<StoryBoundaryProps, { failed: boolean; message: string }> {
   state = { failed: false, message: '' };
   static getDerivedStateFromError(error: unknown) {
     return { failed: true, message: error instanceof Error ? error.message : String(error) };
+  }
+  componentDidUpdate(previous: StoryBoundaryProps) {
+    if (this.state.failed && (previous.module !== this.props.module || previous.overrides !== this.props.overrides)) {
+      this.setState({ failed: false, message: '' });
+    }
   }
   render() {
     if (this.state.failed) {
@@ -47,38 +59,60 @@ export function StoryView({
   story: string;
   overrides?: Record<string, unknown>;
 }) {
+  return (
+    <StoryBoundary key={story} story={story} module={module} overrides={overrides}>
+      <StoryContent module={module} story={story} overrides={overrides} />
+    </StoryBoundary>
+  );
+}
+
+function StoryContent({ module, story, overrides }: {
+  module: Record<string, unknown>;
+  story: string;
+  overrides?: Record<string, unknown>;
+}) {
   const meta = (module.default ?? {}) as MetaDefinition;
   const definition = (module[story] ?? {}) as StoryDefinition;
   const args = { ...meta.args, ...definition.args, ...overrides };
+  const argTypes = mergeAnnotations(meta.argTypes, definition.argTypes);
+  for (const [name, type] of Object.entries(argTypes)) {
+    const mapping = (type as { mapping?: Record<string, unknown> }).mapping;
+    const map = (value: unknown) => {
+      const key = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? String(value) : null;
+      return mapping && key !== null && Object.hasOwn(mapping, key) ? mapping[key] : value;
+    };
+    if (Object.hasOwn(args, name)) args[name] = Array.isArray(args[name]) ? args[name].map(map) : map(args[name]);
+  }
+  const context = {
+    args, initialArgs: { ...meta.args, ...definition.args }, argTypes,
+    globals: { ...meta.globals, ...definition.globals },
+    parameters: mergeAnnotations(meta.parameters, definition.parameters),
+    name: definition.name ?? story, story: definition.name ?? story,
+    title: meta.title, component: meta.component, viewMode: 'story', loaded: {},
+  };
   // Storybook's precedence: the story's own render, then the meta's render, then the component
   // with its args. Skipping the meta render breaks every story that only overrides args.
   const render = definition.render ?? meta.render;
-  const node =
+  const renderStory = (current: typeof context): ReactNode =>
     typeof render === 'function'
-      ? render(args, {})
+      ? render(current.args, current)
       : meta.component
-        ? createElement(meta.component, args)
+        ? createElement(meta.component, current.args)
         : null;
-  if (!node) return <div className="story-failed">Story “{story}” has nothing to render.</div>;
+  if (!render && !meta.component) return <div className="story-failed">Story “{story}” has nothing to render.</div>;
   const decorators = [
-    ...((meta.decorators ?? []) as DecoratorLike[]),
-    ...((definition.decorators ?? []) as DecoratorLike[]),
+    ...(definition.decorators ?? []),
+    ...(meta.decorators ?? []),
   ];
-  const decorated = decorators.length
-    ? applyDecorators(node, decorators, { args, globals: {}, viewMode: 'story' })
-    : node;
-  return <StoryBoundary story={story}>{decorated}</StoryBoundary>;
-}
-
-type DecoratorLike = (Story: () => ReactNode, context: unknown) => ReactNode;
-
-/** Storybook's order: meta decorators wrap story decorators, which wrap the story itself. */
-function applyDecorators(node: ReactNode, decorators: DecoratorLike[], context: unknown): ReactNode {
-  return decorators.reduceRight<ReactNode>(
-    (inner, decorator) => decorator(() => inner, context),
-    node,
+  const decorated = decorators.reduce<(current: typeof context) => ReactNode>(
+    (inner, decorator) => (current) => decorator(
+      (update) => inner({ ...current, ...update }), current,
+    ), renderStory,
   );
+  return decorated(context);
 }
+
+type DecoratorLike = (Story: (update?: { args?: Record<string, unknown> }) => ReactNode, context: unknown) => ReactNode;
 
 /** Lazily imports the same module Storybook loads; resolves once per entry. */
 export function useStoryModule(entry: CatalogEntry) {

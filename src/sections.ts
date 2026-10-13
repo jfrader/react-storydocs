@@ -8,6 +8,20 @@ export type DocsParameters = {
   source?: { code?: string; language?: string };
 };
 
+export function mergeAnnotations(...values: Array<Record<string, unknown> | undefined>): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
+  for (const value of values) {
+    for (const [key, next] of Object.entries(value ?? {})) {
+      if (next === undefined) continue;
+      const previous = merged[key];
+      merged[key] = isRecord(previous) && isRecord(next) ? mergeAnnotations(previous, next) : next;
+    }
+  }
+  return merged;
+}
+
 /**
  * Story names carry the structure of a component's docs: which stories are variants,
  * which are states, which are environments. Bucketing them beats one flat list.

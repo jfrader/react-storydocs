@@ -4,19 +4,25 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { runInThisContext } from 'node:vm';
 import ts from 'typescript';
-import type { getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault } from '../src/controls.tsx';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import * as sections from '../src/sections.ts';
+import type { ControlledStoryFrame as Frame, getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault } from '../src/controls.tsx';
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../src/controls.tsx', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const exports: { getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault } = {};
+const exports: { ControlledStoryFrame?: typeof Frame; getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault } = {};
 runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
-  name.startsWith('./') ? {} : require(name), exports);
+  name === './sections' ? sections
+    : name === './story-view' ? { LazySection: () => null }
+      : name === './code' ? { CodeBlock: () => { throw new Error('Closed Code panel rendered eagerly'); } }
+        : name.startsWith('./') ? {} : require(name), exports);
 const getStoryControls = exports.getStoryControls!;
 
-test('controls merge story args and argTypes, preferring explicit argType defaults', () => {
+test('controls merge annotations without replacing explicit args with argType defaults', () => {
   const meta = {
     args: { size: 'md', loading: true, count: 5, children: 'Save' },
     argTypes: {
@@ -28,19 +34,20 @@ test('controls merge story args and argTypes, preferring explicit argType defaul
   };
   const story = { args: { size: 'lg' }, argTypes: { children: { control: 'string' } } };
   const result = getStoryControls(meta, story);
-  assert.deepEqual(result.args, { size: 'lg', loading: false, count: 0, children: 'Save' });
+  assert.deepEqual(result.args, { size: 'lg', loading: true, count: 5, children: 'Save' });
   assert.deepEqual(result.controls.map(({ name, type }) => [name, type]), [
     ['size', 'select'], ['loading', 'boolean'], ['count', 'number'], ['children', 'text'],
   ]);
   assert.equal(result.unavailable, null);
   assert.equal(meta.args.loading, true, 'defaults do not mutate the imported story module');
-  assert.deepEqual(getStoryControls(meta, {}).args, { size: 'md', loading: false, count: 0, children: '' });
+  assert.deepEqual(getStoryControls(meta, {}).args, meta.args);
+  assert.equal(getStoryControls({ argTypes: { count: { control: 'number', defaultValue: 2 } } }, {}).args.count, 2);
+  assert.equal(getStoryControls(meta, { args: { count: undefined } }).args.count, undefined);
 });
 
 test('unsupported, disabled and optionless controls are ignored without changing args', () => {
   const result = getStoryControls({ args: { color: 'red' }, argTypes: {
     color: { control: 'color', defaultValue: 'blue' },
-    object: { control: 'object' },
     disabled: { control: false },
     missing: { control: 'select' },
     empty: { control: 'radio', options: [] },
@@ -51,14 +58,39 @@ test('unsupported, disabled and optionless controls are ignored without changing
   assert.match(result.unavailable!, /no supported argTypes/);
 });
 
-test('custom renders and absent argTypes retain story defaults and explain unavailability', () => {
+test('custom renders accept controls and retain story defaults', () => {
   const meta = { args: { loading: true }, argTypes: { loading: { control: 'boolean', defaultValue: false } } };
   const custom = getStoryControls(meta, { render: () => null, args: { label: 'Custom' } });
   assert.deepEqual(custom.args, { loading: true, label: 'Custom' });
-  assert.deepEqual(custom.controls, []);
-  assert.match(custom.unavailable!, /custom render/);
-  assert.match(getStoryControls({ ...meta, render: () => null }, {}).unavailable!, /custom render/);
+  assert.deepEqual(custom.controls, [{ name: 'loading', type: 'boolean' }]);
+  assert.equal(custom.unavailable, null);
+  assert.equal(getStoryControls({ ...meta, render: () => null }, {}).unavailable, null);
   assert.match(getStoryControls({}, {}).unavailable!, /no supported argTypes/);
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Button', story: 'Example',
+    module: { default: meta, Example: {
+      name: 'Authored example', render: () => null,
+      parameters: { layout: 'fullscreen', docs: { source: { code: '<Button />' } } },
+    } },
+  }));
+  assert.match(html, /Controls for Authored example/);
+  assert.match(html, /data-story="Example"/);
+  assert.match(html, /data-layout="fullscreen"/);
+  assert.match(html, /<summary>Code<\/summary><\/details>/);
+  assert.ok(!html.includes('&lt;Button'), 'closed Code panels do not render their source');
+});
+
+test('story control overrides retain inherited options and support corpus control types', () => {
+  const result = getStoryControls({ argTypes: {
+    mode: { control: 'radio', options: ['a', 'b'] },
+    value: { control: { type: 'range', min: 0, max: 100, step: 5 } },
+    data: { control: 'object' },
+  } }, { argTypes: { mode: { control: 'inline-radio' } } });
+  assert.deepEqual(result.controls, [
+    { name: 'mode', type: 'select', options: ['a', 'b'] },
+    { name: 'value', type: 'range', min: 0, max: 100, step: 5 },
+    { name: 'data', type: 'object' },
+  ]);
 });
 
 test('select options keep primitive value types rather than coercing to strings', () => {
