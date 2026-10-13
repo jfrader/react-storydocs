@@ -4,17 +4,22 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { runInThisContext } from 'node:vm';
 import ts from 'typescript';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import * as sections from '../src/sections.ts';
-import type { getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault } from '../src/controls.tsx';
+import type { ControlledStoryFrame as Frame, getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault } from '../src/controls.tsx';
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../src/controls.tsx', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const exports: { getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault } = {};
+const exports: { ControlledStoryFrame?: typeof Frame; getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault } = {};
 runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
-  name === './sections' ? sections : name.startsWith('./') ? {} : require(name), exports);
+  name === './sections' ? sections
+    : name === './story-view' ? { LazySection: () => null }
+      : name === './code' ? { CodeBlock: () => { throw new Error('Closed Code panel rendered eagerly'); } }
+        : name.startsWith('./') ? {} : require(name), exports);
 const getStoryControls = exports.getStoryControls!;
 
 test('controls merge annotations without replacing explicit args with argType defaults', () => {
@@ -61,6 +66,18 @@ test('custom renders accept controls and retain story defaults', () => {
   assert.equal(custom.unavailable, null);
   assert.equal(getStoryControls({ ...meta, render: () => null }, {}).unavailable, null);
   assert.match(getStoryControls({}, {}).unavailable!, /no supported argTypes/);
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Button', story: 'Example',
+    module: { default: meta, Example: {
+      name: 'Authored example', render: () => null,
+      parameters: { layout: 'fullscreen', docs: { source: { code: '<Button />' } } },
+    } },
+  }));
+  assert.match(html, /Controls for Authored example/);
+  assert.match(html, /data-story="Example"/);
+  assert.match(html, /data-layout="fullscreen"/);
+  assert.match(html, /<summary>Code<\/summary><\/details>/);
+  assert.ok(!html.includes('&lt;Button'), 'closed Code panels do not render their source');
 });
 
 test('story control overrides retain inherited options and support corpus control types', () => {

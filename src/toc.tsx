@@ -32,6 +32,7 @@ export function storyLink(location: Location, story: string): string {
 interface StoryItem {
   id: string;
   name: string;
+  story: string;
   element: HTMLElement;
   slot: HTMLElement;
 }
@@ -88,9 +89,10 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
         slot.dataset.tocSlot = '';
         header.append(slot);
       }
-      frame.id ||= unique('story', name);
+      const story = frame.dataset.story ?? name;
+      frame.id ||= unique('story', story);
       frame.dataset.toc = '';
-      const item = { id: frame.id, name, element: frame, slot };
+      const item = { id: frame.id, name, story, element: frame, slot };
       stories.push(item);
       frames.push(item);
     });
@@ -113,7 +115,7 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
 
 const signature = (scan: Scan) =>
   `${scan.pageKey}|${scan.sections
-    .map((s) => `${s.id}(${s.subs.map((sub) => sub.id).join('+')}):${s.stories.map((st) => st.id).join(',')}`)
+    .map((s) => `${s.id}(${s.subs.map((sub) => sub.id).join('+')}):${s.stories.map((st) => `${st.id}:${st.name}`).join(',')}`)
     .join(';')}`;
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -154,7 +156,7 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-function CopyLink({ name }: { name: string }) {
+function CopyLink({ name, story }: { name: string; story: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -167,7 +169,7 @@ function CopyLink({ name }: { name: string }) {
         type="button"
         className="toc-copy"
         aria-label={`Copy link to ${name}`}
-        onClick={async () => setCopied(await copyText(storyLink(window.location, name)))}
+        onClick={async () => setCopied(await copyText(storyLink(window.location, story)))}
       >
         {copied ? 'Copied' : 'Copy link'}
       </button>
@@ -241,6 +243,8 @@ export function PageRail({ pageKey }: { pageKey: string }) {
   useEffect(() => {
     if (!target || !scan || scan.pageKey !== pageKey) return;
     const match =
+      scan.frames.find((frame) => frame.story === target) ??
+      scan.frames.find((frame) => frame.story.toLowerCase() === target.toLowerCase()) ??
       scan.frames.find((frame) => frame.name === target) ??
       scan.frames.find((frame) => frame.name.toLowerCase() === target.toLowerCase());
     if (!match) return;
@@ -304,7 +308,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
           </ul>
         </aside>
       ) : null}
-      {scan.frames.map((frame) => createPortal(<CopyLink name={frame.name} />, frame.slot, frame.id))}
+      {scan.frames.map((frame) => createPortal(<CopyLink name={frame.name} story={frame.story} />, frame.slot, frame.id))}
     </>
   );
 }

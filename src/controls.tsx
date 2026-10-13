@@ -172,7 +172,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
     ? null
     : usageSnippet(componentName, { ...meta.args, ...definition.args, ...edits }));
   return (
-    <div className="frame">
+    <div className="frame" data-story={story}>
       <header><span>{storyName}</span></header>
       {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
       {skipped.length ? <p className="sd-controls-note">Not applied here: {skipped.join(', ')}. Open this story in Storybook.</p> : null}
