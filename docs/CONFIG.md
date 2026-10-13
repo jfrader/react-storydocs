@@ -54,7 +54,10 @@ export default {
 ```
 
 ```tsx
-// src/code.tsx — the module's default export receives { code, language }.
+// src/code.tsx — the module's default export receives { code, language, label }.
+// `label` is optional and names the panel for assistive tech; forward it to your renderer
+// (a design system's code block usually takes a `label`) so a page with many examples does not
+// expose several landmarks with the same name.
 import { CodeBlock } from '@acme/ui';
 import { loadShikiHighlight } from '@acme/ui/code-block/shiki';
 
