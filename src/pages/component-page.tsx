@@ -1,11 +1,12 @@
 /** @jsxImportSource react */
 import { useMemo, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
+import { storySource } from 'virtual:storybook-docs/catalog';
 import { Guidance } from '../guidance';
 import { CodeBlock } from '../code';
 import { defaultsFromProps } from '../controls';
 import { MarkdownView } from '../guidance';
-import { sectionStories, usageSnippet, type DocsParameters } from '../sections';
+import { sectionStories, selectExample, buildUsageSnippet, type DocsParameters } from '../sections';
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
 import { useProps, type ComponentPropsDoc, type PropDoc } from '../props';
@@ -24,7 +25,13 @@ function formatValue(value: unknown): string {
 }
 
 interface MetaShape {
+  component?: { displayName?: string };
   argTypes?: Record<string, Record<string, unknown>>;
+  args?: Record<string, unknown>;
+  parameters?: { docs?: DocsParameters };
+}
+
+interface UsageStory {
   args?: Record<string, unknown>;
   parameters?: { docs?: DocsParameters };
 }
@@ -178,9 +185,6 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const defaultArgs = meta.args ?? {};
   const description = meta.parameters?.docs?.description?.component;
   const usage = meta.parameters?.docs?.usage;
-  const authoredCode = meta.parameters?.docs?.source?.code;
-  // Authored samples declare their own language; the snippet derived from arguments is JSX.
-  const codeLanguage = meta.parameters?.docs?.source?.language ?? 'tsx';
   // Storybook's `!autodocs` tag excludes a story from docs pages; those stories are usually
   // authored that way because rendering them on a docs page is hostile (inert overlays).
   const visibleStories = useMemo(() => {
@@ -191,14 +195,34 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       return ![...metaTags, ...storyTags].includes('!autodocs');
     });
   }, [entry.stories, meta, module]);
-  const sections = useMemo(() => sectionStories(visibleStories), [visibleStories]);
+  const example = selectExample(visibleStories.map((name) => ({
+    name,
+    description: (module?.[name] as UsageStory | undefined)?.parameters?.docs?.description?.story,
+  })));
+  const sections = useMemo(() => sectionStories(visibleStories.filter((story) => story !== example)), [visibleStories, example]);
+  const defaultStory = (module?.[visibleStories.find((name) => /^default$/i.test(name)) ?? example ?? ''] ?? {}) as UsageStory;
+  // Another authored sample can document compound anatomy that Default's args cannot express.
+  const fallbackSource = visibleStories
+    .map((name) => (module?.[name] as UsageStory | undefined)?.parameters?.docs?.source)
+    .find((source) => source?.code?.trim());
+  const source = {
+    code: defaultStory.parameters?.docs?.source?.code ?? meta.parameters?.docs?.source?.code ?? fallbackSource?.code,
+    language: defaultStory.parameters?.docs?.source?.language ?? meta.parameters?.docs?.source?.language ?? fallbackSource?.language,
+  };
+  // Authored samples declare their own language; the snippet derived from arguments is JSX.
+  const codeLanguage = source?.language ?? 'tsx';
   // Foundations pages are stories-only metas: there is no component to instantiate, so a usage
   // snippet would be a made-up tag. Skip it there; component pages keep it.
   const snippet = useMemo(
     () =>
-      authoredCode ??
-      ((meta as { component?: unknown }).component ? usageSnippet(entry.name, defaultArgs) : null),
-    [authoredCode, entry.name, defaultArgs, meta],
+      entry.hasComponent ? buildUsageSnippet({
+        componentName: entry.name,
+        from: storySource,
+        component: meta.component,
+        source: source?.code,
+        args: { ...defaultArgs, ...defaultStory.args },
+      }) : null,
+    [source?.code, entry.name, entry.hasComponent, defaultArgs, defaultStory.args, meta.component],
   );
   // Own props only: inherited ones (DOM, ARIA) live behind their own disclosure, so counting them
   // here would show a number the reader cannot act on.
@@ -236,15 +260,13 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
 
       {module ? (
         <>
-          {snippet ? (
-            <>
-              <h2>Usage</h2>
-              <CodeBlock code={snippet} language={codeLanguage} />
-            </>
-          ) : null}
+          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} /> : null}
+          {entry.hasComponent ? <h2>Usage</h2> : null}
+          {snippet ? <CodeBlock code={snippet} language={codeLanguage} />
+            : entry.hasComponent ? <p>No usage code is authored for this component.</p> : null}
           {usage ? (
             <>
-              {snippet ? null : <h2>Usage</h2>}
+              {entry.hasComponent ? null : <h2>Usage</h2>}
               <MarkdownView markdown={usage} />
             </>
           ) : null}

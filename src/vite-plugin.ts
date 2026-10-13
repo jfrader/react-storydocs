@@ -50,7 +50,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
   };
 
   const modules: Record<string, () => string> = {
-    catalog: () => catalogCode(catalog),
+    catalog: () => `${catalogCode(catalog)}\nexport const storySource = ${JSON.stringify(config.stories.from)};`,
     site: () => siteCode(config),
     tokens: () => tokensCode(config.tokens),
     'global-styles': () => globalStylesCode(engineStyles, config.tokens?.css),
