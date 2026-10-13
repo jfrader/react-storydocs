@@ -414,8 +414,8 @@ pre.code {
   margin: 10px 0;
 }
 .hint,
-th + th,
-td + td {
+:is(.table-scroll, .guidance-table) > table th + th,
+:is(.table-scroll, .guidance-table) > table td + td {
   border-left: 0;
 }
 code.type {
@@ -462,14 +462,14 @@ details.code-toggle pre.code {
   background: var(--sd-surface);
 }
 
-table {
+:is(.table-scroll, .guidance-table) > table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
   margin: 16px 0;
   line-height: 1.6;
 }
-th {
+:is(.table-scroll, .guidance-table) > table th {
   text-align: left;
   font-size: 11px;
   letter-spacing: 0.07em;
@@ -479,7 +479,7 @@ th {
   background: var(--sd-surface);
   border-bottom: 1px solid var(--sd-border);
 }
-tbody th {
+:is(.table-scroll, .guidance-table) > table tbody th {
   font-size: inherit;
   letter-spacing: normal;
   text-transform: none;
@@ -489,7 +489,7 @@ tbody th {
   padding: 14px 16px;
   border-bottom: 1px solid var(--sd-border-subtle);
 }
-td {
+:is(.table-scroll, .guidance-table) > table td {
   padding: 14px 16px;
   border-bottom: 1px solid var(--sd-border-subtle);
   vertical-align: top;
