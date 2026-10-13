@@ -168,7 +168,11 @@ test('virtual code without a renderer exports an explicit fallback', async () =>
 test('virtual code re-exports the configured consumer renderer', async () => {
   const consumer = await fixture({ code: { module: './code.ts' } });
   try {
-    assert.equal(await consumer.source('code'), `export { default as Code } from ${JSON.stringify(path.join(consumer.root, 'code.ts'))};\nexport const provided = true;\n`);
+    const source = await consumer.source('code');
+    // The renderer is imported lazily: its highlighter must not sit in the initial bundle.
+    assert.match(source, /export const provided = true;/);
+    assert.match(source, /lazy\(/);
+    assert.ok(source.includes(JSON.stringify(path.join(consumer.root, 'code.ts'))), 'imports the configured module');
   } finally { await consumer.close(); }
 });
 
