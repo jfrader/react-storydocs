@@ -308,6 +308,11 @@ code {
 .frame .shot {
   padding: 26px;
   display: block;
+  /* Storybook's canvas scrolls when an example is wider than the viewport, instead of pushing the
+     whole page sideways (a component variant grid does exactly that on a phone). Overlays are
+     portalled to the document, so nothing that should escape the frame is clipped here. */
+  overflow-x: auto;
+  min-inline-size: 0;
 }
 .frame .story-lane[data-layout='centered'] {
   display: grid;
@@ -417,6 +422,10 @@ details.code-toggle summary {
   padding: 7px 12px;
   font-size: 12px;
   color: var(--sd-text-muted);
+  /* Keeps the tap target at the 24px minimum on touch screens. */
+  min-block-size: 24px;
+  display: flex;
+  align-items: center;
 }
 details.code-toggle pre.code {
   margin: 0;
@@ -620,6 +629,10 @@ section > h3 {
 }
 .group-card li a {
   font-size: 13.5px;
+  /* Touch targets, not just text boxes. */
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 24px;
 }
 .group-card .hint {
   margin: 8px 0 0;
