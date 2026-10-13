@@ -4,8 +4,14 @@
   "type": "module",
   "description": "A documentation front for any design system that has Storybook: navigation, live examples and API tables are generated from the story files themselves.",
   "exports": {
-    ".": "./src/index.ts",
-    "./vite": "./src/vite-plugin.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite-plugin.d.ts",
+      "import": "./dist/vite-plugin.js"
+    }
   },
   "peerDependencies": {
     "react": "^19.0.0",
