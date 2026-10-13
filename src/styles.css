@@ -178,9 +178,9 @@ body {
   background: var(--sd-surface-hover);
 }
 .tool:focus-visible,
-summary:focus-visible,
+:where(.app) summary:focus-visible:where(:not(.story-lane *)),
 .table-scroll:focus-visible,
-a:focus-visible {
+:where(.app) a:focus-visible:where(:not(.story-lane *)) {
   outline: 2px solid var(--sd-focus-ring);
   outline-offset: 2px;
 }
@@ -232,27 +232,28 @@ a:focus-visible {
   color: var(--sd-text-muted);
   margin-bottom: 10px;
 }
-h1 {
+/* Zero-specificity boundaries keep chrome typography out of stories and document portals. */
+:where(.app) h1:where(:not(.story-lane *)) {
   font-size: clamp(36px, 3.5vw, 52px);
   line-height: 1.12;
   font-weight: 650;
   letter-spacing: -0.04em;
   margin: 0 0 18px;
 }
-h2 {
+:where(.app) h2:where(:not(.story-lane *)) {
   font-size: 24px;
   line-height: 1.3;
   font-weight: 650;
   letter-spacing: -0.025em;
   margin: 48px 0 16px;
 }
-h3 {
+:where(.app) h3:where(:not(.story-lane *)) {
   font-size: 17px;
   line-height: 1.4;
   margin: 0 0 6px;
 }
-p,
-li {
+:where(.app) p:where(:not(.story-lane *)),
+:where(.app) li:where(:not(.story-lane *)) {
   color: var(--sd-text-muted);
   line-height: 1.65;
   font-size: 14.5px;
@@ -262,10 +263,10 @@ li {
   max-width: 64ch;
   line-height: 1.7;
 }
-a {
+:where(.app) a:where(:not(.story-lane *)) {
   color: var(--sd-accent-text);
 }
-code {
+:where(.app) code:where(:not(.story-lane *)) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
   background: var(--sd-surface-raised);
@@ -619,7 +620,7 @@ details.code-toggle pre.code {
     animation: none;
   }
 }
-section > h3 {
+:where(.app) section > h3:where(:not(.story-lane *)) {
   margin: 22px 0 4px;
 }
 
