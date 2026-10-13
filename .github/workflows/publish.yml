@@ -61,6 +61,7 @@ jobs:
         run: |
           pnpm test
           pnpm typecheck
+          pnpm smoke:package
 
       - name: Pack release
         run: |
