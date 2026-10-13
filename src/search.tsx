@@ -131,7 +131,6 @@ export function SearchBox() {
                     id={optId}
                     role="option"
                     aria-selected={index === active}
-                    aria-label={row.story ? `${row.entry.name}, ${row.story}` : row.entry.name}
                     onMouseEnter={() => {
                       setActive(index);
                       void row.entry.load();

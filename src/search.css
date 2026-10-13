@@ -79,7 +79,7 @@
 .search-dropdown .search-results li span.search-result-meta {
   margin-left: auto;
   font-size: 12px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -110,7 +110,7 @@
   padding: 6px 10px;
   border-top: 1px solid var(--sd-border-subtle);
   font-size: 11px;
-  color: var(--sd-text-subtle);
+  color: var(--sd-text-muted);
   background: var(--sd-surface-raised);
   user-select: none;
 }
