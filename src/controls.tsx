@@ -1,9 +1,9 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { CodeBlock } from './code';
+import { useState } from 'react';
+import { ComponentDemo } from './component-demo';
+export { hasHorizontalOverflow } from './component-demo';
 import { mergeAnnotations, usageSnippet, type DocsParameters } from './sections';
-import { LazySection, StoryView } from './story-view';
-import './controls.css';
+import { StoryView } from './story-view';
 
 interface StoryShape {
   name?: string;
@@ -88,50 +88,6 @@ export function getStoryControls(meta: StoryShape, story: StoryShape, componentD
   };
 }
 
-function ControlInput({ control, value, onChange }: {
-  control: StoryControl;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const id = useId();
-  const [invalid, setInvalid] = useState(false);
-  useEffect(() => setInvalid(false), [value]);
-  return (
-    <div className="sd-control">
-      <label htmlFor={id}>{control.name}</label>
-      {control.type === 'select' ? (
-        <select id={id} value={String(control.options?.findIndex((option) => Object.is(option, value)) ?? -1)}
-          onChange={(event) => onChange(control.options?.[Number(event.target.value)])}>
-          <option value="-1" disabled>—</option>
-          {control.options?.map((option, index) => <option key={index} value={index}>{String(option)}</option>)}
-        </select>
-      ) : control.type === 'boolean' ? (
-        <input id={id} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
-      ) : control.type === 'object' ? (
-        <>
-          <textarea key={JSON.stringify(value)} id={id} defaultValue={JSON.stringify(value, null, 2) ?? ''}
-            aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : undefined} onBlur={(event) => {
-              try { onChange(JSON.parse(event.target.value)); setInvalid(false); }
-              catch { setInvalid(true); }
-            }} />
-          {invalid ? <span id={`${id}-error`} role="status">Enter valid JSON.</span> : null}
-        </>
-      ) : (
-        <input id={id} type={control.type === 'number' || control.type === 'range' ? control.type : 'text'}
-          min={control.min} max={control.max} step={control.step ?? (control.type === 'number' ? 'any' : undefined)}
-          value={typeof value === 'string' || typeof value === 'number' ? value : ''}
-          onChange={(event) => onChange(control.type === 'number' || control.type === 'range'
-            ? event.target.value === '' ? undefined : event.target.valueAsNumber
-            : event.target.value)} />
-      )}
-    </div>
-  );
-}
-
-export function hasHorizontalOverflow({ scrollWidth, clientWidth }: Pick<HTMLElement, 'scrollWidth' | 'clientWidth'>) {
-  return scrollWidth > clientWidth;
-}
-
 export function ControlledStoryFrame({ module, story, componentName, componentDefaults }: {
   module: Record<string, unknown>;
   story: string;
@@ -143,49 +99,12 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const definition = (module[story] ?? {}) as StoryShape;
   const { args: defaults, controls, unavailable } = getStoryControls(meta, definition, componentDefaults);
   const [edits, setEdits] = useState<Record<string, unknown>>({});
-  const [codeOpen, setCodeOpen] = useState(false);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [scrollable, setScrollable] = useState(false);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const content = canvas?.firstElementChild;
-    if (!canvas || !content) return;
-    const measure = () => setScrollable(hasHorizontalOverflow(canvas));
-    let frame = 0;
-    const scheduleMeasure = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
-    };
-    measure();
-    const resize = new ResizeObserver(scheduleMeasure);
-    resize.observe(canvas);
-    resize.observe(content);
-    const mutations = new MutationObserver(scheduleMeasure);
-    mutations.observe(content, { childList: true, subtree: true, attributes: true, characterData: true });
-    return () => {
-      resize.disconnect();
-      mutations.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, [module, story]);
   const args = { ...defaults, ...edits };
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
   // Storybook semantics: the story's own `layout` decides whether the lane is padded (block)
   // or centred. Components that measure their own width need the padded, full-width lane.
   const requestedLayout = definition.parameters?.layout ?? meta.parameters?.layout;
   const storyLayout = requestedLayout === 'centered' || requestedLayout === 'fullscreen' ? requestedLayout : 'padded';
-  const [laneLayout, setLaneLayout] = useState<string>(storyLayout);
-  // A block lane is what components that measure their own width need; inline-level content
-  // (a lone button, badge, switch) can still be centred visually without shrinking the lane.
-  const laneRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (!node) return;
-      const content = node.firstElementChild;
-      if (!(content instanceof HTMLElement)) return;
-      setLaneLayout(storyLayout !== 'fullscreen' && /^inline/.test(getComputedStyle(content).display) ? 'inline' : storyLayout);
-    },
-    [storyLayout],
-  );
   // A stories-only meta (foundations pages) has no component to instantiate, so there is no
   // honest usage snippet to show: skip it rather than inventing a tag from the page name.
   // Storybook's own precedence: an authored `docs.source.code` wins over a generated snippet, and
@@ -202,38 +121,12 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
     ? null
     : usageSnippet(componentName, { ...meta.args, ...definition.args, ...edits }));
   return (
-    <div className="frame" data-story={story}>
-      <header><span>{storyName}</span></header>
-      {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
-      {skipped.length ? <p className="sd-controls-note">Not run here: {skipped.join(', ')}. See it in Storybook.</p> : null}
-      {unavailable ? <p className="sd-controls-note">{unavailable}</p> : (
-        <fieldset className="sd-controls">
-          <legend>Controls for {storyName}</legend>
-          <div className="sd-controls-fields">
-            {controls.map((control) => (
-              <ControlInput key={control.name} control={control} value={args[control.name]}
-                onChange={(value) => setEdits((current) => ({ ...current, [control.name]: value }))} />
-            ))}
-            <button className="sd-controls-reset" type="button" disabled={!changed} onClick={() => setEdits({})}>Reset</button>
-          </div>
-        </fieldset>
-      )}
-      <div className="shot" data-layout={storyLayout} ref={canvasRef}
-        tabIndex={scrollable ? 0 : undefined} role={scrollable ? 'region' : undefined}
-        aria-label={scrollable ? storyName : undefined}>
-        <LazySection>
-          <div className="story-lane" data-layout={laneLayout} ref={laneRef}>
-            <StoryView module={module} story={story} overrides={edits} />
-          </div>
-        </LazySection>
-      </div>
-      <details className="code-toggle" onToggle={(event) => setCodeOpen(event.currentTarget.open)}>
-        <summary>Code</summary>
-        {codeOpen ? snippet
-          ? <CodeBlock code={snippet} language={codeLanguage} label={`${storyName} code`} />
-          : <p>No usage code is authored for this component.</p>
-          : null}
-      </details>
-    </div>
+    <ComponentDemo story={story} storyName={storyName} authoredStory={authoredStory}
+      skipped={skipped} controls={controls} args={args} unavailable={unavailable} changed={changed}
+      storyLayout={storyLayout} snippet={snippet} codeLanguage={codeLanguage}
+      onControlChange={(name, value) => setEdits((current) => ({ ...current, [name]: value }))}
+      onReset={() => setEdits({})}>
+      <StoryView module={module} story={story} overrides={edits} />
+    </ComponentDemo>
   );
 }

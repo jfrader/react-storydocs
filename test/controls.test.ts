@@ -11,9 +11,11 @@ import type { getStoryControls as GetStoryControls, defaultsFromProps as Default
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../src/controls.tsx', import.meta.url), 'utf8');
-const compiled = ts.transpileModule(source, {
+const compile = (source: string) => ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const compiled = compile(source);
+const demoCompiled = compile(readFileSync(new URL('../src/component-demo.tsx', import.meta.url), 'utf8'));
 const storyOverrides: unknown[] = [];
 const snippetArgs: unknown[] = [];
 const snippets: (string | null)[] = [];
@@ -29,14 +31,19 @@ function loadControls(observeStories = false) {
       return snippet;
     },
   } : sections;
-  runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
+  const demoExports = {};
+  const resolve = (name: string): unknown =>
     name === './sections' ? sectionsModule
+      : name === './component-demo' ? demoExports
+        : name === './toc' ? { storyLink: () => '' }
       : name === './story-view' ? {
         LazySection: observeStories ? ({ children }: { children: ReactNode }) => children : () => null,
         StoryView: ({ overrides }: { overrides: unknown }) => { storyOverrides.push(overrides); return null; },
       }
         : name === './code' ? { CodeBlock: () => { throw new Error('Closed Code panel rendered eagerly'); } }
-          : name.startsWith('./') ? {} : require(name), exports);
+          : name.startsWith('./') ? {} : require(name);
+  runInThisContext(`(function(require, exports) { ${demoCompiled}\n})`)(resolve, demoExports);
+  runInThisContext(`(function(require, exports) { ${compiled}\n})`)(resolve, exports);
   return exports;
 }
 
@@ -55,7 +62,7 @@ test('stories without snippets retain a deferred Code panel and no initial canva
   const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
     componentName: 'Flex', story: 'Default', module: { default: {}, Default: { render: () => null } },
   }));
-  assert.match(html, /<summary>Code<\/summary><\/details>/);
+  assert.match(html, /<summary><span class="sd-demo-code-actions">Code<\/span><\/summary><\/details>/);
   assert.ok(!html.includes('No usage code'), 'fallback is deferred until the panel opens');
   assert.ok(!html.includes('tabindex'), 'unmeasured canvases do not enter the tab order');
 });
@@ -81,6 +88,27 @@ test('controls merge annotations without replacing explicit args with argType de
   assert.deepEqual(getStoryControls(meta, {}).args, meta.args);
   assert.equal(getStoryControls({ argTypes: { count: { control: 'number', defaultValue: 2 } } }, {}).args.count, 2);
   assert.equal(getStoryControls(meta, { args: { count: undefined } }).args.count, undefined);
+});
+
+test('demo owns its header action, authored blurb and skipped-hook notice without a TOC portal', () => {
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Widget', story: 'Example', module: {
+      default: { loaders: [() => null] },
+      Example: { name: 'Authored example', beforeEach: () => null,
+        parameters: { viewport: 'mobile', docs: { description: { story: 'An authored blurb.' } } } },
+    },
+  }));
+  assert.match(html, /aria-label="Copy link to Authored example"/);
+  assert.match(html, /<p class="story-blurb">An authored blurb\.<\/p>/);
+  assert.match(html, /Not run here: loaders, beforeEach, viewport\./);
+  assert.match(html, /<header><span>Authored example<\/span>/);
+});
+
+test('demo code surface resets are scoped to the slot, not the story canvas or consumer classes', () => {
+  const css = readFileSync(new URL('../src/component-demo.css', import.meta.url), 'utf8');
+  assert.match(css, /\.frame \.sd-demo-code > \*,\s*\.frame \.sd-demo-code > \* > \*,\s*\.frame \.sd-demo-code pre/);
+  assert.match(css, /box-shadow: none;\s*background: transparent;/);
+  assert.ok(!css.includes('data-ui'), 'consumer selectors are not part of the demo contract');
 });
 
 test('unsupported, disabled and optionless controls are ignored without changing args', () => {
@@ -114,7 +142,7 @@ test('custom renders accept controls and retain story defaults', () => {
   assert.match(html, /Controls for Authored example/);
   assert.match(html, /data-story="Example"/);
   assert.match(html, /data-layout="fullscreen"/);
-  assert.match(html, /<summary>Code<\/summary><\/details>/);
+  assert.match(html, /<summary><span class="sd-demo-code-actions">Code<\/span><\/summary><\/details>/);
   assert.ok(!html.includes('&lt;Button'), 'closed Code panels do not render their source');
 });
 
