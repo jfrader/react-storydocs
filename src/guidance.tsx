@@ -114,7 +114,7 @@ export function MarkdownView({ markdown, className = 'guidance' }: { markdown: s
   return <section className={className}>{renderBlocks(blocks)}</section>;
 }
 
-export function Guidance({ slug, placeholder }: { slug: string; placeholder?: string }) {
+export function Guidance({ slug }: { slug: string }) {
   const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [missing, setMissing] = useState(false);
 
@@ -140,14 +140,8 @@ export function Guidance({ slug, placeholder }: { slug: string; placeholder?: st
     };
   }, [slug]);
 
-  if (missing) {
-    return placeholder ? (
-      <section className="guidance guidance-empty">
-        <h2>Guidance</h2>
-        <p className="hint">{placeholder}</p>
-      </section>
-    ) : null;
-  }
+  // No guidance directory entry: the section simply does not exist on this page.
+  if (missing) return null;
   if (blocks === null) return (
     <section className="guidance" aria-busy="true">
       <Skeleton lines={3} />
