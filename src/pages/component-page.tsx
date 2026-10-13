@@ -33,6 +33,7 @@ interface MetaShape {
 
 interface UsageStory {
   args?: Record<string, unknown>;
+  play?: unknown;
   parameters?: { docs?: DocsParameters };
 }
 
@@ -195,11 +196,17 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       return ![...metaTags, ...storyTags].includes('!autodocs');
     });
   }, [entry.stories, meta, module]);
+  // Controls show the component's own defaults until the reader changes them.
+  const componentDefaults = useMemo(
+    () => defaultsFromProps(props?.find((component) => component.name === entry.name)?.props ?? []),
+    [props, entry.name],
+  );
   const example = selectExample(visibleStories.map((name) => ({
     name,
     description: (module?.[name] as UsageStory | undefined)?.parameters?.docs?.description?.story,
     args: { ...defaultArgs, ...(module?.[name] as UsageStory | undefined)?.args },
-  })), Object.keys(meta.component ?? {}));
+    play: (module?.[name] as UsageStory | undefined)?.play,
+  })), Object.keys(meta.component ?? {}), props === null ? null : componentDefaults);
   const sections = useMemo(() => sectionStories(visibleStories.filter((story) => story !== example)), [visibleStories, example]);
   const defaultStory = (module?.[visibleStories.find((name) => /^default$/i.test(name)) ?? example ?? ''] ?? {}) as UsageStory;
   // Another authored sample can document compound anatomy that Default's args cannot express.
@@ -230,11 +237,6 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const propCount = props
     ? props.reduce((total, component) => total + component.props.filter((prop) => !prop.inheritedFrom).length, 0)
     : Object.keys(argTypes).length;
-  // Controls show the component's own defaults until the reader changes them.
-  const componentDefaults = useMemo(
-    () => defaultsFromProps(props?.find((component) => component.name === entry.name)?.props ?? []),
-    [props, entry.name],
-  );
 
   return (
     <>

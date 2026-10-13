@@ -68,6 +68,17 @@ test('documentation table styling cannot leak into story or portalled calendar t
   }
 });
 
+test('component page combines meta callbacks and sibling open args for single-widget surfaces', () => {
+  const markup = renderPage({
+    default: { component: () => null, args: { onOpenChange: () => undefined } },
+    Default: {}, HiddenOpen: { tags: ['!autodocs'], args: { open: true } },
+    PersistentOpen: { args: { open: true } },
+  }, 'TimePicker');
+  assert.ok(markup.indexOf('data-story="PersistentOpen"') < markup.indexOf('<h2>Usage</h2>'));
+  assert.equal(markup.match(/data-story="PersistentOpen"/g)?.length, 1);
+  assert.doesNotMatch(markup, /data-story="HiddenOpen"/);
+});
+
 test('component Usage merges default-story args, even when its render is custom', () => {
   const markup = renderPage({
     default: { component: {}, args: { variant: 'solid', children: 'Meta' } },

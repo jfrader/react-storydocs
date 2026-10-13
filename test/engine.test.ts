@@ -156,6 +156,55 @@ test('selectExample: open siblings never admit debug states or override explicit
     { name: 'Second', args: { open: true } }], ['Trigger', 'Content']), 'First');
 });
 
+test('selectExample: list anatomy and single-widget open callbacks identify hidden surfaces', () => {
+  const onOpenChange = () => undefined;
+  assert.equal(selectExample([{ name: 'Composition' }, { name: 'Open', args: { defaultOpen: true } }],
+    ['Input', 'List', 'Item']), 'Open');
+  assert.equal(selectExample([{ name: 'Default', args: { onOpenChange } },
+    { name: 'PersistentOpen', args: { onOpenChange, open: true } }], ['displayName']), 'PersistentOpen');
+  assert.equal(selectExample([{ name: 'Composition' },
+    { name: 'PersistentOpen', args: { onOpenChange, defaultOpen: true } }]), 'PersistentOpen');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'PersistentOpen', args: { open: true } }]), 'Default');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'PersistentOpen', args: { onOpenChange } }]), 'Default');
+});
+
+test('selectExample: single-widget open signals preserve state and explicit-closed exclusions', () => {
+  const onOpenChange = () => undefined;
+  assert.equal(selectExample([{ name: 'Default' },
+    ...['DisabledOpen', 'ControlledOpen', 'PersistentOpenLight', 'OpenSelected', 'OpenError']
+      .map(name => ({ name, args: { onOpenChange, open: true } }))]), 'Default');
+  assert.equal(selectExample([{ name: 'Default' },
+    { name: 'PersistentOpen', args: { onOpenChange, defaultOpen: true, open: false } }]), 'Default');
+  assert.equal(selectExample([{ name: 'Default' },
+    { name: 'PersistentOpen', args: { onOpenChange, open: true } }], [], { defaultOpen: true }), 'Default');
+  assert.equal(selectExample([{ name: 'Default' },
+    { name: 'PersistentOpen', args: { onOpenChange, open: true } }], [], null), 'Default');
+  assert.equal(selectExample([{ name: 'Default', args: { open: true } },
+    { name: 'PersistentOpen', args: { onOpenChange, open: true } }]), 'Default');
+  for (const name of ['Expanded', 'PersistentExpanded', 'PersistentViewer', 'NullSelection']) {
+    assert.equal(selectExample([{ name: 'Highlighted' },
+      { name, args: { onOpenChange, open: true } }]), 'Highlighted');
+  }
+});
+
+test('selectExample: notification duration and Persistent names cannot manufacture a populated queue', () => {
+  const stories = [{ name: 'Default', args: { dismissLabel: 'Close notification' } },
+    { name: 'Persistent', args: { duration: null } }];
+  assert.equal(selectExample(stories, ['Provider', 'Viewport']), 'Default');
+  assert.equal(selectExample([{ name: 'Default' }, { name: 'PersistentStack' }]), 'Default');
+});
+
+test('selectExample: opaque widgets do not treat interaction-dependent open permission as visible content', () => {
+  const onOpenChange = () => undefined;
+  const persistent = { name: 'PersistentOpen', args: { onOpenChange, open: true } };
+  const interaction = { ...persistent, play: async ({ userEvent }: { userEvent: { click: () => void } }) => userEvent.click() };
+  assert.equal(selectExample([{ name: 'Composition' }, interaction]), 'Composition');
+  assert.equal(selectExample([{ name: 'Default' }, { ...persistent,
+    play: ({ fireEvent }: { fireEvent: { select: () => void } }) => fireEvent.select() }]), 'Default');
+  assert.equal(selectExample([{ name: 'Default' }, { ...persistent, play: () => assert.ok(true) }]), 'PersistentOpen');
+  assert.equal(selectExample([{ name: 'Default' }, interaction], ['Trigger', 'Content']), 'PersistentOpen');
+});
+
 test('selectExample: stable ties and moving the selection keep each story once', () => {
   const stories = ['Loading', 'Sizes', 'WithIcons', 'Other'];
   const chosen = selectExample(stories.map((name) => ({ name })));
