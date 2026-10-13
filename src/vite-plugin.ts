@@ -16,9 +16,13 @@ import type { CatalogEntry, StorybookDocsConfig, ThemeRole } from './config.js';
 export interface PropDoc {
   name: string;
   type: string;
+  typeUnavailable?: boolean;
   required: boolean;
   defaultValue: string | null;
   description: string;
+  inheritedFrom?: string;
+  tags?: { name: string; text: string }[];
+  members?: PropDoc[];
 }
 
 export interface ComponentPropsDoc {
@@ -26,6 +30,12 @@ export interface ComponentPropsDoc {
   props: PropDoc[];
   /** Native element whose full prop set also applies (e.g. `button` for Dialog.Trigger). */
   native?: string;
+}
+
+function compareProps(a: PropDoc, b: PropDoc): number {
+  return Number(Boolean(a.inheritedFrom)) - Number(Boolean(b.inheritedFrom))
+    || Number(b.required) - Number(a.required)
+    || a.name.localeCompare(b.name);
 }
 
 /** Storybook's own approach: parse the component sources for their public props. */
@@ -49,6 +59,7 @@ const docgen = withCompilerOptions(DOCGEN_COMPILER_OPTIONS, {
   savePropValueAsString: true,
   shouldExtractLiteralValuesFromEnum: true,
   shouldRemoveUndefinedFromOptional: true,
+  skipChildrenPropWithoutDoc: false,
   // Keep the component's own props (and its local types); drop inherited DOM/React props and
   // the utility-type plumbing that TypeScript's own libs and DefinitelyTyped add. The check is
   // by *package*, not by "contains node_modules" — when a design system is consumed from
@@ -284,7 +295,7 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
   const toPropDoc = (prop: unknown): PropDoc => {
     const value = prop as {
       name: string;
-      type?: { name?: string };
+      type?: { name?: string; value?: { value: string }[] };
       required?: boolean;
       defaultValue?: unknown;
       description?: string;
@@ -292,19 +303,20 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
     // react-docgen reports the default as `{ value }` or null; a prop without one must stay null so
     // the table shows nothing rather than the string "null" (and controls can tell the difference).
     const declared = value.defaultValue as { value?: unknown } | string | null | undefined;
-    const text =
-      declared === null || declared === undefined
-        ? null
-        : typeof declared === 'object'
-          ? declared.value === null || declared.value === undefined
-            ? null
-            : String(declared.value)
-          : String(declared);
+    const raw = declared !== null && typeof declared === 'object' ? declared.value : declared;
+    const text = declared === null || raw === undefined || raw === 'undefined'
+      ? null
+      : typeof raw === 'object' ? JSON.stringify(raw) ?? null : String(raw);
     return {
       name: value.name,
-      type: value.type?.name ?? 'unknown',
+      type: value.type?.name === 'enum' && Array.isArray(value.type.value)
+        ? value.type.value.map((option) => option.value).join(' | ')
+        : value.type?.name ?? 'unknown',
+      typeUnavailable: !value.type?.name,
       required: Boolean(value.required),
-      defaultValue: text,
+      defaultValue: text !== null && (value.type?.name === 'string' || value.type?.value?.some((option) => option.value === JSON.stringify(text)))
+        ? JSON.stringify(text)
+        : text,
       description: value.description ?? '',
     };
   };
@@ -327,11 +339,11 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
               name: result.displayName,
               props: Object.values(result.props ?? {})
                 .map(toPropDoc)
-                .sort((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name)),
+                .sort(compareProps),
             }))
             .filter((component) => component.props.length > 0);
-          // The same component is often reported twice (declaration + index re-export); keep the
-          // richest. Candidates that do not belong to this component (helpers, unrelated types)
+          // The same component is often reported twice (declaration + index re-export).
+          // Candidates that do not belong to this component (helpers, unrelated types)
           // are dropped when a name-matching candidate exists.
           const entryName = catalog.entries.find((candidate) => candidate.slug === slug)?.name ?? '';
           const matchesOwnName = (name: string) =>
@@ -339,7 +351,10 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
           const relevant = parsed.some((component) => matchesOwnName(component.name))
             ? parsed.filter((component) => matchesOwnName(component.name))
             : parsed;
-          const components = mergePropsTables([...relevant, ...collectTypeProps(sources, entryName)]);
+          const typed = collectTypeProps(sources, entryName);
+          const components = mergePropsTables(typed.length > 0
+            ? [...relevant.filter((table) => typed.some((item) => item.name === table.name)), ...typed]
+            : relevant);
           propsCache.set(slug, components);
           return components;
         } catch (cause) {
@@ -351,64 +366,143 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
     return [];
   };
 
-  /** Exported `*Props` types in the folder — this is where compound parts live
-      (`Dialog.Trigger` etc. are Object.assign members, which docgen cannot see). */
+  /** Follow callable exports and their members, not unrelated exported helper types. */
   const collectTypeProps = (sources: string[], entryName: string): ComponentPropsDoc[] => {
     const program = createPropsProgram(sources, TYPE_PROPS_COMPILER_OPTIONS);
     const checker = program.getTypeChecker();
     const tables: ComponentPropsDoc[] = [];
     const isExternal = (fileName: string) => /(^|\/)node_modules\/(@types|typescript)(\/|$)/.test(fileName);
 
+    const unresolved = Symbol('unresolved');
+    const literalValue = (node: ts.Expression, seen = new Set<ts.Node>()): unknown => {
+      if (seen.has(node)) return unresolved;
+      const visited = new Set(seen).add(node);
+      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+      if (ts.isNumericLiteral(node)) return Number(node.text);
+      if (node.kind === ts.SyntaxKind.TrueKeyword) return true;
+      if (node.kind === ts.SyntaxKind.FalseKeyword) return false;
+      if (node.kind === ts.SyntaxKind.NullKeyword) return null;
+      if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return literalValue(node.expression, visited);
+      if (ts.isIdentifier(node)) {
+        const symbol = checker.getSymbolAtLocation(node);
+        const target = symbol && (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
+        const declaration = target?.valueDeclaration;
+        if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer && ts.isVariableDeclarationList(declaration.parent) && (declaration.parent.flags & ts.NodeFlags.Const)) {
+          return literalValue(declaration.initializer, visited);
+        }
+      }
+      if (ts.isPrefixUnaryExpression(node) && ts.isNumericLiteral(node.operand)) {
+        if (node.operator === ts.SyntaxKind.MinusToken) return -Number(node.operand.text);
+        if (node.operator === ts.SyntaxKind.PlusToken) return Number(node.operand.text);
+      }
+      if (ts.isArrayLiteralExpression(node)) {
+        const values = node.elements.map((element) => literalValue(element, visited));
+        return values.includes(unresolved) ? unresolved : values;
+      }
+      if (ts.isObjectLiteralExpression(node)) {
+        const entries: [string, unknown][] = [];
+        for (const property of node.properties) {
+          if (!ts.isPropertyAssignment(property) || ts.isComputedPropertyName(property.name)) return unresolved;
+          const value = literalValue(property.initializer, visited);
+          if (value === unresolved) return unresolved;
+          entries.push([property.name.text, value]);
+        }
+        return Object.fromEntries(entries);
+      }
+      return unresolved;
+    };
+
+    const describeProps = (type: ts.Type, location: ts.Node, depth = 0): PropDoc[] =>
+      checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
+        const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+        const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? location);
+        const optional = (symbol.flags & ts.SymbolFlags.Optional) !== 0;
+        const typeFlags = ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope;
+        const literalUnion = propType.isUnion() && propType.types.every((part) => Boolean(part.flags & (ts.TypeFlags.Literal | ts.TypeFlags.Null | ts.TypeFlags.Undefined)));
+        const printedType = checker.typeToString(propType, undefined, typeFlags);
+        const displayType = literalUnion && propType.isUnion()
+          ? propType.types.filter((part) => !optional || !(part.flags & ts.TypeFlags.Undefined)).map((part) => checker.typeToString(part, undefined, typeFlags)).join(' | ').replace(/false \| true/g, 'boolean')
+          : optional ? printedType.replace(/ \| undefined$/, '') : printedType;
+        const parent = declaration?.parent;
+        const inheritedFrom = declaration && (isExternal(declaration.getSourceFile().fileName) || !sources.includes(declaration.getSourceFile().fileName))
+          ? parent && (ts.isInterfaceDeclaration(parent) || ts.isTypeAliasDeclaration(parent)) ? parent.name.text : path.basename(declaration.getSourceFile().fileName)
+          : undefined;
+        const memberType = checker.getNonNullableType(propType);
+        const hasLocalMembers = !checker.isArrayType(memberType) && !checker.isTupleType(memberType) && !memberType.getCallSignatures().length && checker.getPropertiesOfType(memberType).some((member) => member.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)));
+        return {
+          name: symbol.getName(),
+          type: displayType || 'unknown',
+          typeUnavailable: false,
+          required: !optional,
+          defaultValue: null,
+          description: ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
+          inheritedFrom,
+          tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
+          members: depth === 0 && (symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
+        };
+      }).sort(compareProps);
+
+    const visitComponent = (type: ts.Type, label: string, location: ts.Node, depth = 0) => {
+      const signature = type.getCallSignatures()[0];
+      if (signature) {
+        const parameter = signature.getParameters()[0];
+        if (parameter) {
+          const declaration = signature.getDeclaration();
+          const propsType = checker.getTypeOfSymbolAtLocation(parameter, declaration ?? location);
+          const props = describeProps(propsType, declaration ?? location);
+          const binding = declaration?.parameters[0]?.name;
+          const readDefaults = (elements: readonly ts.BindingElement[]) => {
+            for (const element of elements) {
+              const prop = props.find((item) => item.name === (element.propertyName ?? element.name).getText());
+              if (prop && element.initializer && element.initializer.getText() !== 'undefined') {
+                const value = literalValue(element.initializer);
+                prop.defaultValue = value === unresolved ? element.initializer.getText() : JSON.stringify(value) ?? null;
+              }
+            }
+          };
+          if (binding && ts.isObjectBindingPattern(binding)) readDefaults(binding.elements);
+          const parameterNames = binding && ts.isIdentifier(binding) ? [binding.text] : binding && ts.isObjectBindingPattern(binding)
+            ? binding.elements.filter((element) => element.dotDotDotToken && ts.isIdentifier(element.name)).map((element) => element.name.getText()) : [];
+          const readBodyDefaults = (node: ts.Node) => {
+            if (ts.isFunctionLike(node) && node !== declaration) return;
+            if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer) {
+              const input = ts.isCallExpression(node.initializer) ? node.initializer.arguments : [node.initializer];
+              if (input.some((argument) => ts.isIdentifier(argument) && parameterNames.includes(argument.text))) {
+                const inputType = checker.getTypeAtLocation(node.initializer);
+                const elements = node.name.elements.filter((element) => {
+                  const name = (element.propertyName ?? element.name).getText();
+                  const original = propsType.getProperty(name);
+                  const projected = inputType.getProperty(name);
+                  return original?.declarations?.some((item) => projected?.declarations?.includes(item));
+                });
+                readDefaults(elements);
+              }
+            }
+            ts.forEachChild(node, readBodyDefaults);
+          };
+          if (declaration) {
+            ts.forEachChild(declaration, readBodyDefaults);
+          }
+          tables.push({ name: label, props });
+        }
+      }
+      if (depth >= 2) return;
+      for (const member of checker.getPropertiesOfType(type)) {
+        const memberType = checker.getTypeOfSymbolAtLocation(member, member.valueDeclaration ?? location);
+        if (memberType.getCallSignatures().length > 0 && !['bind', 'call', 'apply'].includes(member.getName())) {
+          visitComponent(memberType, `${label}.${member.getName()}`, location, depth + 1);
+        }
+      }
+    };
     for (const file of sources) {
       const source = program.getSourceFile(file);
-      if (!source) continue;
-      ts.forEachChild(source, (node) => {
-        const isTypeDeclaration = ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node);
-        if (!isTypeDeclaration) return;
-        const name = node.name.text;
-        if (!/Props$/.test(name) || name === 'Props') return;
-        const exported = node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
-        if (!exported) return;
-        const type = checker.getTypeAtLocation(node);
-        const props: PropDoc[] = [];
-        for (const symbol of checker.getPropertiesOfType(type)) {
-          const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
-          if (declaration && isExternal(declaration.getSourceFile().fileName)) continue;
-          const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? node);
-          const typeText = checker
-            .typeToString(propType, undefined, ts.TypeFormatFlags.NoTruncation)
-            .replace(/\s+/g, ' ')
-            .slice(0, 140);
-          props.push({
-            name: symbol.getName(),
-            type: typeText,
-            required: (symbol.flags & ts.SymbolFlags.Optional) === 0,
-            defaultValue: null,
-            description: ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
-          });
-        }
-        if (props.length === 0) return;
-        // `DialogTriggerProps extends ComponentPropsWithRef<'button'>` → note the native element
-        // whose full prop set applies on top of the component's own props.
-        let native: string | undefined;
-        for (const clause of (ts.isInterfaceDeclaration(node) ? node.heritageClauses : undefined) ?? []) {
-          for (const heritage of clause.types) {
-            const text = heritage.expression.getText(source);
-            if (!/ComponentProps|HTMLAttributes|DOMAttributes/.test(text)) continue;
-            const argument = heritage.typeArguments?.[0];
-            const literal = argument?.getText(source).match(/'([a-z][a-z0-9]*)'/);
-            if (literal?.[1]) native = literal[1];
-          }
-        }
-        // `DialogTriggerProps` → `Dialog.Trigger`; anything else keeps its own name.
-        const bare = name.slice(0, -'Props'.length);
-        const label = bare === entryName ? bare : bare.startsWith(entryName) ? `${entryName}.${bare.slice(entryName.length)}` : bare;
-        tables.push({
-          name: label,
-          native,
-          props: props.sort((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name)),
-        });
-      });
+      const module = source && checker.getSymbolAtLocation(source);
+      if (!source || !module) continue;
+      for (const symbol of checker.getExportsOfModule(module)) {
+        if (symbol.getName() !== entryName && symbol.getName() !== 'default') continue;
+        const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+        visitComponent(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), entryName, source);
+      }
     }
     return tables;
   };
@@ -417,20 +511,17 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
     const byName = new Map<string, ComponentPropsDoc>();
     for (const table of tables) {
       const existing = byName.get(table.name);
-      if (!existing) {
-        byName.set(table.name, table);
-        continue;
+      if (!existing) byName.set(table.name, table);
+      else {
+        const props = new Map(existing.props.filter((prop) => prop.name !== 'key').map((prop) => [prop.name, prop]));
+        for (const prop of table.props) {
+          const previous = props.get(prop.name);
+          props.set(prop.name, { ...previous, ...prop, defaultValue: prop.defaultValue ?? previous?.defaultValue ?? null });
+        }
+        byName.set(table.name, { ...existing, ...table, props: [...props.values()].sort(compareProps) });
       }
-      const richer = table.props.length > existing.props.length ? table : existing;
-      const defaults = new Map([...existing.props, ...table.props]
-        .filter((prop) => prop.defaultValue !== null)
-        .map((prop) => [prop.name, prop.defaultValue]));
-      byName.set(table.name, {
-        ...richer,
-        props: richer.props.map((prop) => ({ ...prop, defaultValue: defaults.get(prop.name) ?? null })),
-      });
     }
-    return [...byName.values()].sort((a, b) => b.props.length - a.props.length);
+    return [...byName.values()].sort((a, b) => a.name.split('.').length - b.name.split('.').length || a.name.localeCompare(b.name));
   };
 
   const propsCode = (slug: string) =>

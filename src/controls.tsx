@@ -28,14 +28,13 @@ export interface StoryControl {
  * source snippet, so it is parsed back into a value the controls can show. */
 export function parseDefault(value: string): unknown {
   const text = value.trim();
-  // Docgen reports an absent default as null; older snapshots stringified it.
-  if (text === 'null' || text === 'undefined') return undefined;
-  if ((text.startsWith("'") && text.endsWith("'")) || (text.startsWith('"') && text.endsWith('"'))) {
-    return text.slice(1, -1);
+  if (text === 'undefined' || text === '') return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (text.startsWith("'") && text.endsWith("'") && !text.slice(1, -1).includes("'")) return text.slice(1, -1);
   }
-  if (text === 'true' || text === 'false') return text === 'true';
-  if (text !== '' && !Number.isNaN(Number(text))) return Number(text);
-  return text;
+  return undefined;
 }
 
 /** Every prop docgen gave a default for. Declared before the component's own default so an
@@ -48,7 +47,10 @@ export function defaultsFromProps(
   for (const prop of Array.isArray(props) ? props : []) {
     const declared = prop?.defaultValue;
     const text = typeof declared === 'string' ? declared : declared?.value;
-    if (typeof text === 'string') defaults[prop.name] = parseDefault(text);
+    if (typeof text === 'string') {
+      const value = parseDefault(text);
+      if (value !== undefined) defaults[prop.name] = value;
+    }
   }
   return defaults;
 }

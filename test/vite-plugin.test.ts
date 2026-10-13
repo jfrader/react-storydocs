@@ -113,7 +113,7 @@ test('virtual props retain real defaults and null for missing defaults', async (
     const button = components.find(({ name }) => name === 'Button');
     assert.ok(button);
     assert.deepEqual(Object.fromEntries(button.props.map(({ name, defaultValue }) => [name, defaultValue])), {
-      label: null, children: null, disabled: 'false', count: '0', size: 'sm',
+      label: null, children: null, disabled: 'false', count: '0', size: '"sm"',
     });
     for (const { props } of components) {
       for (const prop of props) {
