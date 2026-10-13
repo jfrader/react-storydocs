@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --dir ../.. build:package && vite",
-    "build": "vite build",
+    "build": "pnpm --dir ../.. build:package && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
