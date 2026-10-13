@@ -250,11 +250,22 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
       defaultValue?: unknown;
       description?: string;
     };
+    // react-docgen reports the default as `{ value }` or null; a prop without one must stay null so
+    // the table shows nothing rather than the string "null" (and controls can tell the difference).
+    const declared = value.defaultValue as { value?: unknown } | string | null | undefined;
+    const text =
+      declared === null || declared === undefined
+        ? null
+        : typeof declared === 'object'
+          ? declared.value === null || declared.value === undefined
+            ? null
+            : String(declared.value)
+          : String(declared);
     return {
       name: value.name,
       type: value.type?.name ?? 'unknown',
       required: Boolean(value.required),
-      defaultValue: value.defaultValue === undefined ? null : String(value.defaultValue),
+      defaultValue: text,
       description: value.description ?? '',
     };
   };

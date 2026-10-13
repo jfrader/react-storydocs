@@ -4,14 +4,14 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { runInThisContext } from 'node:vm';
 import ts from 'typescript';
-import type { getStoryControls as GetStoryControls } from '../src/controls.tsx';
+import type { getStoryControls as GetStoryControls, defaultsFromProps as DefaultsFromProps, parseDefault as ParseDefault } from '../src/controls.tsx';
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../src/controls.tsx', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const exports: { getStoryControls?: typeof GetStoryControls } = {};
+const exports: { getStoryControls?: typeof GetStoryControls; defaultsFromProps?: typeof DefaultsFromProps; parseDefault?: typeof ParseDefault } = {};
 runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
   name.startsWith('./') ? {} : require(name), exports);
 const getStoryControls = exports.getStoryControls!;
@@ -66,4 +66,25 @@ test('select options keep primitive value types rather than coercing to strings'
   const result = getStoryControls({ argTypes: { value: { control: 'select', options } } }, { args: { value: false } });
   assert.equal(result.controls[0]?.options, options);
   assert.equal(result.args.value, false);
+});
+
+test('parseDefault reads the source snippet docgen reports', () => {
+  const parse = exports.parseDefault!;
+  assert.equal(parse("'md'"), 'md');
+  assert.equal(parse('"Secondary action"'), 'Secondary action');
+  assert.equal(parse('false'), false);
+  assert.equal(parse('3'), 3);
+});
+
+test('component defaults fill args only where the story declares nothing', () => {
+  const defaults = exports.defaultsFromProps!([
+    { name: 'size', defaultValue: { value: "'md'" } },
+    { name: 'disabled', defaultValue: { value: 'false' } },
+    { name: 'label' },
+  ]);
+  assert.deepEqual(defaults, { size: 'md', disabled: false });
+
+  const withStoryArgs = exports.getStoryControls!({ args: { size: 'lg' } }, {}, defaults);
+  assert.equal(withStoryArgs.args.size, 'lg', 'story args win over the component default');
+  assert.equal(withStoryArgs.args.disabled, false, 'component default used when nothing declares it');
 });

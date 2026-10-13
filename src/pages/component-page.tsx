@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { Guidance } from '../guidance';
 import { CodeBlock } from '../code';
+import { defaultsFromProps } from '../controls';
 import { MarkdownView } from '../guidance';
 import { sectionStories, usageSnippet, type DocsParameters } from '../sections';
 import { useStoryModule } from '../story-view';
@@ -158,6 +159,11 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
     [authoredCode, entry.name, defaultArgs, meta],
   );
   const propCount = props ? props.reduce((total, component) => total + component.props.length, 0) : Object.keys(argTypes).length;
+  // Controls show the component's own defaults until the reader changes them.
+  const componentDefaults = useMemo(
+    () => defaultsFromProps(props?.flatMap((component) => component.props) ?? []),
+    [props],
+  );
 
   return (
     <>
@@ -206,7 +212,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
               <h2>{section.title}</h2>
               <p className="section-blurb">{section.blurb}</p>
               {section.stories.map((story) => (
-                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} />
+                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} />
               ))}
             </section>
           ))}

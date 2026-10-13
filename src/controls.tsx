@@ -17,8 +17,37 @@ export interface StoryControl {
   options?: unknown[];
 }
 
-export function getStoryControls(meta: StoryShape, story: StoryShape) {
-  const args = { ...meta.args, ...story.args };
+/** Storybook's argTypes can declare a default; the component's own default comes from docgen as a
+ * source snippet, so it is parsed back into a value the controls can show. */
+export function parseDefault(value: string): unknown {
+  const text = value.trim();
+  // Docgen reports an absent default as null; older snapshots stringified it.
+  if (text === 'null' || text === 'undefined') return undefined;
+  if ((text.startsWith("'") && text.endsWith("'")) || (text.startsWith('"') && text.endsWith('"'))) {
+    return text.slice(1, -1);
+  }
+  if (text === 'true' || text === 'false') return text === 'true';
+  if (text !== '' && !Number.isNaN(Number(text))) return Number(text);
+  return text;
+}
+
+/** Every prop docgen gave a default for. Declared before the component's own default so an
+ *  argType default still wins. */
+/** Docgen reports the default either as a source snippet or as `{ value }`; accept both. */
+export function defaultsFromProps(
+  props: Array<{ defaultValue?: string | { value?: string } | null; name: string }> = [],
+) {
+  const defaults: Record<string, unknown> = {};
+  for (const prop of Array.isArray(props) ? props : []) {
+    const declared = prop?.defaultValue;
+    const text = typeof declared === 'string' ? declared : declared?.value;
+    if (typeof text === 'string') defaults[prop.name] = parseDefault(text);
+  }
+  return defaults;
+}
+
+export function getStoryControls(meta: StoryShape, story: StoryShape, componentDefaults: Record<string, unknown> = {}) {
+  const args = { ...componentDefaults, ...meta.args, ...story.args };
   const controls: StoryControl[] = [];
   if (typeof story.render === 'function' || typeof meta.render === 'function') {
     return { args, controls, unavailable: 'Controls unavailable: this story uses a custom render.' };
@@ -76,14 +105,16 @@ function ControlInput({ control, value, onChange }: {
   );
 }
 
-export function ControlledStoryFrame({ module, story, componentName }: {
+export function ControlledStoryFrame({ module, story, componentName, componentDefaults }: {
   module: Record<string, unknown>;
   story: string;
   componentName: string;
+  /** Defaults read from the component source, shown until the reader changes them. */
+  componentDefaults?: Record<string, unknown>;
 }) {
   const meta = (module.default ?? {}) as StoryShape;
   const definition = (module[story] ?? {}) as StoryShape;
-  const { args: defaults, controls, unavailable } = getStoryControls(meta, definition);
+  const { args: defaults, controls, unavailable } = getStoryControls(meta, definition, componentDefaults);
   const [edits, setEdits] = useState<Record<string, unknown>>({});
   const args = { ...defaults, ...edits };
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
