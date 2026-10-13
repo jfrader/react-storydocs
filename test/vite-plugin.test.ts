@@ -31,7 +31,7 @@ export function Button({ label, disabled = false, count = 0, size = 'sm' }: Butt
 }
 `);
   for (const [folder, title] of [['button', 'Primitives/Button'], ['alert', 'Feedback/Alert'], ['icon-button', 'Primitives/IconButton']]) {
-    write(`library/src/${folder}/component.stories.tsx`, `
+    write(`library/src/${folder}/${folder}.stories.tsx`, `
 const Component = () => null;
 const meta = { title: '${title}', component: Component, tags: ['autodocs'] };
 export default meta;

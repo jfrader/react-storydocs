@@ -82,3 +82,9 @@ export const toKebab = (value: string) =>
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase();
+
+export function storyIdentity(file: string, title: string) {
+  const [group = 'Components', ...leaf] = title.split('/');
+  const filename = path.basename(file).replace(/\.stories\.[^.]+$/, '');
+  return { group, name: leaf.join('/') || filename, slug: toKebab(filename) };
+}

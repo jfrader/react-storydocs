@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { collectMatches, readStoryFile, toKebab } from '../scan.ts';
+import { collectMatches, readStoryFile, storyIdentity } from '../scan.ts';
 import type { CatalogEntry, StorybookDocsConfig } from '../config.js';
 import { FILE_PREFIX } from './module-ids.ts';
 
@@ -56,8 +56,10 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsCo
   const entries: CatalogEntry[] = [];
   const files = new Map<string, string>();
   for (const { file, facts } of stories) {
-    const [authoredGroup = 'Components', name = path.basename(path.dirname(file))] = facts.title.split('/');
-    const slug = toKebab(name);
+    const { group: authoredGroup, name, slug } = storyIdentity(file, facts.title);
+    if (files.has(slug)) {
+      throw new Error(`storybook-docs: duplicate story slug "${slug}" in "${files.get(slug)}" and "${file}"`);
+    }
     files.set(slug, file);
     entries.push({
       slug,

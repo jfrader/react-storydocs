@@ -6,7 +6,8 @@ import { runInThisContext } from 'node:vm';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement, type ComponentType } from 'react';
 import ts from 'typescript';
-import { matchGlob } from '../src/scan.ts';
+import { matchGlob, storyIdentity } from '../src/scan.ts';
+import { buildCatalog, catalogCode } from '../src/build/catalog.ts';
 import { sectionStories, usageSnippet, buildUsageSnippet, selectExample } from '../src/sections.ts';
 
 test('shell brand links to the base-aware overview and follows the skip link', () => {
@@ -43,6 +44,31 @@ test('matchGlob: one segment wildcard', () => {
   assert.equal(matchGlob('src/components/*/*.stories.tsx', 'src/components/button/button.stories.tsx'), true);
   assert.equal(matchGlob('src/components/*/*.stories.tsx', 'src/components/button/nested/button.stories.tsx'), false);
   assert.equal(matchGlob('src/components/*/*.stories.tsx', 'src/components/button/button.tsx'), false);
+});
+
+test('storyIdentity: file slugs stay independent of dotted, nested and numbered display titles', () => {
+  assert.deepEqual(storyIdentity('/components/next/next.stories.tsx', 'Foundations/Next.js'),
+    { group: 'Foundations', name: 'Next.js', slug: 'next' });
+  assert.deepEqual(storyIdentity('/components/chart/chart.stories.ts', 'Data/Charts/Chart 2.0'),
+    { group: 'Data', name: 'Charts/Chart 2.0', slug: 'chart' });
+  assert.deepEqual(storyIdentity('/components/chart2/chart2.stories.jsx', 'Data/Chart2'),
+    { group: 'Data', name: 'Chart2', slug: 'chart2' });
+  assert.deepEqual(storyIdentity('/components/button/button.stories.tsx', 'Button'),
+    { group: 'Button', name: 'button', slug: 'button' });
+});
+
+test('catalog: dotted titles resolve to their file slug and duplicate filenames fail rather than overwrite', () => {
+  const story = { file: '/components/next/next.stories.tsx', facts: { title: 'Foundations/Next.js', stories: ['Default'], hasComponent: false } };
+  const catalog = buildCatalog([story], undefined);
+  assert.equal(catalog.entries[0]?.slug, 'next');
+  assert.equal(catalog.files.get('next'), story.file);
+  assert.match(catalogCode(catalog), /slug: "next", name: "Next\.js"/);
+  assert.throws(() => buildCatalog([story, { ...story, file: '/other/next.stories.tsx' }], undefined), /duplicate story slug "next"/);
+});
+
+test('selectExample: settled initial snapshots precede interaction-only fallbacks', () => {
+  assert.equal(selectExample(['DealAndPlay', 'Light', 'InitialSnapshot', 'ReducedMotion'].map((name) => ({ name }))), 'InitialSnapshot');
+  assert.equal(selectExample(['InitialSnapshot', 'Default'].map((name) => ({ name }))), 'Default');
 });
 
 test('matchGlob: partial segment wildcard and deep match', () => {

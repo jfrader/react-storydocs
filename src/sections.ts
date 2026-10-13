@@ -128,6 +128,7 @@ export function selectExample(stories: ExampleStory[], parts: string[] = []): st
     ?? candidates.find((story) => /^(default|primary)$/i.test(story.name))
     ?? candidates.find((story) => story.description?.trim())
     ?? candidates.find((story) => CONTENT_STORY.test(story.name))
+    ?? candidates.find((story) => /^initial(snapshot|state)$/i.test(story.name))
     ?? candidates[0])?.name ?? null;
 }
 
