@@ -26,8 +26,8 @@
 .guidance-callout {
   --callout-tone: var(--sd-accent);
   margin: 12px 0;
-  padding: 10px 14px;
-  border: 1px solid var(--sd-border);
+  padding: 14px 18px;
+  border: 0;
   border-left: 3px solid var(--callout-tone);
   border-radius: 0 var(--sd-radius) var(--sd-radius) 0;
   background: var(--sd-surface);
