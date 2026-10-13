@@ -230,7 +230,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
       <details className="code-toggle" onToggle={(event) => setCodeOpen(event.currentTarget.open)}>
         <summary>Code</summary>
         {codeOpen ? snippet
-          ? <CodeBlock code={snippet} language={codeLanguage} />
+          ? <CodeBlock code={snippet} language={codeLanguage} label={`${storyName} code`} />
           : <p>No usage code is authored for this component.</p>
           : null}
       </details>
