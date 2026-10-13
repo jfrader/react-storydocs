@@ -23,7 +23,7 @@
 /* The consumer's theme bridge is injected later and overrides these defaults. */
 
 html {
-  scroll-padding-top: 72px;
+  scroll-padding-top: max(72px, var(--sd-header-height, 55px));
 }
 html,
 body {
@@ -63,7 +63,7 @@ body {
   white-space: nowrap;
 }
 .skip {
-  position: absolute;
+  position: fixed;
   top: 8px;
   left: 8px;
   z-index: 30;
@@ -123,6 +123,14 @@ body {
 .brand {
   font-weight: 650;
   letter-spacing: -0.01em;
+}
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--sd-text);
+  text-decoration: none;
+  border-radius: 7px;
 }
 .search {
   position: relative;
@@ -684,7 +692,12 @@ section > h3 {
   }
   .nav {
     display: none;
-    max-height: 60vh;
+    position: fixed;
+    inset-inline: 0;
+    top: var(--sd-header-height, 55px);
+    z-index: 4;
+    box-sizing: border-box;
+    max-height: min(60vh, calc(100dvh - var(--sd-header-height, 55px)));
     overflow-y: auto;
     border-right: 0;
     border-bottom: 1px solid var(--sd-border);

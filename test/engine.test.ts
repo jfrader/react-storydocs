@@ -1,7 +1,43 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { runInThisContext } from 'node:vm';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { createElement, type ComponentType } from 'react';
+import ts from 'typescript';
 import { matchGlob } from '../src/scan.ts';
 import { sectionStories, usageSnippet } from '../src/sections.ts';
+
+test('shell brand links to the base-aware overview and follows the skip link', () => {
+  const require = createRequire(import.meta.url);
+  const compiled = ts.transpileModule(readFileSync(new URL('../src/app.tsx', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports: { DocsApp?: ComponentType } = {};
+  const modules: Record<string, unknown> = {
+    'virtual:storybook-docs/catalog': { catalog: [], groups: [], stats: { components: 0, stories: 0 } },
+    'virtual:storybook-docs/site': { pages: {}, site: { title: 'Example UI', mark: 'E' }, theme: {} },
+    'virtual:storybook-docs/releases': { releases: {} },
+    './base': { STORYBOOK_DOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
+    './toc': { hashPath: (hash: string) => hash.slice(1) },
+    './search': { SearchBox: () => null },
+    './pages/overview': { OverviewPage: () => null },
+  };
+  runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
+    modules[name] ?? (name.startsWith('./') ? {} : require(name)), exports);
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { hash: '#/docs/' } } });
+  try {
+    const html = renderToStaticMarkup(createElement(exports.DocsApp!));
+    assert.match(html, /<a class="brand-link" href="#\/docs\/">\s*<span class="mark" aria-hidden="true">E<\/span>\s*<span class="brand">Example UI<\/span><\/a>/);
+    assert.ok(html.indexOf('class="skip"') < html.indexOf('<button'), 'skip link precedes every button');
+    assert.ok(html.indexOf('class="skip"') < html.indexOf('class="brand-link"'), 'skip link precedes the brand link');
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
+});
 
 test('matchGlob: one segment wildcard', () => {
   assert.equal(matchGlob('src/components/*/*.stories.tsx', 'src/components/button/button.stories.tsx'), true);

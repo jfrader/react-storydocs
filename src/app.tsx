@@ -43,7 +43,24 @@ export function DocsApp() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [mode, setMode] = useState(theme.values?.[0] ?? 'dark');
   const [navOpen, setNavOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const root = document.documentElement;
+    const previousHeight = root.style.getPropertyValue('--sd-header-height');
+    const measure = () => root.style.setProperty('--sd-header-height', `${header.getBoundingClientRect().height}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      if (previousHeight) root.style.setProperty('--sd-header-height', previousHeight);
+      else root.style.removeProperty('--sd-header-height');
+    };
+  }, []);
 
   useEffect(() => {
     const onHash = () => {
@@ -81,7 +98,7 @@ export function DocsApp() {
       >
         Skip to content
       </a>
-      <header className="top">
+      <header className="top" ref={headerRef}>
         <button
           type="button"
           className="tool nav-toggle"
@@ -91,8 +108,10 @@ export function DocsApp() {
         >
           Menu
         </button>
-        <span className="mark" aria-hidden="true">{site.mark ?? site.title.slice(0, 1).toUpperCase()}</span>
-        <span className="brand">{site.title}</span>
+        <a className="brand-link" href={routeHref('/')}>
+          <span className="mark" aria-hidden="true">{site.mark ?? site.title.slice(0, 1).toUpperCase()}</span>
+          <span className="brand">{site.title}</span>
+        </a>
         <span className="chip">docs{releases.version ? ` · v${releases.version}` : ''}</span>
         <SearchBox />
         <span className="spacer" />
