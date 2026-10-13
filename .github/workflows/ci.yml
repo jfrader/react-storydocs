@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Test, typecheck and reference build
+    name: Contracts, typecheck and consumer builds
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -45,7 +45,7 @@ jobs:
       - name: Install engine dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Test engine
+      - name: Test engine, virtual modules, packed exports and fixtures graph
         run: pnpm test
 
       - name: Typecheck engine and tests

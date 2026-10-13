@@ -11,7 +11,12 @@
  * Usage, from a directory where `playwright` resolves (normally your Storybook app):
  *   node path/to/check-example-frames.mjs http://localhost:4320 [--json out.json]
  *
- * Exit code is 1 when a component has a real finding, so it can gate CI.
+ * Manual tool, not a CI gate: Playwright and its browser must be installed by the caller.
+ * For the built fixtures consumer, run `pnpm --dir examples/fixtures build`, then
+ * `pnpm --dir examples/fixtures preview --host 127.0.0.1 --port 4334` in another terminal,
+ * and pass http://127.0.0.1:4334 to this script from a directory with Playwright installed.
+ * CI gates the fixtures build and virtual-module contract instead; this tool checks layout.
+ * Exit code is 1 when a component has a real finding.
  */
 import { createRequire } from 'node:module';
 import { writeFileSync } from 'node:fs';

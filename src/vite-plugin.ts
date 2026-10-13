@@ -385,7 +385,18 @@ export const themeCss = ${JSON.stringify(themeCss ? `:root {\n${themeCss}\n}` : 
     const byName = new Map<string, ComponentPropsDoc>();
     for (const table of tables) {
       const existing = byName.get(table.name);
-      if (!existing || table.props.length > existing.props.length) byName.set(table.name, table);
+      if (!existing) {
+        byName.set(table.name, table);
+        continue;
+      }
+      const richer = table.props.length > existing.props.length ? table : existing;
+      const defaults = new Map([...existing.props, ...table.props]
+        .filter((prop) => prop.defaultValue !== null)
+        .map((prop) => [prop.name, prop.defaultValue]));
+      byName.set(table.name, {
+        ...richer,
+        props: richer.props.map((prop) => ({ ...prop, defaultValue: defaults.get(prop.name) ?? null })),
+      });
     }
     return [...byName.values()].sort((a, b) => b.props.length - a.props.length);
   };
