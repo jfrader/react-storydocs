@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { loadProps } from 'virtual:storybook-docs/props';
-import type { ComponentPropsDoc, PropDoc } from './vite-plugin';
+import type { ComponentPropsDoc, PropDoc } from './prop-docs';
 
 export type { ComponentPropsDoc, PropDoc };
 
