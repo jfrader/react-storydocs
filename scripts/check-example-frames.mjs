@@ -9,7 +9,7 @@
  * an empty group or a progress bar at zero is legitimate.
  *
  * Usage, from a directory where `playwright` resolves (normally your Storybook app):
- *   node path/to/check-example-frames.mjs http://localhost:4320 [--json out.json]
+ *   node path/to/check-example-frames.mjs http://localhost:4320 [--json out.json] [--width 390]
  *
  * Manual tool, not a CI gate: Playwright and its browser must be installed by the caller.
  * For the built fixtures consumer, run `pnpm --dir examples/fixtures build`, then
@@ -37,11 +37,17 @@ if (!url) {
 }
 const jsonIndex = rest.indexOf('--json');
 const jsonPath = jsonIndex === -1 ? null : rest[jsonIndex + 1];
+const widthIndex = rest.indexOf('--width');
+const width = widthIndex === -1 ? 1440 : Number(rest[widthIndex + 1]);
+if (!Number.isInteger(width) || width <= 0) {
+  console.error('check-example-frames: --width must be a positive integer.');
+  process.exit(2);
+}
 
 const report = [];
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+const page = await browser.newPage({ viewport: { width, height: 1000 } });
 const consoleErrors = [];
 page.on('pageerror', (error) => consoleErrors.push(error.message.slice(0, 120)));
 
@@ -139,6 +145,7 @@ for (const slug of slugs) {
       return {
         frames: frames.length,
         mounted,
+        pageOverflow: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
         failed,
         overflow: overflow.slice(0, 4),
         collapsed: collapsed.slice(0, 3),
@@ -147,18 +154,19 @@ for (const slug of slugs) {
       };
     });
 
-    const issues = result.failed.length + result.overflow.length + result.zeroTargets.length + (result.loadError ? 1 : 0);
-    report.push({ slug, ...result, consoleErrors: [...consoleErrors] });
+    const issues = result.failed.length + result.overflow.length + result.zeroTargets.length + (result.loadError ? 1 : 0) + (result.pageOverflow > 0 ? 1 : 0);
+    report.push({ slug, width, ...result, consoleErrors: [...consoleErrors] });
     console.log(
       `${issues === 0 ? 'ok   ' : 'ISSUE'} ${slug.padEnd(24)} frames=${result.frames} mounted=${result.mounted}` +
         (result.loadError ? ` LOAD-ERROR=${result.loadError.slice(0, 80)}` : '') +
         (result.failed.length ? ` FAILED=${result.failed.join(' | ')}` : '') +
         (result.overflow.length ? ` OVERFLOW=${result.overflow.join(' | ')}` : '') +
+        (result.pageOverflow > 0 ? ` PAGE-OVERFLOW=+${result.pageOverflow}px` : '') +
         (result.zeroTargets.length ? ` ZERO-SIZE=${result.zeroTargets.join(',')}` : '') +
         (result.collapsed.length ? ` EMPTY-ROOTS=${result.collapsed.join(' | ')}` : ''),
     );
   } catch (error) {
-    report.push({ slug, error: String(error).slice(0, 200) });
+    report.push({ slug, width, error: String(error).slice(0, 200) });
     console.log(`ERROR ${slug} ${String(error).slice(0, 120)}`);
   }
 }
@@ -169,6 +177,6 @@ if (jsonPath) {
   writeFileSync(jsonPath, JSON.stringify(report, null, 1));
   console.log(`wrote ${jsonPath}`);
 }
-const withIssues = report.filter((entry) => entry.error || entry.loadError || entry.failed?.length || entry.overflow?.length || entry.zeroTargets?.length);
+const withIssues = report.filter((entry) => entry.error || entry.loadError || entry.failed?.length || entry.overflow?.length || entry.zeroTargets?.length || entry.pageOverflow > 0);
 console.log(`${report.length - withIssues.length} of ${report.length} components clean`);
 process.exit(withIssues.length === 0 ? 0 : 1);
