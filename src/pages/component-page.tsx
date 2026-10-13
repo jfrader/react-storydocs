@@ -200,7 +200,11 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       ((meta as { component?: unknown }).component ? usageSnippet(entry.name, defaultArgs) : null),
     [authoredCode, entry.name, defaultArgs, meta],
   );
-  const propCount = props ? props.reduce((total, component) => total + component.props.length, 0) : Object.keys(argTypes).length;
+  // Own props only: inherited ones (DOM, ARIA) live behind their own disclosure, so counting them
+  // here would show a number the reader cannot act on.
+  const propCount = props
+    ? props.reduce((total, component) => total + component.props.filter((prop) => !prop.inheritedFrom).length, 0)
+    : Object.keys(argTypes).length;
   // Controls show the component's own defaults until the reader changes them.
   const componentDefaults = useMemo(
     () => defaultsFromProps(props?.find((component) => component.name === entry.name)?.props ?? []),
