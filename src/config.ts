@@ -91,24 +91,27 @@ export interface StorybookDocsConfig {
   };
 }
 
-export type ThemeRole =
-  | 'bg'
-  | 'surface'
-  | 'surfaceRaised'
-  | 'surfaceHover'
-  | 'border'
-  | 'borderSubtle'
-  | 'text'
-  | 'textMuted'
-  | 'textSubtle'
-  | 'accent'
-  | 'accentText'
-  | 'accentSoft'
-  | 'accentContrast'
-  | 'danger'
-  | 'dangerText'
-  | 'success'
-  | 'focusRing';
+export const THEME_ROLES = [
+  'bg',
+  'surface',
+  'surfaceRaised',
+  'surfaceHover',
+  'border',
+  'borderSubtle',
+  'text',
+  'textMuted',
+  'textSubtle',
+  'accent',
+  'accentText',
+  'accentSoft',
+  'accentContrast',
+  'danger',
+  'dangerText',
+  'success',
+  'focusRing',
+] as const;
+
+export type ThemeRole = (typeof THEME_ROLES)[number];
 
 export interface CatalogEntry {
   slug: string;

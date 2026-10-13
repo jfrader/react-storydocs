@@ -19,7 +19,7 @@ declare module 'virtual:storybook-docs/tokens' {
 }
 
 declare module 'virtual:storybook-docs/props' {
-  type ComponentPropsDoc = import('./vite-plugin.js').ComponentPropsDoc;
+  type ComponentPropsDoc = import('./prop-docs.js').ComponentPropsDoc;
   export function loadProps(slug: string): Promise<{ components: ComponentPropsDoc[] }>;
 }
 
