@@ -99,10 +99,13 @@ for (const slug of slugs) {
           if (rect.width === 0 || rect.height === 0) continue;
           const over = Math.max(rect.right - laneRect.right, laneRect.left - rect.left);
           if (over <= 2) continue;
-          // Content inside a scroll container is the scroller's business.
+          // Content inside a scroll container is the scroller's business. The walk goes past the
+          // lane up to the frame, because the canvas itself scrolls (Storybook's behaviour) and an
+          // example wider than the frame is expected, not a defect.
           let scroller = element.parentElement;
           let insideScroller = false;
-          while (scroller && scroller !== lane) {
+          const boundary = frame;
+          while (scroller && scroller !== boundary) {
             const style = getComputedStyle(scroller);
             if (/(auto|scroll|hidden|clip)/.test(style.overflowX + style.overflow)) {
               insideScroller = true;
