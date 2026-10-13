@@ -1,7 +1,6 @@
 {
   "name": "@jfrader/storybook-docs",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "A documentation front for any design system that has Storybook: navigation, live examples and API tables are generated from the story files themselves.",
   "exports": {
@@ -17,9 +16,9 @@
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "esbuild": "^0.28.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "typescript": "^5.9.3",
     "vite": "^8.3.4"
   },
   "packageManager": "pnpm@10.12.1",
@@ -30,7 +29,8 @@
   },
   "dependencies": {
     "marked": "^18.1.1",
-    "react-docgen-typescript": "^2.4.0"
+    "react-docgen-typescript": "^2.4.0",
+    "typescript": "^5.9.3"
   },
   "license": "MIT",
   "repository": {
@@ -38,6 +38,23 @@
     "url": "git+https://github.com/jfrader/storybook-docs.git"
   },
   "homepage": "https://github.com/jfrader/storybook-docs",
+  "bugs": {
+    "url": "https://github.com/jfrader/storybook-docs/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./vite": {
+        "types": "./dist/vite-plugin.d.ts",
+        "import": "./dist/vite-plugin.js"
+      }
+    }
+  },
   "keywords": [
     "storybook",
     "design-system",
@@ -48,13 +65,15 @@
   "scripts": {
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "build": "pnpm --dir examples/jfrader-ui build"
+    "build": "pnpm build:package && pnpm --dir examples/jfrader-ui build",
+    "build:package": "node scripts/build.mjs",
+    "prepack": "pnpm build:package"
   },
   "engines": {
     "node": ">=22"
   },
   "files": [
-    "src",
+    "dist",
     "LICENSE",
     "README.md"
   ],

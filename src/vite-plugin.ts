@@ -5,13 +5,13 @@
  * engine's app through virtual modules. A consumer therefore only writes a config file,
  * an `index.html` and a two-line entry — no component list, no copied prop tables.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { withDefaultConfig } from 'react-docgen-typescript';
 import ts from 'typescript';
 import type { Plugin, ResolvedConfig } from 'vite';
 import { collectMatches, extractTitle, readStoryFile, toKebab } from './scan.ts';
-import type { CatalogEntry, StorybookDocsConfig, ThemeRole } from './config';
+import type { CatalogEntry, StorybookDocsConfig, ThemeRole } from './config.js';
 
 export interface PropDoc {
   name: string;
@@ -501,7 +501,7 @@ ${[...guidanceFiles.keys()].map((slug) => `    case ${JSON.stringify(slug)}: ret
     },
     resolveId(id: string) {
       if (id.startsWith(VIRTUAL_PREFIX)) return `\0${id}`;
-      if (id.startsWith(FILE_PREFIX)) return id.slice(FILE_PREFIX.length);
+      if (id.startsWith(FILE_PREFIX)) return realpathSync(id.slice(FILE_PREFIX.length));
       // Story modules import `storybook/test` for their play functions. Play functions are
       // never executed here, and that package is a dev dependency of the host app rather
       // than of the documented library (so it cannot be resolved from the library's path).

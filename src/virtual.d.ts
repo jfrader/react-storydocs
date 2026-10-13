@@ -1,5 +1,5 @@
 declare module 'virtual:storybook-docs/site' {
-  type StorybookDocsConfig = import('./config').StorybookDocsConfig;
+  type StorybookDocsConfig = import('./config.js').StorybookDocsConfig;
   export const site: StorybookDocsConfig['site'];
   export const theme: NonNullable<StorybookDocsConfig['theme']>;
   export const pages: Required<NonNullable<StorybookDocsConfig['pages']>>;
@@ -8,7 +8,7 @@ declare module 'virtual:storybook-docs/site' {
 }
 
 declare module 'virtual:storybook-docs/catalog' {
-  type CatalogEntry = import('./config').CatalogEntry;
+  type CatalogEntry = import('./config.js').CatalogEntry;
   export const catalog: CatalogEntry[];
   export const groups: string[];
   export const stats: { components: number; stories: number; groups: number };
@@ -19,7 +19,7 @@ declare module 'virtual:storybook-docs/tokens' {
 }
 
 declare module 'virtual:storybook-docs/props' {
-  type ComponentPropsDoc = import('./vite-plugin').ComponentPropsDoc;
+  type ComponentPropsDoc = import('./vite-plugin.js').ComponentPropsDoc;
   export function loadProps(slug: string): Promise<{ components: ComponentPropsDoc[] }>;
 }
 

@@ -1,0 +1,71 @@
+name: Publish package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'jfrader/storybook-docs'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out release
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up npmjs
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          run_install: false
+
+      - name: Install release npm
+        run: npm install --global npm@11.18.0
+
+      - name: Verify release identity
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+          if (manifest.name !== '@jfrader/storybook-docs') throw new Error('Unexpected package name');
+          if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v${manifest.version}`) {
+            throw new Error('Tag/version mismatch');
+          }
+          NODE
+          git fetch origin master
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check release
+        run: |
+          pnpm test
+          pnpm typecheck
+
+      - name: Pack release
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          pnpm pack --pack-destination "$RUNNER_TEMP/release"
+
+      - name: Publish to npmjs
+        run: npm publish "$RUNNER_TEMP"/release/*.tgz --access public --provenance
