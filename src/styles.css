@@ -314,6 +314,7 @@ code {
   overflow-x: auto;
   min-inline-size: 0;
 }
+.frame .shot[data-layout='fullscreen'] { padding: 0; }
 .frame .story-lane[data-layout='centered'] {
   display: grid;
   place-items: center;

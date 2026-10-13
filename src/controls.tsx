@@ -1,20 +1,27 @@
 /** @jsxImportSource react */
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { CodeBlock } from './code';
-import { usageSnippet, type DocsParameters } from './sections';
+import { mergeAnnotations, usageSnippet, type DocsParameters } from './sections';
 import { LazySection, StoryView } from './story-view';
 import './controls.css';
 
 interface StoryShape {
+  name?: string;
   args?: Record<string, unknown>;
   argTypes?: Record<string, Record<string, unknown>>;
   render?: unknown;
+  loaders?: unknown;
+  beforeEach?: unknown;
+  parameters?: { docs?: DocsParameters; layout?: string; viewport?: unknown };
 }
 
 export interface StoryControl {
   name: string;
-  type: 'boolean' | 'select' | 'number' | 'text';
+  type: 'boolean' | 'select' | 'number' | 'text' | 'range' | 'object';
   options?: unknown[];
+  min?: number;
+  max?: number;
+  step?: number;
 }
 
 /** Storybook's argTypes can declare a default; the component's own default comes from docgen as a
@@ -49,10 +56,8 @@ export function defaultsFromProps(
 export function getStoryControls(meta: StoryShape, story: StoryShape, componentDefaults: Record<string, unknown> = {}) {
   const args = { ...componentDefaults, ...meta.args, ...story.args };
   const controls: StoryControl[] = [];
-  if (typeof story.render === 'function' || typeof meta.render === 'function') {
-    return { args, controls, unavailable: 'Controls unavailable: this story uses a custom render.' };
-  }
-  for (const [name, definition] of Object.entries({ ...meta.argTypes, ...story.argTypes })) {
+  for (const [name, raw] of Object.entries(mergeAnnotations(meta.argTypes, story.argTypes))) {
+    const definition = raw as Record<string, unknown>;
     const control = definition.control;
     if (control === false || control === null) continue;
     const type = typeof control === 'string'
@@ -62,12 +67,17 @@ export function getStoryControls(meta: StoryShape, story: StoryShape, componentD
         : undefined;
     if (type === 'boolean' || type === 'number' || type === 'text' || type === 'string') {
       controls.push({ name, type: type === 'string' ? 'text' : type });
-    } else if ((type === 'select' || type === 'radio') && Array.isArray(definition.options) && definition.options.length > 0) {
+    } else if ((type === 'select' || type === 'radio' || type === 'inline-radio') && Array.isArray(definition.options) && definition.options.length > 0) {
       controls.push({ name, type: 'select', options: definition.options });
+    } else if (type === 'range') {
+      const settings = control as { min?: number; max?: number; step?: number };
+      controls.push({ name, type, min: settings.min, max: settings.max, step: settings.step });
+    } else if (type === 'object') {
+      controls.push({ name, type });
     } else {
       continue;
     }
-    if (Object.hasOwn(definition, 'defaultValue')) args[name] = definition.defaultValue;
+    if (!Object.hasOwn(args, name) && Object.hasOwn(definition, 'defaultValue')) args[name] = definition.defaultValue;
   }
   return {
     args,
@@ -82,6 +92,8 @@ function ControlInput({ control, value, onChange }: {
   onChange: (value: unknown) => void;
 }) {
   const id = useId();
+  const [invalid, setInvalid] = useState(false);
+  useEffect(() => setInvalid(false), [value]);
   return (
     <div className="sd-control">
       <label htmlFor={id}>{control.name}</label>
@@ -93,11 +105,20 @@ function ControlInput({ control, value, onChange }: {
         </select>
       ) : control.type === 'boolean' ? (
         <input id={id} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
+      ) : control.type === 'object' ? (
+        <>
+          <textarea key={JSON.stringify(value)} id={id} defaultValue={JSON.stringify(value, null, 2) ?? ''}
+            aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : undefined} onBlur={(event) => {
+              try { onChange(JSON.parse(event.target.value)); setInvalid(false); }
+              catch { setInvalid(true); }
+            }} />
+          {invalid ? <span id={`${id}-error`} role="status">Enter valid JSON.</span> : null}
+        </>
       ) : (
-        <input id={id} type={control.type === 'number' ? 'number' : 'text'}
-          step={control.type === 'number' ? 'any' : undefined}
+        <input id={id} type={control.type === 'number' || control.type === 'range' ? control.type : 'text'}
+          min={control.min} max={control.max} step={control.step ?? (control.type === 'number' ? 'any' : undefined)}
           value={typeof value === 'string' || typeof value === 'number' ? value : ''}
-          onChange={(event) => onChange(control.type === 'number'
+          onChange={(event) => onChange(control.type === 'number' || control.type === 'range'
             ? event.target.value === '' ? undefined : event.target.valueAsNumber
             : event.target.value)} />
       )}
@@ -121,11 +142,8 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
   // Storybook semantics: the story's own `layout` decides whether the lane is padded (block)
   // or centred. Components that measure their own width need the padded, full-width lane.
-  const storyLayout =
-    ((definition as { parameters?: { layout?: string } }).parameters?.layout ??
-      (meta as { parameters?: { layout?: string } }).parameters?.layout) === 'centered'
-      ? 'centered'
-      : 'padded';
+  const requestedLayout = definition.parameters?.layout ?? meta.parameters?.layout;
+  const storyLayout = requestedLayout === 'centered' || requestedLayout === 'fullscreen' ? requestedLayout : 'padded';
   const [laneLayout, setLaneLayout] = useState<string>(storyLayout);
   // A block lane is what components that measure their own width need; inline-level content
   // (a lone button, badge, switch) can still be centred visually without shrinking the lane.
@@ -134,7 +152,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
       if (!node) return;
       const content = node.firstElementChild;
       if (!(content instanceof HTMLElement)) return;
-      setLaneLayout(/^inline/.test(getComputedStyle(content).display) ? 'inline' : storyLayout);
+      setLaneLayout(storyLayout !== 'fullscreen' && /^inline/.test(getComputedStyle(content).display) ? 'inline' : storyLayout);
     },
     [storyLayout],
   );
@@ -145,18 +163,22 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const docsOverride = (definition as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
   const docsMeta = (meta as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
   const authoredCode = docsOverride?.source?.code ?? docsMeta?.source?.code;
-  const authoredStory = docsOverride?.description?.story;
+  const authoredStory = docsOverride?.description?.story ?? docsMeta?.description?.story;
+  const storyName = definition.name ?? story;
+  const skipped: string[] = (['loaders', 'beforeEach'] as const).filter((key) => meta[key] || definition[key]);
+  if (definition.parameters?.viewport ?? meta.parameters?.viewport) skipped.push('viewport');
   const codeLanguage = docsOverride?.source?.language ?? docsMeta?.source?.language ?? 'tsx';
   const snippet = authoredCode ?? (!(meta as { component?: unknown }).component || typeof definition.render === 'function' || typeof meta.render === 'function'
     ? null
-    : usageSnippet(componentName, args));
+    : usageSnippet(componentName, { ...meta.args, ...definition.args, ...edits }));
   return (
     <div className="frame">
-      <header><span>{story}</span></header>
+      <header><span>{storyName}</span></header>
       {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
+      {skipped.length ? <p className="sd-controls-note">Not applied here: {skipped.join(', ')}. Open this story in Storybook.</p> : null}
       {unavailable ? <p className="sd-controls-note">{unavailable}</p> : (
         <fieldset className="sd-controls">
-          <legend>Controls for {story}</legend>
+          <legend>Controls for {storyName}</legend>
           <div className="sd-controls-fields">
             {controls.map((control) => (
               <ControlInput key={control.name} control={control} value={args[control.name]}
@@ -166,10 +188,10 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
           </div>
         </fieldset>
       )}
-      <div className="shot">
+      <div className="shot" data-layout={storyLayout}>
         <LazySection>
           <div className="story-lane" data-layout={laneLayout} ref={laneRef}>
-            <StoryView module={module} story={story} overrides={unavailable ? undefined : args} />
+            <StoryView module={module} story={story} overrides={edits} />
           </div>
         </LazySection>
       </div>

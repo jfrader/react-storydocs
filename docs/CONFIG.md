@@ -29,8 +29,7 @@ segment and `**` across directories.
 
 ### Authored documentation already in the stories
 
-Anything a story file documents in its own Storybook parameters is rendered, so
-a docs site needs no second copy of the prose:
+The following authored documentation parameters are rendered without a second copy of the prose:
 
 | Storybook parameter | Where it appears |
 | --- | --- |
@@ -220,11 +219,30 @@ show up as stories that render wrong rather than as errors:
 - Compound parts hidden from docgen (including `Object.assign` compounds and
   `Dialog.Content = …`) rely on exported `*Props` types. Parts without exported
   props types remain invisible.
+- Meta and story args, globals, argTypes and parameters are composed with story-level precedence.
+  Parameters and argTypes merge recursively; arrays replace rather than concatenate.
+  Explicit args win over deprecated argType defaults. Docgen defaults describe controls only;
+  they are not evaluated or passed into the component. Render functions receive the composed
+  context, and decorators can call `Story({ args })` to override arguments.
+- Controls support boolean, number, text/string, select, radio/inline-radio (as a select),
+  range and object (JSON, applied on blur). ArgType mappings apply to rendered arguments.
+  Custom renders accept controls too. Check/inline-check, multi-select, color, date and file
+  editors are not provided; their authored args still render unchanged.
+- Story `name` supplies the example heading; export names remain the stable identifiers.
+  `!dev` and `!test` affect Storybook's sidebar/test runner, not this docs front.
+  Custom tags have no filtering effect here. `!autodocs` hides docs examples.
 - Meta and story decorators are applied in Storybook's order. Project-level
   decorators from `.storybook/preview` are not recreated: theme, global styles
   and layout come from the docs config instead. A story that throws shows its
   error in place rather than disappearing.
-- Play functions, interactive controls and accessibility checks do not run here.
+- Play functions and accessibility checks do not run here. Loaders and beforeEach hooks
+  are not executed: test hooks can modify clocks, preferences and shared browser state,
+  which cannot safely be isolated across simultaneous examples. Affected frames show a notice.
+  Loader-dependent examples may not render correctly. Project globals/initialGlobals and
+  Storybook-specific context APIs (hooks, canvas, mount, step) are not recreated.
+  Addon parameters such as viewport and backgrounds are not applied; viewport frames show
+  a notice. Layout supports centered, padded and fullscreen (an unpadded docs frame,
+  not a separate viewport-sized canvas).
 - Search scans the in-memory catalog's component, group and story names. There is
   no generated full-text search index for guidance, props or rendered content.
 
