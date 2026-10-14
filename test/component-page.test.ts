@@ -37,6 +37,23 @@ function renderPage(module: Record<string, unknown>, name = 'Button') {
   } }));
 }
 
+test('component page without an authored description omits the introduction and provenance footer', () => {
+  const markup = renderPage({ default: { component: {} }, Default: {} });
+  assert.doesNotMatch(markup, /class="lede"|every story in/);
+  assert.doesNotMatch(markup, /<h2>Notes<\/h2>|Everything above is generated|Editorial judgement/);
+  assert.match(markup, /data-story="Default"/);
+  assert.match(markup, /<h2>Usage<\/h2>/);
+  assert.match(markup, /<h2>Props<\/h2>/);
+});
+
+test('component page retains an authored description', () => {
+  const markup = renderPage({
+    default: { component: {}, parameters: { docs: { description: { component: 'Triggers an action.' } } } },
+    Default: {},
+  });
+  assert.match(markup, /<p class="lede">Triggers an action\.<\/p>/);
+});
+
 test('component page moves its selected frame above Usage exactly once', () => {
   const markup = renderPage({
     default: { component: {}, args: { children: 'Save' } },
