@@ -1,5 +1,7 @@
 import ts from 'typescript';
 import { VIRTUAL_PREFIX } from './module-ids.ts';
+import { STORY_EXCERPT } from '../sections.ts';
+import { snippetProgram, unresolvedSnippetBindings } from './snippet-bindings.ts';
 
 function unwrap(node: ts.Expression): ts.Expression {
   while (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)
@@ -19,6 +21,7 @@ export function extractStorySourceDetails(source: string): {
   helpers: Record<string, HelperExpansion>;
 } {
   const file = ts.createSourceFile('stories.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const checker = snippetProgram(file).getTypeChecker();
   const declarations = new Map<string, ts.Expression | ts.FunctionDeclaration>();
   const exports = new Map<string, string>();
   for (const statement of file.statements) {
@@ -188,16 +191,35 @@ export function extractStorySourceDetails(source: string): {
     return unknown;
   };
 
-  const inlineRoot = (expression: ts.Expression, detail: HelperExpansion, trail: string[] = []): string => {
+  const textWithBindings = (expression: ts.Expression, bindings: Map<ts.Symbol, string>): string => {
+    const edits: { start: number; end: number; text: string }[] = [];
+    const visit = (node: ts.Node) => {
+      if (ts.isIdentifier(node)) {
+        const symbol = checker.getSymbolAtLocation(node);
+        const text = symbol && bindings.get(symbol);
+        const parent = node.parent;
+        const tag = (ts.isJsxOpeningElement(parent) || ts.isJsxClosingElement(parent) || ts.isJsxSelfClosingElement(parent))
+          && parent.tagName === node;
+        if (text && !tag) edits.push({ start: node.getStart(file) - expression.getStart(file), end: node.end - expression.getStart(file),
+          text: ts.isShorthandPropertyAssignment(parent) ? `${node.text}: ${text}` : text });
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(expression);
+    let text = expression.getText(file);
+    for (const edit of edits.reverse()) text = text.slice(0, edit.start) + edit.text + text.slice(edit.end);
+    return text;
+  };
+  const inlineRoot = (expression: ts.Expression, detail: HelperExpansion, trail: string[] = [], bindings = new Map<ts.Symbol, string>()): string => {
     const tag = ts.isJsxElement(expression) ? expression.openingElement.tagName
       : ts.isJsxSelfClosingElement(expression) ? expression.tagName : undefined;
     const name = tag && ts.isIdentifier(tag) && /^[A-Z]/.test(tag.text) ? tag.text : undefined;
     const helper = name && helperFor(name);
-    if (!name || !declarations.has(name)) return expression.getText(file);
+    if (!name || !declarations.has(name)) return textWithBindings(expression, bindings);
     if (!helper) {
       const reason = 'local definition is not a direct function';
       detail.remaining.push({ name, reason });
-      return `// ${name} not expanded: ${reason}.\n${expression.getText(file)}`;
+      return `// ${name} not expanded: ${reason}.\n${textWithBindings(expression, bindings)}`;
     }
     const returned = returnedJsx(helper);
     const jsx = returned[0];
@@ -209,10 +231,23 @@ export function extractStorySourceDetails(source: string): {
           : hasUnknownMap(helper, jsx) ? 'maps over a collection without a local array definition' : undefined;
     if (reason) {
       detail.remaining.push({ name, reason });
-      return `// ${name} not expanded: ${reason}.\n${expression.getText(file)}`;
+      return `// ${name} not expanded: ${reason}.\n${textWithBindings(expression, bindings)}`;
     }
     detail.inlined.push(name);
-    return `// JSX from ${name}, as authored.\n${inlineRoot(jsx!, detail, [...trail, name])}`;
+    const attributes = ts.isJsxElement(expression) ? expression.openingElement.attributes
+      : ts.isJsxSelfClosingElement(expression) ? expression.attributes : undefined;
+    const parameter = helper.parameters[0]?.name;
+    const rootAttributes = ts.isJsxElement(jsx!) ? jsx!.openingElement.attributes
+      : ts.isJsxSelfClosingElement(jsx!) ? jsx!.attributes : undefined;
+    const spread = attributes?.properties.length === 1 ? attributes.properties[0] : undefined;
+    if (parameter && ts.isIdentifier(parameter) && spread && ts.isJsxSpreadAttribute(spread)
+      && textWithBindings(spread.expression, bindings) === 'args'
+      && rootAttributes?.properties.some((prop) => ts.isJsxSpreadAttribute(prop)
+        && ts.isIdentifier(prop.expression) && prop.expression.text === parameter.text)) {
+      const symbol = checker.getSymbolAtLocation(parameter);
+      if (symbol) bindings = new Map(bindings).set(symbol, 'args');
+    }
+    return `// JSX from ${name}, as authored.\n${inlineRoot(jsx!, detail, [...trail, name], bindings)}`;
   };
 
   const sources: Record<string, string> = {};
@@ -224,8 +259,17 @@ export function extractStorySourceDetails(source: string): {
     const expressions = returnedJsx(render);
     if (expressions.length) {
       const detail: HelperExpansion = { inlined: [], remaining: [] };
-      const jsx = expressions.map((expression) => inlineRoot(expression, detail)).join('\n\n');
-      sources[name] = expressions.length > 1 ? `// JSX return branches as authored in the story.\n${jsx}` : jsx;
+      const bindings = new Map<ts.Symbol, string>();
+      const parameter = render.parameters[0]?.name;
+      if (parameter && ts.isIdentifier(parameter)) {
+        const symbol = checker.getSymbolAtLocation(parameter);
+        if (symbol) bindings.set(symbol, 'args');
+      }
+      const jsx = expressions.map((expression) => inlineRoot(expression, detail, [], bindings)).join('\n\n');
+      const unresolved = unresolvedSnippetBindings(jsx, new Set(declarations.keys()));
+      const incomplete = detail.remaining.length || unresolved.length || expressions.length > 1;
+      sources[name] = incomplete
+        ? `${STORY_EXCERPT}${unresolved.length ? `; unresolved bindings: ${unresolved.join(', ')}` : '; multiple return branches'}.\n${jsx}` : jsx;
       if (detail.inlined.length || detail.remaining.length) helpers[name] = detail;
     }
   }

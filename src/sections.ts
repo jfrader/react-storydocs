@@ -8,6 +8,17 @@ export type DocsParameters = {
   source?: { code?: string; language?: string };
 };
 
+export function frameSource(meta: { args?: Record<string, unknown>; parameters?: { docs?: DocsParameters } },
+  story: { args?: Record<string, unknown>; parameters?: { docs?: DocsParameters } }) {
+  // A meta example describes its own args. Only inherit it when every story override is
+  // identical to that baseline; new keys and non-identical objects conservatively opt out.
+  const unchanged = Object.entries(story.args ?? {}).every(([key, value]) => Object.hasOwn(meta.args ?? {}, key)
+    && Object.is(value, meta.args?.[key]));
+  return story.parameters?.docs?.source?.code ?? (unchanged ? meta.parameters?.docs?.source?.code : undefined);
+}
+
+export const STORY_EXCERPT = '// Excerpt from the story';
+
 export function mergeAnnotations(...values: Array<Record<string, unknown> | undefined>): Record<string, unknown> {
   const merged: Record<string, unknown> = {};
   const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -189,7 +200,6 @@ export function buildUsageSnippet({ componentName, from, args, source, renderSou
   jsxName?: string;
   component?: unknown;
 }): string | null {
-  if (!source?.trim() && renderSource?.trim()) return renderSource;
   const rootName = componentName.split('.')[0]!;
   const identity = component as { displayName?: unknown } | undefined;
   const tag = jsxName ?? (typeof identity?.displayName === 'string' && identity.displayName.startsWith(`${rootName}.`)
@@ -198,8 +208,17 @@ export function buildUsageSnippet({ componentName, from, args, source, renderSou
     && (typeof part === 'function' || (part !== null && typeof part === 'object' && '$$typeof' in part)));
   // Root arguments cannot describe a compound's anatomy. Require authored composition code,
   // or the identity of the specific part, rather than showing an empty provider/root tag.
-  const example = source?.trim() || (compound && !tag.includes('.') ? null : usageSnippet(tag, args));
+  const generated = () => compound && !tag.includes('.') ? null : usageSnippet(tag, args);
+  const extracted = renderSource?.trim();
+  const excerpt = extracted?.startsWith(STORY_EXCERPT);
+  const example = source?.trim() || (excerpt ? generated() || extracted : extracted || generated());
   if (!example) return null;
+  if (!source?.trim() && example === extracted) {
+    const rootTag = example.replace(/^\s*\/\/[^\n]*(?:\n|$)/gm, '').trim()
+      .match(/^<([A-Za-z_$][\w$]*(?:\.[\w$]+)*)[\s/>]/)?.[1]?.split('.')[0];
+    if (excerpt || rootTag !== rootName || !from.trim()) return example;
+  }
+  if (!from.trim()) return example;
   const imports = [...example.matchAll(/import\s*\{([^}]+)\}\s*from\s*(['"])(.*?)\2/g)];
   const imported = imports.some((match) => match[3] === from && match[1]!.split(',').some((name) => name.trim() === rootName));
   return imported ? example : `import { ${rootName} } from '${from}';\n\n${example}`;

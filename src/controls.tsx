@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { ComponentDemo } from './component-demo';
 export { hasHorizontalOverflow } from './component-demo';
-import { mergeAnnotations, buildUsageSnippet, type DocsParameters } from './sections';
+import { mergeAnnotations, buildUsageSnippet, frameSource, type DocsParameters } from './sections';
 import { StoryView } from './story-view';
 import { storySource } from 'virtual:storybook-docs/catalog';
 
@@ -113,7 +113,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   // `docs.description.story` documents the individual example.
   const docsOverride = (definition as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
   const docsMeta = (meta as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
-  const authoredCode = docsOverride?.source?.code ?? docsMeta?.source?.code;
+  const authoredCode = frameSource(meta, definition);
   const authoredStory = docsOverride?.description?.story ?? docsMeta?.description?.story;
   const storyName = definition.name ?? story;
   const skipped: string[] = (['loaders', 'beforeEach'] as const).filter((key) => meta[key] || definition[key]);
