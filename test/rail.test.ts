@@ -103,3 +103,23 @@ test('short rails stay top-sticky and below the breakpoint all inline styles are
   assert.equal(f.properties.size, 0);
   f.cleanup();
 });
+
+test('short-rail insets keep the whole rail visible through scrolling, reversal and resize', () => {
+  const f = fixture();
+  for (const viewport of [900, 700]) {
+    f.window.innerHeight = viewport;
+    for (const height of [28, 600, viewport - 76 - 20]) {
+      f.rail.offsetHeight = height;
+      f.resize();
+      for (const y of [0, 120, 240, 360, 480, 360, 240, 120, 0]) {
+        f.scroll(y);
+        const top = Number.parseFloat(f.style.top);
+        assert.ok(top >= 76 - 2, `top remains below the header at y=${y}`);
+        assert.ok(top + height <= viewport - 8, `bottom remains above the fold at y=${y}`);
+        assert.equal(f.style.bottom, 'auto');
+        assert.equal(f.properties.get('--sd-rail-offset'), '0px');
+      }
+    }
+  }
+  f.cleanup();
+});

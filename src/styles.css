@@ -203,8 +203,11 @@ body {
   padding: 14px 12px 20px;
 }
 .nav a {
-  display: block;
-  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 4px 10px;
   border-radius: 8px;
   color: var(--sd-text-muted);
   font-size: 13.5px;
@@ -220,7 +223,7 @@ body {
   font-weight: 600;
 }
 .grp {
-  margin: 16px 0 4px;
+  margin: 8px 0 2px;
   padding: 0 10px;
   font-size: 10.5px;
   letter-spacing: 0.09em;
@@ -234,7 +237,7 @@ body {
   background: none;
   border: 0;
   cursor: pointer;
-  min-height: 24px;
+  min-height: 28px;
 }
 .grp:focus-visible {
   outline: 2px solid var(--sd-focus-ring);
