@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { Children, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
 import { ComponentPage } from './pages/component-page';
@@ -15,28 +15,18 @@ import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath, useRailFollow } from './toc';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
-const NAV_GROUP_WINDOW = 12;
-
-function NavGroup({ id, title, active, activeIndex = -1, children }: { id: string; title: string; active: boolean; activeIndex?: number; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  const expanded = active || open;
-  const links = Children.toArray(children);
-  const capped = active && links.length > NAV_GROUP_WINDOW;
-  const start = Math.min(Math.max(activeIndex - NAV_GROUP_WINDOW / 2, 0), Math.max(0, links.length - NAV_GROUP_WINDOW));
-  const visibleLinks = capped && !showAll ? links.slice(start, start + NAV_GROUP_WINDOW) : links;
+function NavGroup({ id, title, active, children }: { id: string; title: string; active: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(active);
   return (
     <div role="group" aria-labelledby={id}>
-      <button type="button" className="grp" id={id} aria-expanded={expanded} aria-controls={`${id}-links`} disabled={active} onClick={() => setOpen(!open)}>
-        {title}
+      <button type="button" className="grp" id={id} aria-expanded={open} aria-controls={`${id}-links`} onClick={() => setOpen(!open)}>
+        <span>{title}</span>
+        <svg className="grp-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <path d="m6 4 4 4-4 4" />
+        </svg>
       </button>
-      <div id={`${id}-links`} hidden={!expanded}>
-        <div id={`${id}-window`}>{visibleLinks}</div>
-        {capped ? (
-          <button type="button" className="nav-more" aria-expanded={showAll} aria-controls={`${id}-window`} onClick={() => setShowAll(!showAll)}>
-            {showAll ? 'Show less' : `Show all ${links.length}`}
-          </button>
-        ) : null}
+      <div id={`${id}-links`} hidden={!open}>
+        {children}
       </div>
     </div>
   );
@@ -185,7 +175,7 @@ export function DocsApp() {
 
         ) : null}
         {foundations.length > 0 ? (
-          <NavGroup key={`foundations-${activeSlug ?? route.kind}`} id="nav-grp-foundations" title="Foundations" active={foundations.some((item) => route.kind === item.kind)}>
+          <NavGroup key={`foundations-${activeSlug ?? route.kind}`} id="nav-grp-foundations" title="Design tokens" active={foundations.some((item) => route.kind === item.kind)}>
             {foundations.map((item) => (
               <a
                 key={item.href}
@@ -200,9 +190,9 @@ export function DocsApp() {
         ) : null}
         {groups.map((group, index) => {
           const entries = catalog.filter((entry) => entry.group === group);
-          const activeIndex = entries.findIndex((entry) => entry.slug === activeSlug);
+          const active = entries.some((entry) => entry.slug === activeSlug);
           return (
-            <NavGroup key={`${group}-${activeSlug ?? route.kind}`} id={`nav-grp-${index}`} title={group} active={activeIndex !== -1} activeIndex={activeIndex}>
+            <NavGroup key={`${group}-${activeSlug ?? route.kind}`} id={`nav-grp-${index}`} title={group} active={active}>
               {entries.map((entry) => (
                 <a
                   key={entry.slug}

@@ -202,8 +202,7 @@ body {
   background: var(--sd-surface);
   padding: 14px 12px 12px;
 }
-.nav a,
-.nav-more {
+.nav a {
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -214,16 +213,7 @@ body {
   font-size: 13.5px;
   text-decoration: none;
 }
-.nav-more {
-  width: 100%;
-  background: none;
-  border: 0;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-.nav a:hover,
-.nav-more:hover {
+.nav a:hover {
   background: var(--sd-surface-hover);
   color: var(--sd-text);
 }
@@ -234,23 +224,46 @@ body {
 }
 .grp {
   margin: 3px 0 2px;
-  padding: 0 10px;
+  padding: 8px 10px;
   font-size: 10.5px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--sd-text-muted);
   font-weight: 700;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   text-align: left;
   font-family: inherit;
   background: none;
   border: 0;
+  border-radius: 8px;
   cursor: pointer;
-  min-height: 28px;
+  min-height: 36px;
 }
-.grp:focus-visible,
-.nav-more:focus-visible {
+.grp[aria-expanded="true"] {
+  background: var(--sd-surface-raised);
+  color: var(--sd-text);
+}
+.grp:hover {
+  background: var(--sd-surface-hover);
+  color: var(--sd-text);
+}
+.grp-chevron {
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+.grp[aria-expanded="true"] .grp-chevron {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .grp-chevron {
+    transition: none;
+  }
+}
+.grp:focus-visible {
   outline: 2px solid var(--sd-focus-ring);
   outline-offset: 2px;
 }
