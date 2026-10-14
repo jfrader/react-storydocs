@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
 import { ComponentPage } from './pages/component-page';
@@ -15,6 +15,19 @@ import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath, useRailFollow } from './toc';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
+
+function NavGroup({ id, title, active, children }: { id: string; title: string; active: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const expanded = active || open;
+  return (
+    <div role="group" aria-labelledby={id}>
+      <button type="button" className="grp" id={id} aria-expanded={expanded} aria-controls={`${id}-links`} disabled={active} onClick={() => setOpen(!open)}>
+        {title}
+      </button>
+      <div id={`${id}-links`} hidden={!expanded}>{children}</div>
+    </div>
+  );
+}
 
 type Route =
   | { kind: 'overview' }
@@ -134,6 +147,7 @@ export function DocsApp() {
         ))}
       </header>
 
+      <div className="rail-track nav-track">
       <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation" ref={navRef}>
         <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
@@ -158,10 +172,7 @@ export function DocsApp() {
 
         ) : null}
         {foundations.length > 0 ? (
-          <div role="group" aria-labelledby="nav-grp-foundations">
-            <div className="grp" id="nav-grp-foundations">
-              Foundations
-            </div>
+          <NavGroup key={`foundations-${route.kind}`} id="nav-grp-foundations" title="Foundations" active={foundations.some((item) => route.kind === item.kind)}>
             {foundations.map((item) => (
               <a
                 key={item.href}
@@ -172,13 +183,10 @@ export function DocsApp() {
                 {item.label}
               </a>
             ))}
-          </div>
+          </NavGroup>
         ) : null}
         {groups.map((group, index) => (
-          <div key={group} role="group" aria-labelledby={`nav-grp-${index}`}>
-            <div className="grp" id={`nav-grp-${index}`}>
-              {group}
-            </div>
+          <NavGroup key={`${group}-${activeSlug ?? route.kind}`} id={`nav-grp-${index}`} title={group} active={catalog.some((entry) => entry.group === group && entry.slug === activeSlug)}>
             {catalog
               .filter((entry) => entry.group === group)
               .map((entry) => (
@@ -193,9 +201,10 @@ export function DocsApp() {
                   {entry.name}
                 </a>
               ))}
-          </div>
+          </NavGroup>
         ))}
       </nav>
+      </div>
 
       <main id="main" className="main" tabIndex={-1} ref={mainRef}>
         {route.kind === 'component' ? (

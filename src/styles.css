@@ -186,13 +186,21 @@ body {
   outline-offset: 2px;
 }
 
+.rail-track {
+  overflow-anchor: none;
+  min-width: 0;
+}
+@media (min-width: 1180px) {
+  .rail-track::before {
+    content: '';
+    display: block;
+    height: var(--sd-rail-offset, 0px);
+  }
+}
 .nav {
   border-right: 0;
   background: var(--sd-surface);
-  padding: 14px 12px 80px;
-  /* Follows the document like the right rail, parking when its own end is visible. */
-  align-self: start;
-  transform: translateY(var(--sd-rail-follow, 0px));
+  padding: 14px 12px 20px;
 }
 .nav a {
   display: block;
@@ -219,6 +227,18 @@ body {
   text-transform: uppercase;
   color: var(--sd-text-muted);
   font-weight: 700;
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  min-height: 24px;
+}
+.grp:focus-visible {
+  outline: 2px solid var(--sd-focus-ring);
+  outline-offset: 2px;
 }
 
 .main {
@@ -617,6 +637,9 @@ code.type {
   }
   .nav-toggle {
     display: inline-block;
+  }
+  .nav-track {
+    display: contents;
   }
   .search {
     order: 10;
