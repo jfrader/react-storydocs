@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { storySource } from 'virtual:storybook-docs/catalog';
 import { Guidance } from '../guidance';
@@ -11,6 +11,7 @@ import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
 import { useProps, type ComponentPropsDoc, type PropDoc } from '../props';
 import { Skeleton } from '../skeleton';
+import { loadStorySources } from 'virtual:storybook-docs/story-sources';
 
 function formatValue(value: unknown): string {
   if (value === undefined) return '—';
@@ -180,6 +181,17 @@ function PropsTable({
 
 export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const { module, error } = useStoryModule(entry);
+  const [storySources, setStorySources] = useState<{ slug: string; sources: Record<string, string> } | null>(null);
+  useEffect(() => {
+    let active = true;
+    loadStorySources(entry.slug).then(({ sources }) => {
+      if (active) setStorySources({ slug: entry.slug, sources });
+    }).catch(() => {
+      if (active) setStorySources(null);
+    });
+    return () => { active = false; };
+  }, [entry.slug]);
+  const sources = storySources?.slug === entry.slug ? storySources.sources : {};
   const props = useProps(entry.slug);
   const meta = (module?.default ?? {}) as MetaShape;
   const argTypes = meta.argTypes ?? {};
@@ -263,7 +275,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
 
       {module ? (
         <>
-          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} /> : null}
+          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[example]} /> : null}
           {entry.hasComponent ? <h2>Usage</h2> : null}
           {snippet ? <CodeBlock code={snippet} language={codeLanguage} />
             : entry.hasComponent ? <p>No usage code is authored for this component.</p> : null}
@@ -280,7 +292,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             <section key={section.title}>
               <h2>{section.title}</h2>
               {section.stories.map((story) => (
-                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} />
+                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[story]} />
               ))}
             </section>
           ))}

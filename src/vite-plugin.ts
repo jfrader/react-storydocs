@@ -20,6 +20,7 @@ import { readReleases, releasesCode } from './build/releases.ts';
 import { codeModuleCode, resolveCodeModule } from './build/code.ts';
 import { STORYBOOK_TEST_STUB } from './build/storybook-test.ts';
 import { FILE_PREFIX, VIRTUAL_PREFIX } from './build/module-ids.ts';
+import { extractStorySources, storySourcesCode, storySourcesIndexCode } from './build/story-sources.ts';
 
 export type { ComponentPropsDoc, PropDoc } from './prop-docs.js';
 
@@ -36,6 +37,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
   catalog.files.clear();
   const engineStyles = path.join(import.meta.dirname, 'styles.css');
   const propsCache = new Map<string, ComponentPropsDoc[]>();
+  const storySourcesCache = new Map<string, Record<string, string>>();
   const propsCollector = createPropsCollector();
   let guidanceFiles = new Map<string, string>();
 
@@ -57,6 +59,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
     'stub-storybook-test': () => STORYBOOK_TEST_STUB,
     props: () => propsIndexCode(catalog.entries.map((entry) => entry.slug)),
     guidance: () => guidanceIndexCode(guidanceFiles.keys()),
+    'story-sources': () => storySourcesIndexCode(catalog.files.keys()),
     releases: () => releasesCode(readReleases(config, projectRoot)),
     code: () => codeModuleCode(resolveCodeModule(config.code?.module, projectRoot)),
   };
@@ -93,6 +96,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
     },
     buildStart() {
       propsCache.clear();
+      storySourcesCache.clear();
       propsCollector.clearPrograms();
     },
     closeBundle() {
@@ -114,11 +118,26 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
       const module = Object.hasOwn(modules, name) ? modules[name] : undefined;
       if (module) return module();
       if (name.startsWith('props/')) return loadProps(name.slice('props/'.length));
+      if (name.startsWith('story-sources/')) {
+        const storyFile = catalog.files.get(name.slice('story-sources/'.length));
+        if (!storyFile) return storySourcesCode({});
+        const file = realpathSync(storyFile);
+        let sources = storySourcesCache.get(file);
+        if (!sources) {
+          sources = extractStorySources(readFileSync(file, 'utf8'));
+          storySourcesCache.set(file, sources);
+        }
+        this.addWatchFile(file);
+        return storySourcesCode(sources);
+      }
       if (name.startsWith('guidance/')) {
         const file = guidanceFiles.get(name.slice('guidance/'.length));
         return guidanceCode(file ? readFileSync(file, 'utf8') : '');
       }
       return null;
+    },
+    watchChange(file) {
+      storySourcesCache.delete(file);
     },
   };
 }
