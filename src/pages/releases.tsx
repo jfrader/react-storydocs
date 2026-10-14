@@ -15,7 +15,7 @@ export function ReleasesPage(): ReactNode {
         </p>
       ) : null}
 
-      <MarkdownView markdown={releases.changelog} />
+      {releases.changelog ? <MarkdownView markdown={releases.changelog} /> : null}
     </>
   );
 }
