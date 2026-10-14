@@ -15,14 +15,7 @@ export function ReleasesPage(): ReactNode {
         </p>
       ) : null}
 
-      {releases.changelog ? (
-        <MarkdownView markdown={releases.changelog} />
-      ) : (
-        <p className="hint">
-          No changelog configured. Point <code>releases.changelog</code> at the design system’s changelog file (and{' '}
-          <code>releases.versionFrom</code> at the package that carries the current version) to publish releases here.
-        </p>
-      )}
+      <MarkdownView markdown={releases.changelog} />
     </>
   );
 }

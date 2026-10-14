@@ -31,7 +31,9 @@ function parseRoute(hash: string): Route {
     const slug = path.slice('components/'.length);
     if (catalog.some((entry) => entry.slug === slug)) return { kind: 'component', slug };
   }
-  if (path === 'releases') return { kind: 'releases' };
+  // A releases page without a configured changelog documents nothing: the nav entry and the route
+  // only exist when there is a changelog to read.
+  if (path === 'releases' && releases.changelog) return { kind: 'releases' };
   if (path === 'tokens/color') return { kind: 'color' };
   if (path === 'tokens/typography') return { kind: 'typography' };
   if (path === 'tokens/spacing') return { kind: 'spacing' };
@@ -134,14 +136,25 @@ export function DocsApp() {
         <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
         </a>
-        <a
-          href={routeHref('/releases')}
-          className={route.kind === 'releases' ? 'on' : undefined}
-          aria-current={route.kind === 'releases' ? 'page' : undefined}
-        >
-          Releases
-          {releases.version ? <span className="nav-count">v{releases.version}</span> : null}
-        </a>
+        {releases.changelog ? (
+
+          <a
+
+            href={routeHref('/releases')}
+
+            className={route.kind === 'releases' ? 'on' : undefined}
+
+            aria-current={route.kind === 'releases' ? 'page' : undefined}
+
+          >
+
+            Releases
+
+            {releases.version ? <span className="nav-count">v{releases.version}</span> : null}
+
+          </a>
+
+        ) : null}
         {foundations.length > 0 ? (
           <div role="group" aria-labelledby="nav-grp-foundations">
             <div className="grp" id="nav-grp-foundations">
