@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useRef, useState } from 'react';
+import { Children, useEffect, useRef, useState, type ReactNode } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
 import { ComponentPage } from './pages/component-page';
@@ -15,6 +15,32 @@ import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath, useRailFollow } from './toc';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
+const NAV_GROUP_WINDOW = 12;
+
+function NavGroup({ id, title, active, activeIndex = -1, children }: { id: string; title: string; active: boolean; activeIndex?: number; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const expanded = active || open;
+  const links = Children.toArray(children);
+  const capped = active && links.length > NAV_GROUP_WINDOW;
+  const start = Math.min(Math.max(activeIndex - NAV_GROUP_WINDOW / 2, 0), Math.max(0, links.length - NAV_GROUP_WINDOW));
+  const visibleLinks = capped && !showAll ? links.slice(start, start + NAV_GROUP_WINDOW) : links;
+  return (
+    <div role="group" aria-labelledby={id}>
+      <button type="button" className="grp" id={id} aria-expanded={expanded} aria-controls={`${id}-links`} disabled={active} onClick={() => setOpen(!open)}>
+        {title}
+      </button>
+      <div id={`${id}-links`} hidden={!expanded}>
+        <div id={`${id}-window`}>{visibleLinks}</div>
+        {capped ? (
+          <button type="button" className="nav-more" aria-expanded={showAll} aria-controls={`${id}-window`} onClick={() => setShowAll(!showAll)}>
+            {showAll ? 'Show less' : `Show all ${links.length}`}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 type Route =
   | { kind: 'overview' }
@@ -134,6 +160,7 @@ export function DocsApp() {
         ))}
       </header>
 
+      <div className="rail-track nav-track">
       <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation" ref={navRef}>
         <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
@@ -158,10 +185,7 @@ export function DocsApp() {
 
         ) : null}
         {foundations.length > 0 ? (
-          <div role="group" aria-labelledby="nav-grp-foundations">
-            <div className="grp" id="nav-grp-foundations">
-              Foundations
-            </div>
+          <NavGroup key={`foundations-${activeSlug ?? route.kind}`} id="nav-grp-foundations" title="Foundations" active={foundations.some((item) => route.kind === item.kind)}>
             {foundations.map((item) => (
               <a
                 key={item.href}
@@ -172,16 +196,14 @@ export function DocsApp() {
                 {item.label}
               </a>
             ))}
-          </div>
+          </NavGroup>
         ) : null}
-        {groups.map((group, index) => (
-          <div key={group} role="group" aria-labelledby={`nav-grp-${index}`}>
-            <div className="grp" id={`nav-grp-${index}`}>
-              {group}
-            </div>
-            {catalog
-              .filter((entry) => entry.group === group)
-              .map((entry) => (
+        {groups.map((group, index) => {
+          const entries = catalog.filter((entry) => entry.group === group);
+          const activeIndex = entries.findIndex((entry) => entry.slug === activeSlug);
+          return (
+            <NavGroup key={`${group}-${activeSlug ?? route.kind}`} id={`nav-grp-${index}`} title={group} active={activeIndex !== -1} activeIndex={activeIndex}>
+              {entries.map((entry) => (
                 <a
                   key={entry.slug}
                   href={routeHref(`/components/${entry.slug}`)}
@@ -193,9 +215,11 @@ export function DocsApp() {
                   {entry.name}
                 </a>
               ))}
-          </div>
-        ))}
+            </NavGroup>
+          );
+        })}
       </nav>
+      </div>
 
       <main id="main" className="main" tabIndex={-1} ref={mainRef}>
         {route.kind === 'component' ? (
