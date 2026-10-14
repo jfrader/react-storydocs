@@ -7,7 +7,10 @@ await rm('dist', { recursive: true, force: true });
 const require = createRequire(import.meta.url);
 execFileSync(process.execPath, [require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.build.json'], { stdio: 'inherit' });
 const declarations = await readFile('dist/index.d.ts', 'utf8');
-await writeFile('dist/index.d.ts', `/// <reference path="./virtual.d.ts" />\n${declarations}`);
+// Declarations keep the CSS imports of their modules, so a consumer's typecheck needs to know what a
+// `.css` import is; ship the declaration and reference it alongside the virtual modules.
+await writeFile('dist/css.d.ts', "declare module '*.css';\n");
+await writeFile('dist/index.d.ts', `/// <reference path="./virtual.d.ts" />\n/// <reference path="./css.d.ts" />\n${declarations}`);
 await build({
   entryPoints: ['src/index.ts'],
   outfile: 'dist/index.js',
