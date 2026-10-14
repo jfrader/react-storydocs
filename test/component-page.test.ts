@@ -16,6 +16,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button') {
   const exports: { ComponentPage?: (props: { entry: CatalogEntry }) => ReturnType<typeof createElement> } = {};
   const dependencies: Record<string, unknown> = {
     'virtual:storybook-docs/catalog': { storySource: '@fixture/ui' },
+    '../base': { hrefFor: (path: string) => path },
     'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
     '../sections': sections,
     '../story-view': { useStoryModule: () => ({ module }) },

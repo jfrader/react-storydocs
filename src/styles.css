@@ -426,8 +426,30 @@ pre.code {
 }
 code.type {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: inline-block;
+  max-inline-size: 100%;
+}
+code.signature {
+  display: block;
+  white-space: pre;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.table-scroll > .props-table {
+  table-layout: fixed;
+  min-inline-size: 640px;
+}
+.props-table thead th:nth-child(1) { width: 18%; }
+.props-table thead th:nth-child(2) { width: 34%; }
+.props-table thead th:nth-child(3) { width: 12%; }
+.props-table thead th:nth-child(4) { width: 36%; }
+.props-table :is(th, td) {
+  overflow-wrap: anywhere;
 }
 .req {
+  display: inline-block;
+  white-space: nowrap;
   margin-left: 6px;
   font-size: 10.5px;
   letter-spacing: 0.05em;
