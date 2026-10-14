@@ -11,12 +11,16 @@ import ts from 'typescript';
 import { storybookDocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
 import type { ResolvedConfig } from 'vite';
 
-function extract(source: string): ComponentPropsDoc[] {
+function extract(source: string, files: Record<string, string> = {}): ComponentPropsDoc[] {
   const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-props-'));
   try {
     symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
     mkdirSync(path.join(root, 'widget'));
     writeFileSync(path.join(root, 'widget/widget.tsx'), source);
+    for (const [file, content] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), content);
+    }
     writeFileSync(path.join(root, 'widget/widget.stories.tsx'), "const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};");
     const plugin = storybookDocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
     const resolved = plugin.configResolved as (config: ResolvedConfig) => void;
@@ -121,21 +125,95 @@ test('props presentation shows allowed values, JSDoc and collapsed inherited pro
   const source = readFileSync(new URL('../src/pages/component-page.tsx', import.meta.url), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const exports: { PropsTable?: (props: { components: ComponentPropsDoc[]; argTypes: Record<string, Record<string, unknown>>; defaultArgs: Record<string, unknown> }) => ReturnType<typeof createElement> } = {};
+  const dependencies: Record<string, unknown> = {
+    'virtual:storybook-docs/catalog': { storySource: '@acme/ui' },
+    'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
+    '../base': { hrefFor: (path: string) => `/docs${path}` },
+  };
   runInThisContext(`(function(require, exports) { ${compiled}; exports.PropsTable = PropsTable; })`)(
-    (name: string) => name === 'virtual:storybook-docs/catalog' ? { storySource: '@acme/ui' } : name === 'virtual:storybook-docs/story-sources' ? { loadStorySources: async () => ({ sources: {} }) } : name.startsWith('../') ? { MarkdownView: ({ markdown }: { markdown: string }) => createElement('p', null, markdown) } : require(name), exports,
+    (name: string) => dependencies[name] ?? (name.startsWith('../') ? { MarkdownView: ({ markdown }: { markdown: string }) => createElement('p', null, markdown) } : require(name)), exports,
   );
   const markup = renderToStaticMarkup(createElement(exports.PropsTable!, {
     components: [{ name: 'Widget', props: [
       { name: 'mode', type: '"quiet" | "loud"', required: true, defaultValue: 'null', description: 'Choose a mode.', tags: [{ name: 'deprecated', text: 'Use tone.' }] },
       { name: 'aria-label', type: 'string', required: false, defaultValue: null, description: '', inheritedFrom: 'AriaAttributes' },
+      { name: 'disabled', type: 'boolean', required: false, defaultValue: null, description: '', inheritedFrom: 'ButtonProps', inheritedComponent: { name: 'Button', slug: 'button' } },
+      { name: 'onClose', type: 'CloseHandler', required: false, defaultValue: null, description: '', signatures: [{ type: '(reason: "escape" | "backdrop") => void', parameters: [{ name: 'reason', type: '"escape" | "backdrop"', description: 'Why the dialog closed.' }] }] },
+      { name: 'config', type: 'Config', required: false, defaultValue: null, description: '', members: [{ name: 'root', type: 'string', required: false, defaultValue: null, description: '' }] },
+      { name: 'opaque', type: 'object', required: false, defaultValue: null, description: '' },
     ] }], argTypes: {}, defaultArgs: {},
   }));
   assert.match(markup, /quiet.*loud/);
   assert.match(markup, /required/);
   assert.match(markup, /Deprecated/);
   assert.match(markup, /<code>null<\/code>/);
-  assert.match(markup, /<details><summary>Inherited props \(1\)<\/summary>/);
+  assert.match(markup, /<details><summary>Inherited props \(2\)<\/summary>/);
+  assert.match(markup, /Also available from .*href="#\/docs\/components\/button".*Button/);
+  assert.doesNotMatch(markup, /components\/aria/);
+  assert.match(markup, /class="type signature" tabindex="0".*reason:.*escape.*backdrop.*=&gt; void/);
+  assert.match(markup, /Signature details.*Why the dialog closed/);
+  assert.match(markup, /Fields <code>\{ root\?: … \}<\/code>/);
+  assert.match(markup, /class="type">object<\/code>/);
   assert.doesNotMatch(markup, /\[object Object\]|undefined/);
+});
+
+test('callback aliases retain signatures, overloads and documented parameter meaning', () => {
+  const tables = extract(`
+    interface CloseHandler {
+      /** @param reason Why the dialog closed. */
+      (reason: 'escape' | 'backdrop'): void;
+      (event: { target: string }, reason: 'outside'): void;
+    }
+    export function Widget(props: { onClose?: CloseHandler; onChange?: (value: number) => void; opaque?: Function }) { return null; }
+  `);
+  const props = tables[0]!.props;
+  const close = props.find((prop) => prop.name === 'onClose')!;
+  assert.equal(close.type, 'CloseHandler');
+  assert.equal(close.signatures?.length, 2);
+  assert.match(close.signatures![0]!.type, /reason:.*escape.*backdrop.*=> void/);
+  assert.equal(close.signatures![0]!.parameters[0]!.description, 'Why the dialog closed.');
+  assert.match(props.find((prop) => prop.name === 'onChange')?.signatures?.[0]?.type ?? '', /value: number/);
+  assert.equal(props.find((prop) => prop.name === 'opaque')?.signatures, undefined);
+});
+
+test('object fields preserve shapes without treating primitive union prototypes as fields', () => {
+  const tables = extract(`
+    interface Config { root?: string; count: number }
+    export function Widget(props: { config?: Config; mixed?: string | Config; viewport: { width: number; height: number } }) { return null; }
+  `);
+  const props = tables[0]!.props;
+  assert.deepEqual(props.find((prop) => prop.name === 'config')?.members?.map((member) => [member.name, member.required]), [['count', true], ['root', false]]);
+  assert.equal(props.find((prop) => prop.name === 'mixed')?.members, undefined);
+  assert.match(props.find((prop) => prop.name === 'viewport')?.type ?? '', /width: number; height: number/);
+});
+
+test('inherited component contracts retain source identity and stay separate from own props', () => {
+  const tables = extract(`
+    import type { ButtonProps } from '../button/button';
+    export function Widget(props: ButtonProps & { label: string }) { return null; }
+  `, {
+    'button/button.tsx': 'export interface ButtonProps { disabled?: boolean } export function Button(props: ButtonProps) { return null; }',
+    'button/button.stories.tsx': "export default { title: 'Components/Button', component: Button }; export const Default = {};",
+  });
+  assert.equal(tables[0]!.props.find((prop) => prop.name === 'disabled')?.inheritedFrom, 'ButtonProps');
+  assert.deepEqual(tables[0]!.props.find((prop) => prop.name === 'disabled')?.inheritedComponent, { name: 'Button', slug: 'button' });
+  assert.equal(tables[0]!.props.find((prop) => prop.name === 'label')?.inheritedFrom, undefined);
+});
+
+test('inheritance links follow compound public contracts, not props-name guesses', () => {
+  const tables = extract(`
+    import type { PartOptions, ButtonProps } from '../button/button';
+    export function Widget(props: PartOptions & ButtonProps) { return null; }
+  `, {
+    'button/button.tsx': `
+      export interface PartOptions { pressed?: boolean }
+      export interface ButtonProps { unrelated?: string }
+      export const Button = Object.assign(() => null, { Item: (props: PartOptions) => null });
+    `,
+    'button/button.stories.tsx': "export default { title: 'Components/Button', component: Button }; export const Default = {};",
+  });
+  assert.deepEqual(tables[0]!.props.find((prop) => prop.name === 'pressed')?.inheritedComponent, { name: 'Button', slug: 'button' });
+  assert.equal(tables[0]!.props.find((prop) => prop.name === 'unrelated')?.inheritedComponent, undefined);
 });
 
 test('docgen fallback keeps local children when catalog and component names differ', () => {

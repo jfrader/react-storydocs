@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { storySource } from 'virtual:storybook-docs/catalog';
+import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
 import { CodeBlock } from '../code';
 import { defaultsFromProps } from '../controls';
@@ -42,7 +43,7 @@ interface UsageStory {
 function TableFrame({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="table-scroll" role="region" aria-label={label} tabIndex={0}>
-      <table>
+      <table className="props-table">
         <caption className="sr-only">{label}</caption>
         {children}
       </table>
@@ -66,6 +67,54 @@ function PropNotes({ prop }: { prop: PropDoc }) {
   );
 }
 
+const SHAPE_PREVIEW_FIELDS = 3;
+
+function PropType({ prop }: { prop: PropDoc }) {
+  const signature = prop.signatures?.[0];
+  const fields = prop.members?.slice(0, SHAPE_PREVIEW_FIELDS).map((member) => `${member.name}${member.required ? '' : '?'}: …`).join('; ');
+  return (
+    <>
+      <code className={signature ? 'type signature' : 'type'} tabIndex={signature ? 0 : undefined}>{prop.typeUnavailable ? 'Not resolved' : signature?.type ?? prop.type}</code>
+      {signature ? (
+        <details>
+          <summary>Signature details</summary>
+          {prop.signatures?.map((item, index) => (
+            <div key={index}>
+              <code className="type">{item.type}</code>
+              <dl>{item.parameters.filter((parameter) => parameter.description).map((parameter) => (
+                <div key={parameter.name}>
+                  <dt><code>{parameter.name}: {parameter.type}</code></dt>
+                  <dd><MarkdownView markdown={parameter.description} /></dd>
+                </div>
+              ))}</dl>
+            </div>
+          ))}
+        </details>
+      ) : null}
+      {prop.members?.length ? (
+        <details>
+          <summary>{prop.name === 'slotProps' ? 'Slots' : 'Fields'} <code>{`{ ${fields}${prop.members.length > SHAPE_PREVIEW_FIELDS ? '; …' : ''} }`}</code></summary>
+          <dl>
+            {prop.members.map((member) => (
+              <div key={member.name}>
+                <dt><code>{member.name}{member.required ? '' : '?'}</code>{member.required ? ' (required)' : ''}</dt>
+                <dd><PropType prop={member} /><PropNotes prop={member} /></dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
+    </>
+  );
+}
+
+function InheritedLinks({ component }: { component: ComponentPropsDoc }) {
+  const bases = Array.from(new Map(component.props.flatMap((prop) => prop.inheritedComponent ? [[prop.inheritedComponent.slug, prop.inheritedComponent] as const] : [])).values());
+  return bases.length ? <p>Also available from {bases.map((entry, index) => (
+    <span key={entry.slug}>{index ? ', ' : ''}<a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a></span>
+  ))}.</p> : null;
+}
+
 function PropRows({ props }: { props: PropDoc[] }) {
   return props.map((prop) => (
     <tr key={prop.name}>
@@ -74,20 +123,7 @@ function PropRows({ props }: { props: PropDoc[] }) {
         {prop.required ? <span className="req">required</span> : null}
       </th>
       <td>
-        <code className="type">{prop.typeUnavailable ? 'Not resolved' : prop.type}</code>
-        {prop.members?.length ? (
-          <details>
-            <summary>{prop.name === 'slotProps' ? 'Slots' : 'Fields'}</summary>
-            <dl>
-              {prop.members.map((member) => (
-                <div key={member.name}>
-                  <dt><code>{member.name}</code>{member.required ? ' (required)' : ''}</dt>
-                  <dd><code>{member.type}</code><PropNotes prop={member} /></dd>
-                </div>
-              ))}
-            </dl>
-          </details>
-        ) : null}
+        <PropType prop={prop} />
       </td>
       <td><code>{prop.defaultValue === 'undefined' ? '—' : prop.defaultValue ?? '—'}</code></td>
       <td><PropNotes prop={prop} /></td>
@@ -136,6 +172,7 @@ function PropsTable({
                 <PropRows props={component.props.filter((prop) => !prop.inheritedFrom)} />
               </tbody>
             </TableFrame> : <p>No component-specific props.</p>}
+            <InheritedLinks component={component} />
             {component.props.some((prop) => prop.inheritedFrom) ? (
               <details>
                 <summary>Inherited props ({component.props.filter((prop) => prop.inheritedFrom).length})</summary>

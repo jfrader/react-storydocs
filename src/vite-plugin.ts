@@ -45,7 +45,10 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
     let components = propsCache.get(slug);
     if (!components) {
       const name = catalog.entries.find((entry) => entry.slug === slug)?.name ?? '';
-      components = propsCollector.collect(catalog.files.get(slug), name, slug);
+      components = propsCollector.collect(catalog.files.get(slug), name, slug, catalog.entries.flatMap((entry) => {
+        const storyFile = catalog.files.get(entry.slug);
+        return storyFile ? [{ name: entry.name, slug: entry.slug, storyFile }] : [];
+      }));
       propsCache.set(slug, components);
     }
     return propsCode(components);

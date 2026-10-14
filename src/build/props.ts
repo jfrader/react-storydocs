@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { withCompilerOptions } from 'react-docgen-typescript';
 import ts from 'typescript';
@@ -97,7 +97,7 @@ export function createPropsCollector() {
   };
 
   /** Parses every component declared in the folder — compound parts included. */
-  const collect = (storyFile: string | undefined, entryName: string, slug: string): ComponentPropsDoc[] => {
+  const collect = (storyFile: string | undefined, entryName: string, slug: string, bases: { name: string; slug: string; storyFile: string }[] = []): ComponentPropsDoc[] => {
     if (storyFile) {
       const directory = path.dirname(storyFile);
       const sources = readdirSync(directory)
@@ -122,7 +122,7 @@ export function createPropsCollector() {
           const relevant = parsed.some((component) => matchesOwnName(component.name))
             ? parsed.filter((component) => matchesOwnName(component.name))
             : parsed;
-          const typed = collectTypeProps(sources, entryName);
+          const typed = collectTypeProps(sources, entryName, bases);
           return mergePropsTables(typed.length > 0
             ? [...relevant.filter((table) => typed.some((item) => item.name === table.name)), ...typed]
             : relevant);
@@ -135,10 +135,45 @@ export function createPropsCollector() {
   };
 
   /** Follow callable exports and their members, not unrelated exported helper types. */
-  const collectTypeProps = (sources: string[], entryName: string): ComponentPropsDoc[] => {
+  const collectTypeProps = (sources: string[], entryName: string, bases: { name: string; slug: string; storyFile: string }[]): ComponentPropsDoc[] => {
     const program = createPropsProgram(sources, TYPE_PROPS_COMPILER_OPTIONS);
     const checker = program.getTypeChecker();
     const tables: ComponentPropsDoc[] = [];
+    const baseContracts = bases.filter((base) => base.name !== entryName).map((base) => ({
+      ...base,
+      directory: path.dirname(realpathSync(base.storyFile)),
+      declarations: new Set<ts.Declaration>(),
+    }));
+    const readContract = (type: ts.Type, location: ts.Node, declarations: Set<ts.Declaration>, depth = 0) => {
+      for (const signature of type.getCallSignatures()) {
+        const parameter = signature.getParameters()[0];
+        if (!parameter) continue;
+        const propsType = checker.getTypeOfSymbolAtLocation(parameter, signature.getDeclaration() ?? location);
+        for (const prop of checker.getPropertiesOfType(propsType)) {
+          prop.declarations?.forEach((declaration) => declarations.add(declaration));
+        }
+      }
+      if (depth >= 2) return;
+      for (const member of checker.getPropertiesOfType(type)) {
+        if (['bind', 'call', 'apply'].includes(member.getName())) continue;
+        const memberType = checker.getTypeOfSymbolAtLocation(member, member.valueDeclaration ?? location);
+        if (memberType.getCallSignatures().length) readContract(memberType, location, declarations, depth + 1);
+      }
+    };
+    for (const source of program.getSourceFiles()) {
+      if (isExternal(source.fileName)) continue;
+      const directory = path.dirname(realpathSync(source.fileName));
+      const candidates = baseContracts.filter((base) => base.directory === directory);
+      if (!candidates.length) continue;
+      const module = checker.getSymbolAtLocation(source);
+      if (!module) continue;
+      for (const symbol of checker.getExportsOfModule(module)) {
+        for (const base of candidates.filter((candidate) => candidate.name === symbol.getName())) {
+          const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+          readContract(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), source, base.declarations);
+        }
+      }
+    }
 
     const unresolved = Symbol('unresolved');
     const literalValue = (node: ts.Expression, seen = new Set<ts.Node>()): unknown => {
@@ -191,11 +226,25 @@ export function createPropsCollector() {
           ? propType.types.filter((part) => !optional || !(part.flags & ts.TypeFlags.Undefined)).map((part) => checker.typeToString(part, undefined, typeFlags)).join(' | ').replace(/false \| true/g, 'boolean')
           : optional ? printedType.replace(/ \| undefined$/, '') : printedType;
         const parent = declaration?.parent;
-        const inheritedFrom = declaration && (isExternal(declaration.getSourceFile().fileName) || !sources.includes(declaration.getSourceFile().fileName))
-          ? parent && (ts.isInterfaceDeclaration(parent) || ts.isTypeAliasDeclaration(parent)) ? parent.name.text : path.basename(declaration.getSourceFile().fileName)
+        const declarationName = declaration ? parent && (ts.isInterfaceDeclaration(parent) || ts.isTypeAliasDeclaration(parent)) ? parent.name.text : path.basename(declaration.getSourceFile().fileName) : undefined;
+        const inheritedComponent = declaration ? baseContracts.find((base) =>
+          base.declarations.has(declaration)
+          && base.directory === path.dirname(realpathSync(declaration.getSourceFile().fileName)),
+        ) : undefined;
+        const inheritedFrom = declaration && (inheritedComponent || isExternal(declaration.getSourceFile().fileName) || !sources.includes(declaration.getSourceFile().fileName))
+          ? declarationName
           : undefined;
         const memberType = checker.getNonNullableType(propType);
-        const hasLocalMembers = !checker.isArrayType(memberType) && !checker.isTupleType(memberType) && !memberType.getCallSignatures().length && checker.getPropertiesOfType(memberType).some((member) => member.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)));
+        const signatures = memberType.getCallSignatures().map((signature) => ({
+          type: checker.signatureToString(signature, location, typeFlags | ts.TypeFormatFlags.WriteArrowStyleSignature),
+          parameters: signature.getParameters().map((parameter) => ({
+            name: parameter.getName(),
+            type: checker.typeToString(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? location), location, typeFlags),
+            description: ts.displayPartsToString(parameter.getDocumentationComment(checker)).trim(),
+          })),
+        }));
+        const objectTypes = memberType.isUnion() ? memberType.types : [memberType];
+        const hasLocalMembers = objectTypes.every((part) => Boolean(part.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection))) && !checker.isArrayType(memberType) && !checker.isTupleType(memberType) && !signatures.length && checker.getPropertiesOfType(memberType).some((member) => member.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)));
         return {
           name: symbol.getName(),
           type: displayType || 'unknown',
@@ -204,6 +253,8 @@ export function createPropsCollector() {
           defaultValue: null,
           description: ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
           inheritedFrom,
+          inheritedComponent: inheritedComponent ? { name: inheritedComponent.name, slug: inheritedComponent.slug } : undefined,
+          signatures: signatures.length ? signatures : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
           members: depth === 0 && (symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
         };
