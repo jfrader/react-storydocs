@@ -260,9 +260,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
         <span className="chip">{module ? visibleStories.length : entry.stories.length} stories</span>
         <span className="chip">{propCount} props</span>
       </div>
-      <p className="lede">
-        {description ?? `${entry.name} — every story in ${entry.storybookTitle} is rendered below, in sections.`}
-      </p>
+      {description ? <p className="lede">{description}</p> : null}
 
       {error ? <div className="story-failed">Could not load the story module: {error}</div> : null}
       {!module && !error ? (
@@ -301,12 +299,6 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
 
       <h2>Props</h2>
       <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
-
-      <h2>Notes</h2>
-      <p>
-        Everything above is generated from this component’s story module and source files. Editorial judgement —
-        when to reach for it, when not to — is written next to the code and rendered as guidance above.
-      </p>
     </>
   );
 }
