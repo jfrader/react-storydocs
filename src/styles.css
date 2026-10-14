@@ -190,6 +190,11 @@ body {
   overflow-anchor: none;
   min-width: 0;
 }
+/* The sticky nav is only as tall as its list, so the column it lives in paints the panel:
+   on a long page the track reaches the page bottom and the background never stops short. */
+.nav-track {
+  background: var(--sd-surface);
+}
 @media (min-width: 1180px) {
   .rail-track::before {
     content: '';

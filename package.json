@@ -1,6 +1,6 @@
 {
   "name": "@jfrader/storybook-docs",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "type": "module",
   "description": "A documentation front for any design system that has Storybook: navigation, live examples and API tables are generated from the story files themselves.",
   "exports": {
