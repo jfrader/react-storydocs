@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { extractStorySources, extractStorySourceDetails } from '../src/build/story-sources.ts';
-import { buildUsageSnippet } from '../src/sections.ts';
+import { buildUsageSnippet, frameSource, STORY_EXCERPT } from '../src/sections.ts';
+import { unresolvedSnippetBindings } from '../src/build/snippet-bindings.ts';
 
 test('extracts verbatim JSX from object renders, functions and fragments', () => {
   assert.deepEqual(extractStorySources(`
@@ -12,7 +13,7 @@ export const Method = { render(args) { return <Button {...args}>Go</Button>; } }
 `), {
     Default: '<Dialog {...args}>\n  <Dialog.Close>Close</Dialog.Close>\n</Dialog>',
     Function: '<Button {...args} />',
-    Fragment: '<><Button /><span>Text</span></>',
+    Fragment: `${STORY_EXCERPT}; unresolved bindings: Button.\n<><Button /><span>Text</span></>`,
     Method: '<Button {...args}>Go</Button>',
   });
 });
@@ -31,8 +32,8 @@ test('preserves conditional expressions and marks multiple return branches witho
 export const Conditional = { render: (args) => args.open ? <Open {...args} /> : <Closed /> };
 export const Branches = { render: (args) => { switch (args.mode) { case 'a': return <A />; default: return <B />; } } };
 `), {
-    Conditional: 'args.open ? <Open {...args} /> : <Closed />',
-    Branches: '// JSX return branches as authored in the story.\n<A />\n\n<B />',
+    Conditional: `${STORY_EXCERPT}; unresolved bindings: Closed, Open.\nargs.open ? <Open {...args} /> : <Closed />`,
+    Branches: `${STORY_EXCERPT}; unresolved bindings: A, B.\n<A />\n\n<B />`,
   });
 });
 
@@ -77,7 +78,7 @@ export const MenuStory = { render: (args) => <MenuExample {...args} /> };
 export const ArgsOnly = { args: { children: 'Open' } };
 `;
   assert.deepEqual(extractStorySources(source), {
-    DialogStory: '// JSX from DialogExample, as authored.\n<Dialog {...props} defaultOpen><Dialog.Content>{props.children}</Dialog.Content></Dialog>',
+    DialogStory: '// JSX from DialogExample, as authored.\n<Dialog {...args} defaultOpen><Dialog.Content>{args.children}</Dialog.Content></Dialog>',
     MenuStory: '// JSX from MenuExample, as authored.\n<Menu {...args}><Menu.Content>Open</Menu.Content></Menu>',
   });
 });
@@ -93,7 +94,7 @@ export const Story = { render: (args) => <Outer {...args} /> };
 export const Aliased = { render: (args) => <Alias {...args} /> };
 export const External = { render: (args) => <Imported {...args} /> };
 `);
-  assert.equal(detail.sources.Story, '// JSX from Outer, as authored.\n// JSX from Middle, as authored.\n// JSX from Inner, as authored.\n<Real {...args}><Outer /><Imported /></Real>');
+  assert.equal(detail.sources.Story, `${STORY_EXCERPT}; unresolved bindings: Imported, Outer.\n// JSX from Outer, as authored.\n// JSX from Middle, as authored.\n// JSX from Inner, as authored.\n<Real {...args}><Outer /><Imported /></Real>`);
   assert.deepEqual(detail.helpers.Story, { inlined: ['Outer', 'Middle', 'Inner'], remaining: [] });
   assert.deepEqual(detail.helpers.Aliased, { inlined: ['Alias', 'Inner'], remaining: [] });
   assert.equal(detail.sources.External, '<Imported {...args} />');
@@ -187,4 +188,65 @@ export const Function = { render: () => { function Wrapper() { return <Other />;
     });
     assert.ok(detail.sources[story]?.endsWith('<Wrapper />'));
   }
+});
+
+test('meta source only describes stories with unchanged args; story source stays authoritative', () => {
+  const args = { label: 'Volume', values: [40], disabled: false };
+  const meta = { args, parameters: { docs: { source: { code: '<Slider label="Volume" />' } } } };
+  assert.equal(frameSource(meta, {}), '<Slider label="Volume" />');
+  assert.equal(frameSource(meta, { args: { label: 'Volume', values: args.values } }), '<Slider label="Volume" />');
+  for (const overrides of [{ label: 'Range' }, { type: 'range' }, { values: [40] }, { disabled: undefined }, { newProp: undefined }]) {
+    assert.equal(frameSource(meta, { args: overrides }), undefined);
+  }
+  assert.equal(frameSource(meta, { args: { label: 'Range' }, parameters: { docs: { source: { code: '<Slider type="range" />' } } } }), '<Slider type="range" />');
+});
+
+test('extracted imports require the public root and a configured package, never a helper binding', () => {
+  const options = { componentName: 'Button', from: '@fixture/ui' };
+  assert.equal(buildUsageSnippet({ ...options, renderSource: '<Button {...args} />' }), "import { Button } from '@fixture/ui';\n\n<Button {...args} />");
+  assert.equal(buildUsageSnippet({ ...options, renderSource: '<div><Button /></div>' }), '<div><Button /></div>');
+  assert.equal(buildUsageSnippet({ ...options, from: '', renderSource: '<Button />' }), '<Button />');
+});
+
+test('unresolved bindings use lexical scope and platform globals, not property names or JSX intrinsics', () => {
+  assert.deepEqual(unresolvedSnippetBindings('<div>{ITEMS.map(item => <span title={item.title}>{TITLE}{disabledValue}</span>)}</div>'), ['ITEMS', 'TITLE', 'disabledValue']);
+  assert.deepEqual(unresolvedSnippetBindings('<Widget>{[1].map(({ value }) => <span>{Math.max(value, 1)}{JSON.stringify({ value })}</span>)}</Widget>'), []);
+  assert.deepEqual(unresolvedSnippetBindings('<div>{[1].map(item => item)}{item}</div>'), ['item']);
+  assert.deepEqual(unresolvedSnippetBindings('<div>{{ missing }}</div>'), ['missing']);
+  assert.deepEqual(unresolvedSnippetBindings('<Button><Icon /></Button>'), ['Icon']);
+  assert.deepEqual(unresolvedSnippetBindings('<div><Button /></div>'), ['Button']);
+});
+
+test('incomplete extraction falls back to own args or remains explicitly an excerpt', () => {
+  const sources = extractStorySources(`
+const ITEMS = ['one'];
+const Example = (props) => <Tabs {...props}>{ITEMS.map(item => <Tabs.Tab>{item}</Tabs.Tab>)}</Tabs>;
+export const Default = { render: (args) => <Example {...args} /> };
+export const Unknown = { render: () => <Button disabled={disabledValue}>{TITLE}</Button> };
+`);
+  assert.match(sources.Default!, /^\/\/ Excerpt from the story; unresolved bindings: ITEMS\./);
+  assert.ok(!sources.Default!.includes('{...props}'));
+  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@fixture/ui', renderSource: sources.Unknown, args: { children: 'Own story' } }), "import { Button } from '@fixture/ui';\n\n<Button>Own story</Button>");
+  assert.equal(buildUsageSnippet({ componentName: 'Tabs', from: '@fixture/ui', renderSource: sources.Default }), sources.Default);
+});
+
+test('helper binding substitution requires an unmodified args spread and respects nested scopes', () => {
+  const sources = extractStorySources(`
+const Example = (props) => <Button {...props}>{[1].map(props => props)}{props.label}</Button>;
+export const Default = { render: (input) => <Example {...input} /> };
+export const Modified = { render: (args) => <Example {...args} label="Different" /> };
+`);
+  assert.equal(sources.Default, '// JSX from Example, as authored.\n<Button {...args}>{[1].map(props => props)}{args.label}</Button>');
+  assert.match(sources.Modified!, /^\/\/ Excerpt from the story; unresolved bindings: props\./);
+});
+
+test('rejected helper tags never become an imported usage example', () => {
+  const source = extractStorySources(`
+const Example = (args) => args.open ? <Dialog /> : null;
+export const Default = { render: (args) => <Example {...args} /> };
+`).Default!;
+  assert.match(source, /^\/\/ Excerpt from the story/);
+  const options = { componentName: 'Dialog', from: '@fixture/ui', renderSource: source };
+  assert.equal(buildUsageSnippet(options), source);
+  assert.equal(buildUsageSnippet({ ...options, args: { defaultOpen: true } }), "import { Dialog } from '@fixture/ui';\n\n<Dialog defaultOpen />");
 });
