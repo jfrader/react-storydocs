@@ -67,8 +67,13 @@
     align-self: start;
     max-height: calc(100dvh - var(--sd-header-height, 56px));
     overflow-y: auto;
+    /* The page keeps the only visible scrollbar; this one still scrolls (wheel, keyboard focus). */
+    scrollbar-width: none;
     padding: 34px 18px 40px 6px;
     font-size: 12.5px;
+  }
+  .toc::-webkit-scrollbar {
+    display: none;
   }
   .toc-title {
     margin-bottom: 8px;

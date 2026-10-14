@@ -69,9 +69,14 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
   const sections: SectionItem[] = [];
   const frames: StoryItem[] = [];
   /** Authored `###` headings belong in the rail, nested under the `h2` they follow. */
-  const subHeadings = [...root.querySelectorAll<HTMLElement>('h3')].filter((heading) => heading.textContent);
+  // Only the page's own headings: a story may render its own `h3` (several render "Filters"), and
+  // the rail is a map of the documentation, not of the examples.
+  const subHeadings = [...root.querySelectorAll<HTMLElement>('h3')].filter(
+    (heading) => heading.textContent && !heading.closest('.story-lane') && !heading.closest('.frame'),
+  );
   root.querySelectorAll<HTMLElement>('h2').forEach((heading) => {
     if (!heading.textContent) return;
+    if (heading.closest('.story-lane') || heading.closest('.frame')) return;
     heading.id ||= unique('section', heading.textContent);
     heading.dataset.toc = '';
     const section = heading.parentElement?.tagName === 'SECTION' ? heading.parentElement : null;
@@ -101,6 +106,15 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
       });
     sections.push({ id: heading.id, title: heading.textContent, element: section ?? heading, heading, stories, subs });
   });
+  // Authored display names repeat (several stories all named `Filters`): the rail shows the export
+  // name beside them so a reader can tell which is which.
+  const counts = new Map<string, number>();
+  for (const item of frames) counts.set(item.name, (counts.get(item.name) ?? 0) + 1);
+  for (const item of frames) {
+    if ((counts.get(item.name) ?? 0) > 1 && item.story && item.story !== item.name) {
+      item.name = `${item.name} · ${item.story}`;
+    }
+  }
   return { pageKey, sections, frames };
 }
 
