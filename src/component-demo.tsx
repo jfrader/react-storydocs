@@ -13,10 +13,9 @@ export interface ComponentDemoProps {
   story: string;
   storyName: string;
   authoredStory?: string;
-  skipped: string[];
+  notice?: string | null;
   controls: StoryControl[];
   args: Record<string, unknown>;
-  unavailable: string | null;
   changed: boolean;
   onControlChange: (name: string, value: unknown) => void;
   onReset: () => void;
@@ -106,7 +105,7 @@ export function hasHorizontalOverflow({ scrollWidth, clientWidth }: Pick<HTMLEle
 }
 
 export function ComponentDemo({
-  story, storyName, authoredStory, skipped, controls, args, unavailable, changed,
+  story, storyName, authoredStory, notice, controls, args, changed,
   onControlChange, onReset, storyLayout, snippet, codeLanguage, children,
 }: ComponentDemoProps) {
   const [codeOpen, setCodeOpen] = useState(false);
@@ -149,8 +148,8 @@ export function ComponentDemo({
     <div className="frame" data-story={story}>
       <header><span>{storyName}</span><span data-toc-slot=""><CopyLink name={storyName} story={story} /></span></header>
       {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
-      {skipped.length ? <p className="sd-controls-note">Not run here: {skipped.join(', ')}. See it in Storybook.</p> : null}
-      {unavailable ? <p className="sd-controls-note">{unavailable}</p> : (
+      {notice ? <p className="sd-controls-note">{notice}</p> : null}
+      {controls.length ? (
         <div className="sd-controls" role="group" aria-labelledby={controlsLabelId}>
           <p className="sd-controls-label" id={controlsLabelId}>Controls for {storyName}</p>
           <div className="sd-controls-fields">
@@ -161,7 +160,7 @@ export function ComponentDemo({
             <button className="sd-controls-reset" type="button" disabled={!changed} onClick={onReset}>Reset</button>
           </div>
         </div>
-      )}
+      ) : null}
       <div className="shot" data-layout={storyLayout} ref={canvasRef}
         tabIndex={scrollable ? 0 : undefined} role={scrollable ? 'region' : undefined}
         aria-label={scrollable ? storyName : undefined}>

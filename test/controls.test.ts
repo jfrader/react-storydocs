@@ -84,7 +84,6 @@ test('controls merge annotations without replacing explicit args with argType de
   assert.deepEqual(result.controls.map(({ name, type }) => [name, type]), [
     ['size', 'select'], ['loading', 'boolean'], ['count', 'number'], ['children', 'text'],
   ]);
-  assert.equal(result.unavailable, null);
   assert.equal(meta.args.loading, true, 'defaults do not mutate the imported story module');
   assert.deepEqual(getStoryControls(meta, {}).args, meta.args);
   assert.equal(getStoryControls({ argTypes: { count: { control: 'number', defaultValue: 2 } } }, {}).args.count, 2);
@@ -101,8 +100,37 @@ test('demo owns its header action, authored blurb and skipped-hook notice withou
   }));
   assert.match(html, /aria-label="Copy link to Authored example"/);
   assert.match(html, /<p class="story-blurb">An authored blurb\.<\/p>/);
-  assert.match(html, /Not run here: loaders, beforeEach, viewport\./);
+  assert.match(html, /Setup not run here and shown at this page’s width\. Open it in Storybook\./);
+  assert.ok(!html.includes('loaders'));
+  assert.ok(!html.includes('beforeEach'));
+  assert.ok(!html.includes('viewport'));
   assert.match(html, /<header><span>Authored example<\/span>/);
+});
+
+test('frame with setup hooks shows setup notice without hook names', () => {
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Widget', story: 'Example', module: {
+      default: {},
+      Example: { name: 'Authored example', beforeEach: () => null },
+    },
+  }));
+  assert.match(html, /Setup not run here\. Open it in Storybook\./);
+  assert.ok(!html.includes('beforeEach'));
+  assert.ok(!html.includes('loaders'));
+  assert.ok(!html.includes('viewport'));
+});
+
+test('frame with viewport parameter shows width notice without hook names or the word viewport', () => {
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Widget', story: 'Example', module: {
+      default: {},
+      Example: { name: 'Authored example', parameters: { viewport: 'mobile' } },
+    },
+  }));
+  assert.match(html, /Shown at this page’s width\. Open it in Storybook\./);
+  assert.ok(!html.includes('beforeEach'));
+  assert.ok(!html.includes('loaders'));
+  assert.ok(!html.includes('viewport'));
 });
 
 test('demo code surface resets are scoped to the slot, not the story canvas or consumer classes', () => {
@@ -122,7 +150,21 @@ test('unsupported, disabled and optionless controls are ignored without changing
   } }, {});
   assert.deepEqual(result.controls, []);
   assert.deepEqual(result.args, { color: 'red' });
-  assert.match(result.unavailable!, /No controls\./);
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Widget', story: 'Example', module: {
+      default: { args: { color: 'red' }, argTypes: {
+        color: { control: 'color', defaultValue: 'blue' },
+        disabled: { control: false },
+        missing: { control: 'select' },
+        empty: { control: 'radio', options: [] },
+        inferred: { type: 'boolean' },
+      } },
+      Example: {},
+    },
+  }));
+  assert.ok(!html.includes('class="sd-controls"'));
+  assert.ok(!html.includes('sd-controls-note'));
+  assert.ok(!html.includes('No controls'));
 });
 
 test('custom renders accept controls and retain story defaults', () => {
@@ -130,9 +172,9 @@ test('custom renders accept controls and retain story defaults', () => {
   const custom = getStoryControls(meta, { render: () => null, args: { label: 'Custom' } });
   assert.deepEqual(custom.args, { loading: true, label: 'Custom' });
   assert.deepEqual(custom.controls, [{ name: 'loading', type: 'boolean' }]);
-  assert.equal(custom.unavailable, null);
-  assert.equal(getStoryControls({ ...meta, render: () => null }, {}).unavailable, null);
-  assert.match(getStoryControls({}, {}).unavailable!, /No controls\./);
+  assert.equal(custom.controls.length, 1);
+  assert.equal(getStoryControls({ ...meta, render: () => null }, {}).controls.length, 1);
+  assert.equal(getStoryControls({}, {}).controls.length, 0);
   const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
     componentName: 'Button', story: 'Example',
     module: { default: meta, Example: {
@@ -145,6 +187,17 @@ test('custom renders accept controls and retain story defaults', () => {
   assert.match(html, /data-layout="fullscreen"/);
   assert.match(html, /<summary><span class="sd-demo-code-actions">Code<\/span><\/summary><\/details>/);
   assert.ok(!html.includes('&lt;Button'), 'closed Code panels do not render their source');
+});
+
+test('story without controls renders no controls panel and no placeholder', () => {
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    componentName: 'Button', story: 'Plain',
+    module: { default: {}, Plain: { name: 'Plain', render: () => null } },
+  }));
+  assert.ok(!html.includes('class="sd-controls"'));
+  assert.ok(!html.includes('sd-controls-label'));
+  assert.ok(!html.includes('sd-controls-note'));
+  assert.ok(!html.includes('No controls'));
 });
 
 test('story control overrides retain inherited options and support corpus control types', () => {

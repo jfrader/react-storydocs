@@ -85,8 +85,22 @@ export function getStoryControls(meta: StoryShape, story: StoryShape, componentD
   return {
     args,
     controls,
-    unavailable: controls.length === 0 ? 'No controls.' : null,
   };
+}
+
+export function skippedNotice(meta: StoryShape, definition: StoryShape): string | null {
+  const hasSetup = Boolean(meta.loaders || definition.loaders || meta.beforeEach || definition.beforeEach);
+  const hasViewport = Boolean(definition.parameters?.viewport ?? meta.parameters?.viewport);
+  if (hasSetup && hasViewport) {
+    return 'Setup not run here and shown at this page’s width. Open it in Storybook.';
+  }
+  if (hasSetup) {
+    return 'Setup not run here. Open it in Storybook.';
+  }
+  if (hasViewport) {
+    return 'Shown at this page’s width. Open it in Storybook.';
+  }
+  return null;
 }
 
 export function ControlledStoryFrame({ module, story, componentName, componentDefaults, renderSource }: {
@@ -99,7 +113,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
 }) {
   const meta = (module.default ?? {}) as StoryShape;
   const definition = (module[story] ?? {}) as StoryShape;
-  const { args: defaults, controls, unavailable } = getStoryControls(meta, definition, componentDefaults);
+  const { args: defaults, controls } = getStoryControls(meta, definition, componentDefaults);
   const [edits, setEdits] = useState<Record<string, unknown>>({});
   const args = { ...defaults, ...edits };
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
@@ -116,8 +130,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const authoredCode = frameSource(meta, definition);
   const authoredStory = docsOverride?.description?.story ?? docsMeta?.description?.story;
   const storyName = definition.name ?? story;
-  const skipped: string[] = (['loaders', 'beforeEach'] as const).filter((key) => meta[key] || definition[key]);
-  if (definition.parameters?.viewport ?? meta.parameters?.viewport) skipped.push('viewport');
+  const notice = skippedNotice(meta, definition);
   const codeLanguage = authoredCode?.trim()
     ? docsOverride?.source?.language ?? docsMeta?.source?.language ?? 'tsx' : 'tsx';
   const snippet = buildUsageSnippet({
@@ -133,7 +146,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   });
   return (
     <ComponentDemo story={story} storyName={storyName} authoredStory={authoredStory}
-      skipped={skipped} controls={controls} args={args} unavailable={unavailable} changed={changed}
+      notice={notice} controls={controls} args={args} changed={changed}
       storyLayout={storyLayout} snippet={snippet} codeLanguage={codeLanguage}
       onControlChange={(name, value) => setEdits((current) => ({ ...current, [name]: value }))}
       onReset={() => setEdits({})}>
