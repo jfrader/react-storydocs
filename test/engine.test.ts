@@ -17,8 +17,8 @@ test('shell brand links to the base-aware overview and follows the skip link', (
   }).outputText;
   const exports: { DocsApp?: ComponentType } = {};
   const modules: Record<string, unknown> = {
-    'virtual:storybook-docs/catalog': { catalog: [], groups: [], stats: { components: 0, stories: 0 } },
-    'virtual:storybook-docs/site': { pages: {}, site: { title: 'Example UI', mark: 'E' }, theme: {} },
+    'virtual:storybook-docs/catalog': { catalog: [{ group: 'Foundations', slug: 'theme', name: 'Theme', load: () => {} }], groups: ['Foundations'], stats: { components: 1, stories: 1 } },
+    'virtual:storybook-docs/site': { pages: { color: true }, site: { title: 'Example UI', mark: 'E' }, theme: {} },
     'virtual:storybook-docs/releases': { releases: {} },
     './base': { STORYBOOK_DOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
     './toc': { hashPath: (hash: string) => hash.slice(1), useRailFollow: () => {} },
@@ -34,21 +34,25 @@ test('shell brand links to the base-aware overview and follows the skip link', (
     assert.match(html, /<a class="brand-link" href="#\/docs\/">\s*<span class="mark" aria-hidden="true">E<\/span>\s*<span class="brand">Example UI<\/span><\/a>/);
     assert.ok(html.indexOf('class="skip"') < html.indexOf('<button'), 'skip link precedes every button');
     assert.ok(html.indexOf('class="skip"') < html.indexOf('class="brand-link"'), 'skip link precedes the brand link');
+    const groupTitles = [...html.matchAll(/class="grp"[^>]*><span>([^<]+)<\/span>/g)].map((match) => match[1]);
+    assert.deepEqual(groupTitles, ['Design tokens', 'Foundations']);
+    assert.match(html, /href="#\/docs\/tokens\/color"/);
+    assert.match(html, /href="#\/docs\/components\/theme"/);
   } finally {
     if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
     else Reflect.deleteProperty(globalThis, 'window');
   }
 });
 
-test('nav groups use native keyboard activation to toggle their hidden links without hiding the active page', () => {
+test('nav groups use native keyboard activation and initially expand the active group', () => {
   const require = createRequire(import.meta.url);
   const compiled = ts.transpileModule(readFileSync(new URL('../src/app.tsx', import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  let open = false;
+  let open: boolean | undefined;
   const exports: { NavGroup?: (props: { id: string; title: string; active: boolean; children: ReactNode }) => ReactElement<{ children: ReactNode }> } = {};
   runInThisContext(`(function(require, exports) { ${compiled}\nexports.NavGroup = NavGroup; })`)((name: string) => {
-    if (name === 'react') return { ...require(name), useState: () => [open, (next: boolean) => { open = next; }] };
+    if (name === 'react') return { ...require(name), useState: (initial: boolean) => [open ?? initial, (next: boolean) => { open = next; }] };
     return name.startsWith('.') || name.startsWith('virtual:') ? {} : require(name);
   }, exports);
   const render = (active = false) => {
@@ -69,18 +73,22 @@ test('nav groups use native keyboard activation to toggle their hidden links wit
   assert.equal(expanded.links.props.hidden, false);
   expanded.button.props.onClick();
   assert.equal(render().links.props.hidden, true);
-  assert.equal(render(true).links.props.hidden, false);
-  assert.equal(render(true).button.props.disabled, true);
+  open = undefined;
+  const active = render(true);
+  assert.equal(active.links.props.hidden, false);
+  assert.equal(active.button.props.disabled, undefined);
+  active.button.props.onClick();
+  assert.equal(render(true).links.props.hidden, true, 'the active group can also collapse');
 });
 
-test('large active nav groups render a twelve-link window containing the active page and can show all links', () => {
+test('expanded nav groups render every link without a secondary toggle', () => {
   const require = createRequire(import.meta.url);
   const compiled = ts.transpileModule(readFileSync(new URL('../src/app.tsx', import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const state: boolean[] = [];
   let hook = 0;
-  const exports: { NavGroup?: (props: { id: string; title: string; active: boolean; activeIndex: number; children: ReactNode }) => ReactElement<{ children: ReactNode }> } = {};
+  const exports: { NavGroup?: (props: { id: string; title: string; active: boolean; children: ReactNode }) => ReactElement<{ children: ReactNode }> } = {};
   runInThisContext(`(function(require, exports) { ${compiled}\nexports.NavGroup = NavGroup; })`)((name: string) => {
     if (name === 'react') return {
       ...require(name),
@@ -95,39 +103,25 @@ test('large active nav groups render a twelve-link window containing the active 
   const render = (activeIndex: number, active = true) => {
     hook = 0;
     const children = Array.from({ length: 25 }, (_, index) => createElement('a', { key: index, 'aria-current': index === activeIndex ? 'page' : undefined }, index));
-    const group = exports.NavGroup!({ id: 'test-group', title: 'Inputs', active, activeIndex, children });
+    const group = exports.NavGroup!({ id: 'test-group', title: 'Inputs', active, children });
     const container = Children.toArray(group.props.children)[1];
-    assert.ok(isValidElement<{ children: ReactNode }>(container));
-    const [window, toggle] = Children.toArray(container.props.children);
-    assert.ok(isValidElement<{ id: string; children: ReactNode }>(window));
-    const links = Children.toArray(window.props.children).map((link) => {
+    assert.ok(isValidElement<{ children: ReactNode; hidden: boolean }>(container));
+    const links = Children.toArray(container.props.children).map((link) => {
       assert.ok(isValidElement<{ children: number; 'aria-current'?: string }>(link));
       return link;
     });
-    return { links, toggle, window };
+    return { links, container };
   };
   for (let activeIndex = 0; activeIndex < 25; activeIndex++) {
-    const { links } = render(activeIndex);
-    assert.equal(links.length, 12);
+    const { links, container } = render(activeIndex);
+    assert.equal(container.props.hidden, false);
+    assert.equal(links.length, 25);
     assert.ok(links.some((link) => link.props.children === activeIndex && link.props['aria-current'] === 'page'));
-    assert.equal(links[0]!.props.children, Math.min(Math.max(activeIndex - 6, 0), 13));
+    assert.deepEqual(links.map((link) => link.props.children), Array.from({ length: 25 }, (_, index) => index));
   }
-  assert.deepEqual(render(-1).links.map((link) => link.props.children), Array.from({ length: 12 }, (_, index) => index));
-  assert.equal(render(-1, false).links.length, 25, 'inactive groups retain every link when opened');
-  const capped = render(24);
-  assert.ok(isValidElement<{ type: string; 'aria-expanded': boolean; 'aria-controls': string; onClick: () => void; children: ReactNode }>(capped.toggle));
-  assert.equal(capped.toggle.type, 'button');
-  assert.equal(capped.toggle.props.type, 'button');
-  assert.equal(capped.toggle.props['aria-expanded'], false);
-  assert.equal(capped.toggle.props['aria-controls'], capped.window.props.id);
-  assert.equal(capped.toggle.props.children, 'Show all 25');
-  capped.toggle.props.onClick();
-  assert.equal(render(24).links.length, 25);
-  const expanded = render(24).toggle;
-  assert.ok(isValidElement<{ 'aria-expanded': boolean; onClick: () => void }>(expanded));
-  assert.equal(expanded.props['aria-expanded'], true);
-  expanded.props.onClick();
-  assert.equal(render(24).links.length, 12);
+  state.length = 0;
+  assert.equal(render(-1, false).container.props.hidden, true);
+  assert.equal(render(-1, false).links.length, 25, 'collapsed groups retain every link');
 });
 
 test('matchGlob: one segment wildcard', () => {
