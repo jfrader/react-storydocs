@@ -69,8 +69,9 @@ jobs:
           pnpm pack --pack-destination "$RUNNER_TEMP/release"
 
       - name: Publish to npmjs
-        # setup-node writes an .npmrc that reads this variable; without it the publish goes out
-        # unauthenticated and npm answers 404 on the PUT, which reads like a missing package.
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # No token: npmjs authenticates this workflow through the package's trusted publisher
+        # (OIDC), the same way the library's packages publish. Setting an empty NODE_AUTH_TOKEN here
+        # would send an unauthenticated request instead — npm answers 404 on the PUT for that, which
+        # reads like a missing package. Configure the trusted publisher for jfrader/storybook-docs
+        # and workflow publish.yml once, then tags publish themselves.
         run: npm publish "$RUNNER_TEMP"/release/*.tgz --access public --provenance
