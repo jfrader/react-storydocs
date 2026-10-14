@@ -78,6 +78,7 @@ function PropType({ prop }: { prop: PropDoc }) {
       {signature ? (
         <details>
           <summary>Signature details</summary>
+          {prop.type !== signature.type ? <code className="type">{prop.type}</code> : null}
           {prop.signatures?.map((item, index) => (
             <div key={index}>
               <code className="type">{item.type}</code>

@@ -187,6 +187,17 @@ test('object fields preserve shapes without treating primitive union prototypes 
   assert.match(props.find((prop) => prop.name === 'viewport')?.type ?? '', /width: number; height: number/);
 });
 
+test('callback signatures preserve nullable and explicitly undefined alternatives', () => {
+  const tables = extract(`
+    type Handler = (value: string) => void;
+    export function Widget(props: { nullable?: Handler | null; unset: Handler | undefined; optional?: Handler }) { return null; }
+  `);
+  const props = tables[0]!.props;
+  assert.match(props.find((prop) => prop.name === 'nullable')?.signatures?.[0]?.type ?? '', /\(\(value: string\) => void\) \| null/);
+  assert.match(props.find((prop) => prop.name === 'unset')?.signatures?.[0]?.type ?? '', /\| undefined/);
+  assert.doesNotMatch(props.find((prop) => prop.name === 'optional')?.signatures?.[0]?.type ?? '', /undefined/);
+});
+
 test('inherited component contracts retain source identity and stay separate from own props', () => {
   const tables = extract(`
     import type { ButtonProps } from '../button/button';

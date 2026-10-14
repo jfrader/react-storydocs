@@ -235,14 +235,20 @@ export function createPropsCollector() {
           ? declarationName
           : undefined;
         const memberType = checker.getNonNullableType(propType);
-        const signatures = memberType.getCallSignatures().map((signature) => ({
-          type: checker.signatureToString(signature, location, typeFlags | ts.TypeFormatFlags.WriteArrowStyleSignature),
-          parameters: signature.getParameters().map((parameter) => ({
-            name: parameter.getName(),
-            type: checker.typeToString(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? location), location, typeFlags),
-            description: ts.displayPartsToString(parameter.getDocumentationComment(checker)).trim(),
-          })),
-        }));
+        const nonCallableAlternatives = propType.isUnion() ? propType.types
+          .filter((part) => Boolean(part.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) && (!optional || !(part.flags & ts.TypeFlags.Undefined)))
+          .map((part) => checker.typeToString(part, undefined, typeFlags)) : [];
+        const signatures = memberType.getCallSignatures().map((signature) => {
+          const signatureType = checker.signatureToString(signature, location, typeFlags | ts.TypeFormatFlags.WriteArrowStyleSignature);
+          return {
+            type: nonCallableAlternatives.length ? `(${signatureType}) | ${nonCallableAlternatives.join(' | ')}` : signatureType,
+            parameters: signature.getParameters().map((parameter) => ({
+              name: parameter.getName(),
+              type: checker.typeToString(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? location), location, typeFlags),
+              description: ts.displayPartsToString(parameter.getDocumentationComment(checker)).trim(),
+            })),
+          };
+        });
         const objectTypes = memberType.isUnion() ? memberType.types : [memberType];
         const hasLocalMembers = objectTypes.every((part) => Boolean(part.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection))) && !checker.isArrayType(memberType) && !checker.isTupleType(memberType) && !signatures.length && checker.getPropertiesOfType(memberType).some((member) => member.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)));
         return {
