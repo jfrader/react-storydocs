@@ -32,7 +32,7 @@ export function Button({ label, disabled = false, count = 0, size = 'sm' }: Butt
 `);
   for (const [folder, title] of [['button', 'Primitives/Button'], ['alert', 'Feedback/Alert'], ['icon-button', 'Primitives/IconButton']]) {
     write(`library/src/${folder}/${folder}.stories.tsx`, `
-const Component = () => null;
+const Component = (args) => <button {...args}>Fixture</button>;
 const meta = { title: '${title}', component: Component, tags: ['autodocs'] };
 export default meta;
 export const Default = { tags: ['smoke'], args: {} };
@@ -131,7 +131,7 @@ test('virtual story sources are per component, cached and invalidated when the s
   const consumer = await fixture();
   try {
     assert.match(await consumer.source('story-sources'), /virtual:storybook-docs\/story-sources\/button/);
-    const sources = { Rendered: '<Component {...args} />' };
+    const sources = { Rendered: '// JSX from Component, as authored.\n<button {...args}>Fixture</button>' };
     assert.deepEqual((await consumer.evaluate('story-sources/button')).sources, sources);
     assert.deepEqual((await consumer.evaluate('story-sources/alert')).sources, sources);
     assert.deepEqual((await consumer.evaluate('story-sources/unknown')).sources, {});
