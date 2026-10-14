@@ -229,6 +229,6 @@ export function buildUsageSnippet({ componentName, from, args, source, renderSou
   // whose subject is a provider, or whose title differs from the exported name, owns its imports.
   if (rootTag !== rootName) return example;
   const imports = [...example.matchAll(/import\s*\{([^}]+)\}\s*from\s*(['"])(.*?)\2/g)];
-  const imported = imports.some((match) => match[3] === from && match[1]!.split(',').some((name) => name.trim() === rootName));
+  const imported = imports.some((match) => match[1]!.split(',').some((name) => name.trim() === rootName));
   return imported ? example : `import { ${rootName} } from '${from}';\n\n${example}`;
 }

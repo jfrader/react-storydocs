@@ -355,3 +355,39 @@ test('buildUsageSnippet: an entry whose subject is not the page name owns its im
   assert.equal(buildUsageSnippet({ componentName: 'Dialog', from: '@acme/ui', source: helper }),
     "import { Dialog } from '@acme/ui';\n\n" + helper);
 });
+
+test('buildUsageSnippet: authored snippet importing root from a subpath or root owns its imports without duplicates', () => {
+  // 1. Snippet autorado que importa el símbolo raíz desde un subpath de `from` -> sin cambios, sin segundo import
+  const subpathSnippet = "import { GameCard } from '@jfrader/ui/game-card';\n\n<GameCard rank=\"A\" suit=\"spades\" />";
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '@jfrader/ui', source: subpathSnippet }), subpathSnippet);
+
+  const multiSubpath = "import { GameCard, Suit } from '@jfrader/ui/game-card';\n\n<GameCard rank=\"A\" suit=\"spades\" />";
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '@jfrader/ui', source: multiSubpath }), multiSubpath);
+
+  // 2. Snippet autorado que lo importa desde el root (`from`) -> sin cambios
+  const rootSnippet = "import { GameCard } from '@jfrader/ui';\n\n<GameCard rank=\"A\" suit=\"spades\" />";
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '@jfrader/ui', source: rootSnippet }), rootSnippet);
+
+  // 3. Ejemplo sin imports -> el motor antepone el import generado
+  const noImportSnippet = '<GameCard rank="A" suit="spades" />';
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '@jfrader/ui', source: noImportSnippet }),
+    "import { GameCard } from '@jfrader/ui';\n\n<GameCard rank=\"A\" suit=\"spades\" />");
+
+  // 4. Extracto del `render` de la historia -> antepone el import generado
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '@jfrader/ui', renderSource: '<GameCard {...args} />' }),
+    "import { GameCard } from '@jfrader/ui';\n\n<GameCard {...args} />");
+
+  // 5. Los recaudos que ya existen siguen
+  // Sujeto que es un provider/compound sin anatomía
+  const compound = Object.assign(() => null, { Header: () => null });
+  assert.equal(buildUsageSnippet({ componentName: 'Tabs', component: compound, from: '@jfrader/ui', args: { defaultValue: 'one' } }), null);
+
+  // rootTag !== rootName
+  const provider = "import { GameCardProvider } from '@jfrader/ui/game-card';\n\n<GameCardProvider><GameCard /></GameCardProvider>";
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '@jfrader/ui', source: provider }), provider);
+
+  // from vacío
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '', source: '<GameCard />' }), '<GameCard />');
+  assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '   ', renderSource: '<GameCard {...args} />' }), '<GameCard {...args} />');
+});
+
