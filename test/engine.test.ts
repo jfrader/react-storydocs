@@ -73,6 +73,63 @@ test('nav groups use native keyboard activation to toggle their hidden links wit
   assert.equal(render(true).button.props.disabled, true);
 });
 
+test('large active nav groups render a twelve-link window containing the active page and can show all links', () => {
+  const require = createRequire(import.meta.url);
+  const compiled = ts.transpileModule(readFileSync(new URL('../src/app.tsx', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const state: boolean[] = [];
+  let hook = 0;
+  const exports: { NavGroup?: (props: { id: string; title: string; active: boolean; activeIndex: number; children: ReactNode }) => ReactElement<{ children: ReactNode }> } = {};
+  runInThisContext(`(function(require, exports) { ${compiled}\nexports.NavGroup = NavGroup; })`)((name: string) => {
+    if (name === 'react') return {
+      ...require(name),
+      useState: (initial: boolean) => {
+        const index = hook++;
+        state[index] ??= initial;
+        return [state[index], (next: boolean) => { state[index] = next; }];
+      },
+    };
+    return name.startsWith('.') || name.startsWith('virtual:') ? {} : require(name);
+  }, exports);
+  const render = (activeIndex: number, active = true) => {
+    hook = 0;
+    const children = Array.from({ length: 25 }, (_, index) => createElement('a', { key: index, 'aria-current': index === activeIndex ? 'page' : undefined }, index));
+    const group = exports.NavGroup!({ id: 'test-group', title: 'Inputs', active, activeIndex, children });
+    const container = Children.toArray(group.props.children)[1];
+    assert.ok(isValidElement<{ children: ReactNode }>(container));
+    const [window, toggle] = Children.toArray(container.props.children);
+    assert.ok(isValidElement<{ id: string; children: ReactNode }>(window));
+    const links = Children.toArray(window.props.children).map((link) => {
+      assert.ok(isValidElement<{ children: number; 'aria-current'?: string }>(link));
+      return link;
+    });
+    return { links, toggle, window };
+  };
+  for (let activeIndex = 0; activeIndex < 25; activeIndex++) {
+    const { links } = render(activeIndex);
+    assert.equal(links.length, 12);
+    assert.ok(links.some((link) => link.props.children === activeIndex && link.props['aria-current'] === 'page'));
+    assert.equal(links[0]!.props.children, Math.min(Math.max(activeIndex - 6, 0), 13));
+  }
+  assert.deepEqual(render(-1).links.map((link) => link.props.children), Array.from({ length: 12 }, (_, index) => index));
+  assert.equal(render(-1, false).links.length, 25, 'inactive groups retain every link when opened');
+  const capped = render(24);
+  assert.ok(isValidElement<{ type: string; 'aria-expanded': boolean; 'aria-controls': string; onClick: () => void; children: ReactNode }>(capped.toggle));
+  assert.equal(capped.toggle.type, 'button');
+  assert.equal(capped.toggle.props.type, 'button');
+  assert.equal(capped.toggle.props['aria-expanded'], false);
+  assert.equal(capped.toggle.props['aria-controls'], capped.window.props.id);
+  assert.equal(capped.toggle.props.children, 'Show all 25');
+  capped.toggle.props.onClick();
+  assert.equal(render(24).links.length, 25);
+  const expanded = render(24).toggle;
+  assert.ok(isValidElement<{ 'aria-expanded': boolean; onClick: () => void }>(expanded));
+  assert.equal(expanded.props['aria-expanded'], true);
+  expanded.props.onClick();
+  assert.equal(render(24).links.length, 12);
+});
+
 test('matchGlob: one segment wildcard', () => {
   assert.equal(matchGlob('src/components/*/*.stories.tsx', 'src/components/button/button.stories.tsx'), true);
   assert.equal(matchGlob('src/components/*/*.stories.tsx', 'src/components/button/nested/button.stories.tsx'), false);
