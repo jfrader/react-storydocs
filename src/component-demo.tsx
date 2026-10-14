@@ -110,6 +110,7 @@ export function ComponentDemo({
   onControlChange, onReset, storyLayout, snippet, codeLanguage, children,
 }: ComponentDemoProps) {
   const [codeOpen, setCodeOpen] = useState(false);
+  const controlsLabelId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [scrollable, setScrollable] = useState(false);
   useEffect(() => {
@@ -150,8 +151,8 @@ export function ComponentDemo({
       {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
       {skipped.length ? <p className="sd-controls-note">Not run here: {skipped.join(', ')}. See it in Storybook.</p> : null}
       {unavailable ? <p className="sd-controls-note">{unavailable}</p> : (
-        <fieldset className="sd-controls">
-          <legend>Controls for {storyName}</legend>
+        <div className="sd-controls" role="group" aria-labelledby={controlsLabelId}>
+          <p className="sd-controls-label" id={controlsLabelId}>Controls for {storyName}</p>
           <div className="sd-controls-fields">
             {controls.map((control) => (
               <ControlInput key={control.name} control={control} value={args[control.name]}
@@ -159,7 +160,7 @@ export function ComponentDemo({
             ))}
             <button className="sd-controls-reset" type="button" disabled={!changed} onClick={onReset}>Reset</button>
           </div>
-        </fieldset>
+        </div>
       )}
       <div className="shot" data-layout={storyLayout} ref={canvasRef}
         tabIndex={scrollable ? 0 : undefined} role={scrollable ? 'region' : undefined}

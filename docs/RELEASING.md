@@ -125,3 +125,29 @@ Official npm references (check them when changing authentication):
 [trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 [provenance](https://docs.npmjs.com/generating-provenance-statements/),
 [granular tokens](https://docs.npmjs.com/creating-and-viewing-access-tokens/).
+
+## First publish of a new package name
+
+Established procedure, after a morning spent rediscovering it:
+
+1. **`npm trust` works before the package exists.** `npm trust github <pkg> --repo <owner>/<repo> --file publish.yml --allow-publish`
+   returns **201** even for a name that has never been published, as long as you are authenticated. Do this first; it is
+   what lets every later `v*` tag publish itself through OIDC with provenance, no tokens.
+2. **Workflows that set `NODE_AUTH_TOKEN` cannot use trusted publishing.** An empty secret sends an
+   unauthenticated request and npm answers `404` on the `PUT`, which reads like a missing package. This workflow
+   therefore sets no token.
+3. **The first publish has to happen once from a machine** — the registry has no artifact yet:
+
+   ```bash
+   cd <the package checkout>
+   npm login --registry https://registry.npmjs.org     # prints a browser URL; no OTP code needed
+   NPM_CONFIG_USERCONFIG=<config> npm publish          # browser URL again, then "+ <pkg>@<version>"
+   ```
+
+   A `~/.npmrc` that maps the scope to another registry (e.g. `@scope:registry=https://npm.pkg.github.com/`) makes a
+   plain `npm publish` target that registry instead and fail with `403`. Point the scope at npmjs in the config used
+   for the publish.
+4. **Verify from the registry, not from the local output:** `curl -s https://registry.npmjs.org/<scope>%2f<pkg>`
+   must list the version. Until it does, nothing is published.
+5. After that, releases are tags: `git tag -a vX.Y.Z && git push origin vX.Y.Z`, and the publish workflow does the
+   rest. Do **not** push a tag for a version you already published by hand — npm rejects the duplicate.
