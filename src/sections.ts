@@ -172,6 +172,12 @@ function serializable(value: unknown, ancestors = new Set<unknown>()): boolean {
   return result;
 }
 
+/** The root JSX tag an example renders, ignoring leading line comments. */
+function jsxRootTag(example: string): string | undefined {
+  return example.replace(/^\s*\/\/[^\n]*(?:\n|$)/gm, '')
+    .match(/<([A-Za-z_$][\w$]*(?:\.[\w$]+)*)[\s/>]/)?.[1]?.split('.')[0];
+}
+
 /** Only story-authored values: never synthesize children or component defaults. */
 export function usageSnippet(componentName: string, args: Record<string, unknown> | undefined): string | null {
   if (!args || Object.keys(args).length === 0) return null;
@@ -184,8 +190,9 @@ export function usageSnippet(componentName: string, args: Record<string, unknown
     else attributes.push(`${key}={${JSON.stringify(value)}}`);
   }
   const opening = `<${componentName}${attributes.length ? ` ${attributes.join(' ')}` : ''}`;
-  if (args.children === undefined) return attributes.length ? `${opening} />` : null;
-  if (!serializable(args.children) || (args.children !== null && typeof args.children === 'object')) return null;
+  // `null` renders nothing, so a `{null}` fragment teaches a fragment nobody writes.
+  if (args.children === undefined || args.children === null) return attributes.length ? `${opening} />` : null;
+  if (!serializable(args.children) || typeof args.children === 'object') return null;
   const children = typeof args.children === 'string' && !/[&<>{}]/.test(args.children)
     ? args.children : `{${JSON.stringify(args.children)}}`;
   return `${opening}>${children}</${componentName}>`;
@@ -213,12 +220,14 @@ export function buildUsageSnippet({ componentName, from, args, source, renderSou
   const excerpt = extracted?.startsWith(STORY_EXCERPT);
   const example = source?.trim() || (excerpt ? generated() || extracted : extracted || generated());
   if (!example) return null;
+  const rootTag = jsxRootTag(example);
   if (!source?.trim() && example === extracted) {
-    const rootTag = example.replace(/^\s*\/\/[^\n]*(?:\n|$)/gm, '').trim()
-      .match(/^<([A-Za-z_$][\w$]*(?:\.[\w$]+)*)[\s/>]/)?.[1]?.split('.')[0];
     if (excerpt || rootTag !== rootName || !from.trim()) return example;
   }
   if (!from.trim()) return example;
+  // The page name is assumed to be an export of `from` only when the example renders it. An entry
+  // whose subject is a provider, or whose title differs from the exported name, owns its imports.
+  if (rootTag !== rootName) return example;
   const imports = [...example.matchAll(/import\s*\{([^}]+)\}\s*from\s*(['"])(.*?)\2/g)];
   const imported = imports.some((match) => match[3] === from && match[1]!.split(',').some((name) => name.trim() === rootName));
   return imported ? example : `import { ${rootName} } from '${from}';\n\n${example}`;

@@ -336,3 +336,22 @@ test('usageSnippet: escapes JSX, keeps JSON props and rejects unrepresentable va
   cyclic.self = cyclic;
   assert.equal(usageSnippet('Input', { options: cyclic }), null);
 });
+
+test('usageSnippet: children null renders nothing, so it never becomes a {null} fragment', () => {
+  assert.equal(usageSnippet('Deck', { children: null }), null);
+  assert.equal(usageSnippet('DialogStack', { children: null, open: true }), '<DialogStack open />');
+  assert.equal(usageSnippet('Card', { children: 'Save' }), '<Card>Save</Card>');
+});
+
+test('buildUsageSnippet: an entry whose subject is not the page name owns its imports', () => {
+  // Games/Deck is backed by DeckProvider: the page name is not an exported component, so the
+  // authored snippet must survive untouched instead of getting an invented `import { Deck }`.
+  const provider = "import { DeckProvider, defineDeck } from '@jfrader/ui';\n\n<DeckProvider decks={[myDeck]} default=\"spanish\">{children}</DeckProvider>";
+  assert.equal(buildUsageSnippet({ componentName: 'Deck', from: '@jfrader/ui', source: provider, args: { children: null } }), provider);
+  // A component page keeps the convenience import, with or without its own helper imports.
+  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@acme/ui', source: '<Button>Save</Button>' }),
+    "import { Button } from '@acme/ui';\n\n<Button>Save</Button>");
+  const helper = "import { helper } from '@acme/ui/helper';\n\n<Dialog><Dialog.Content>Hello</Dialog.Content></Dialog>";
+  assert.equal(buildUsageSnippet({ componentName: 'Dialog', from: '@acme/ui', source: helper }),
+    "import { Dialog } from '@acme/ui';\n\n" + helper);
+});
