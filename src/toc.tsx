@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import './toc.css';
 import { followRail } from './rail';
 
@@ -58,13 +58,13 @@ const slugify = (text: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-export function useRailFollow(ref: RefObject<HTMLElement | null>, ready = true) {
-  useEffect(() => {
+export function useRailFollow(ref: RefObject<HTMLElement | null>, ready = true, pageKey?: string) {
+  useLayoutEffect(() => {
     const element = ref.current;
     const header = element?.closest('.app')?.querySelector<HTMLElement>('.top');
-    if (!element || !header) return;
+    if (!ready || !element || !header) return;
     return followRail(element, header);
-  }, [ready, ref]);
+  }, [ready, ref, pageKey]);
 }
 
 function scanPage(root: HTMLElement, pageKey: string): Scan {
@@ -137,11 +137,14 @@ const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: r
 
 /** Smooth-scrolls, then corrects once the scroll has stopped and lazily mounted examples have changed the layout. */
 function scrollToElement(element: HTMLElement) {
+  const hash = window.location.hash;
   element.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   let ticks = SETTLE_TICKS;
   let lastY = window.scrollY;
+  let timer: number;
+  let cancelled = false;
   const settle = () => {
-    if (!element.isConnected || ticks === 0) return;
+    if (cancelled || window.location.hash !== hash || !element.isConnected || ticks === 0) return;
     ticks -= 1;
     const moving = window.scrollY !== lastY;
     lastY = window.scrollY;
@@ -149,9 +152,13 @@ function scrollToElement(element: HTMLElement) {
       element.scrollIntoView({ behavior: 'auto', block: 'start' });
       lastY = window.scrollY;
     }
-    window.setTimeout(settle, SETTLE_TICK_MS);
+    timer = window.setTimeout(settle, SETTLE_TICK_MS);
   };
-  window.setTimeout(settle, SETTLE_TICK_MS);
+  timer = window.setTimeout(settle, SETTLE_TICK_MS);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(timer);
+  };
 }
 
 function useActiveIds(scan: Scan | null) {
@@ -184,6 +191,12 @@ export function PageRail({ pageKey }: { pageKey: string }) {
   pageKeyRef.current = pageKey;
   const [target, setTarget] = useState(() => storyFromHash(window.location.hash));
   const flashed = useRef<HTMLElement | null>(null);
+  const cancelScroll = useRef<(() => void) | null>(null);
+  const go = useCallback((element: HTMLElement) => {
+    cancelScroll.current?.();
+    cancelScroll.current = scrollToElement(element);
+  }, []);
+  useEffect(() => () => cancelScroll.current?.(), []);
 
   useEffect(() => {
     const main = document.querySelector<HTMLElement>('.main');
@@ -222,18 +235,17 @@ export function PageRail({ pageKey }: { pageKey: string }) {
       scan.frames.find((frame) => frame.name === target) ??
       scan.frames.find((frame) => frame.name.toLowerCase() === target.toLowerCase());
     if (!match) return;
-    scrollToElement(match.element);
+    go(match.element);
     flashed.current?.classList.remove('toc-flash');
     match.element.classList.add('toc-flash');
     flashed.current = match.element;
     window.setTimeout(() => match.element.classList.remove('toc-flash'), FLASH_MS);
     setTarget(null);
-  }, [target, scan, pageKey]);
+  }, [target, scan, pageKey, go]);
 
   const railRef = useRef<HTMLElement | null>(null);
   useRailFollow(railRef, scan !== null);
   const active = useActiveIds(scan);
-  const go = useCallback((element: HTMLElement) => scrollToElement(element), []);
 
   if (!scan) return null;
   return (
@@ -248,6 +260,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
                 <button
                   type="button"
                   className="toc-link"
+                  title={section.title}
                   aria-current={active.section === section.id ? 'location' : undefined}
                   onClick={() => go(section.heading)}
                 >
@@ -257,7 +270,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
                   <ul>
                     {section.subs.map((sub) => (
                       <li key={sub.id}>
-                        <button type="button" className="toc-link toc-sub" onClick={() => go(sub.element)}>
+                        <button type="button" className="toc-link toc-sub" title={sub.title} onClick={() => go(sub.element)}>
                           {sub.title}
                         </button>
                       </li>
@@ -271,6 +284,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
                         <button
                           type="button"
                           className="toc-link toc-story"
+                          title={story.name}
                           aria-current={active.story === story.id ? 'location' : undefined}
                           onClick={() => go(story.element)}
                         >

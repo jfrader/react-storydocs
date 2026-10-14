@@ -194,7 +194,7 @@ body {
   .rail-track::before {
     content: '';
     display: block;
-    height: var(--sd-rail-offset, 0px);
+    height: calc(var(--sd-rail-start, 0px) + var(--sd-rail-offset, 0px));
   }
 }
 .nav {

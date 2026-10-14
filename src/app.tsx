@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
 import { pages, site, theme } from 'virtual:storybook-docs/site';
 import { ComponentPage } from './pages/component-page';
@@ -62,9 +62,20 @@ export function DocsApp() {
   const [mode, setMode] = useState(theme.values?.[0] ?? 'dark');
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
-  useRailFollow(navRef);
+  const pageKey = route.kind === 'component' ? `components/${route.slug}` : route.kind;
   const headerRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
+  const renderedPage = useRef(pageKey);
+  useLayoutEffect(() => {
+    if (renderedPage.current !== pageKey) {
+      const reset = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      reset();
+      const frame = requestAnimationFrame(reset);
+      renderedPage.current = pageKey;
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [pageKey]);
+  useRailFollow(navRef, true, pageKey);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -86,7 +97,6 @@ export function DocsApp() {
     const onHash = () => {
       setRoute(parseRoute(window.location.hash));
       setNavOpen(false);
-      window.scrollTo(0, 0);
       mainRef.current?.focus({ preventScroll: true });
     };
     window.addEventListener('hashchange', onHash);
@@ -213,7 +223,7 @@ export function DocsApp() {
 
       <main id="main" className="main" tabIndex={-1} ref={mainRef}>
         {route.kind === 'component' ? (
-          <ComponentPage entry={catalog.find((entry) => entry.slug === route.slug)!} />
+          <ComponentPage key={pageKey} entry={catalog.find((entry) => entry.slug === route.slug)!} />
         ) : route.kind === 'color' ? (
           <ColorPage />
         ) : route.kind === 'typography' ? (
@@ -228,7 +238,7 @@ export function DocsApp() {
           <OverviewPage />
         )}
       </main>
-      {route.kind !== 'overview' ? <PageRail pageKey={activeSlug ?? route.kind} /> : null}
+      {route.kind !== 'overview' ? <PageRail key={pageKey} pageKey={pageKey} /> : null}
     </div>
   );
 }
