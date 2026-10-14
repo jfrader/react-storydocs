@@ -37,6 +37,7 @@ const meta = { title: '${title}', component: Component, tags: ['autodocs'] };
 export default meta;
 export const Default = { tags: ['smoke'], args: {} };
 export const Disabled = { args: { disabled: true } };
+export const Rendered = { render: (args) => <Component {...args} /> };
 `);
   }
   mkdirSync(path.join(root, 'node_modules/@fixture'), { recursive: true });
@@ -88,12 +89,12 @@ test('virtual catalog preserves group order, slugs and tagged story exports insi
     const { catalog, groups, stats, storySource } = await consumer.evaluate('catalog');
     assert.equal(storySource, '@fixture/ui');
     assert.deepEqual(catalog.map(({ slug, name, group, stories, hasComponent }: CatalogEntry) => ({ slug, name, group, stories, hasComponent })), [
-      { slug: 'button', name: 'Button', group: 'Actions', stories: ['Default', 'Disabled'], hasComponent: true },
-      { slug: 'icon-button', name: 'IconButton', group: 'Actions', stories: ['Default', 'Disabled'], hasComponent: true },
-      { slug: 'alert', name: 'Alert', group: 'Feedback', stories: ['Default', 'Disabled'], hasComponent: true },
+      { slug: 'button', name: 'Button', group: 'Actions', stories: ['Default', 'Disabled', 'Rendered'], hasComponent: true },
+      { slug: 'icon-button', name: 'IconButton', group: 'Actions', stories: ['Default', 'Disabled', 'Rendered'], hasComponent: true },
+      { slug: 'alert', name: 'Alert', group: 'Feedback', stories: ['Default', 'Disabled', 'Rendered'], hasComponent: true },
     ]);
     assert.deepEqual(groups, ['Actions', 'Feedback']);
-    assert.deepEqual(stats, { components: 3, stories: 6, groups: 2 });
+    assert.deepEqual(stats, { components: 3, stories: 9, groups: 2 });
     const source = await consumer.source('catalog');
     const imports = [...source.matchAll(/import\(("[^"]+")\)/g)].map((match) => JSON.parse(match[1]!));
     assert.equal(imports.length, 3);
@@ -123,6 +124,22 @@ test('virtual props retain real defaults and null for missing defaults', async (
       }
     }
     assert.deepEqual((await consumer.evaluate('props/unknown')).components, []);
+  } finally { await consumer.close(); }
+});
+
+test('virtual story sources are per component, cached and invalidated when the story changes', async () => {
+  const consumer = await fixture();
+  try {
+    assert.match(await consumer.source('story-sources'), /virtual:storybook-docs\/story-sources\/button/);
+    const sources = { Rendered: '<Component {...args} />' };
+    assert.deepEqual((await consumer.evaluate('story-sources/button')).sources, sources);
+    assert.deepEqual((await consumer.evaluate('story-sources/alert')).sources, sources);
+    assert.deepEqual((await consumer.evaluate('story-sources/unknown')).sources, {});
+    const file = path.join(consumer.root, 'library/src/button/button.stories.tsx');
+    writeFileSync(file, readFileSync(file, 'utf8').replace('<Component {...args} />', '<Updated />'));
+    assert.deepEqual((await consumer.evaluate('story-sources/button')).sources, sources);
+    await consumer.container.watchChange(file, { event: 'update' });
+    assert.deepEqual((await consumer.evaluate('story-sources/button')).sources, { Rendered: '<Updated />' });
   } finally { await consumer.close(); }
 });
 
@@ -198,11 +215,12 @@ test('fixtures consumer builds the engine and every story through real virtual m
     }],
     build: { write: false, minify: false },
   });
-  for (const name of ['catalog', 'site', 'tokens', 'props', 'guidance', 'releases', 'code', 'global-styles']) {
+  for (const name of ['catalog', 'site', 'tokens', 'props', 'guidance', 'story-sources', 'releases', 'code', 'global-styles']) {
     assert.ok(modules.has(`\0${prefix}${name}`), `${name} participates in the consumer build`);
   }
   for (const slug of ['button', 'alert', 'select']) {
     assert.ok([...modules].some((id) => id.endsWith(`/${slug}.stories.tsx`)), `${slug} story resolves`);
     assert.ok(modules.has(`\0${prefix}props/${slug}`), `${slug} props resolve`);
+    assert.ok(modules.has(`\0${prefix}story-sources/${slug}`), `${slug} story sources resolve`);
   }
 });

@@ -89,12 +89,13 @@ export function getStoryControls(meta: StoryShape, story: StoryShape, componentD
   };
 }
 
-export function ControlledStoryFrame({ module, story, componentName, componentDefaults }: {
+export function ControlledStoryFrame({ module, story, componentName, componentDefaults, renderSource }: {
   module: Record<string, unknown>;
   story: string;
   componentName: string;
   /** Defaults read from the component source, shown until the reader changes them. */
   componentDefaults?: Record<string, unknown>;
+  renderSource?: string;
 }) {
   const meta = (module.default ?? {}) as StoryShape;
   const definition = (module[story] ?? {}) as StoryShape;
@@ -117,16 +118,14 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const storyName = definition.name ?? story;
   const skipped: string[] = (['loaders', 'beforeEach'] as const).filter((key) => meta[key] || definition[key]);
   if (definition.parameters?.viewport ?? meta.parameters?.viewport) skipped.push('viewport');
-  const codeLanguage = docsOverride?.source?.language ?? docsMeta?.source?.language ?? 'tsx';
-  // One rule for a snippet, shared with the page: authored source first, otherwise the story's own
-  // arguments, always with the import. Previously the frame skipped the derived branch whenever a
-  // story used a custom render, so its Code panel claimed no code existed while the page above it
-  // showed one.
+  const codeLanguage = authoredCode?.trim()
+    ? docsOverride?.source?.language ?? docsMeta?.source?.language ?? 'tsx' : 'tsx';
   const snippet = buildUsageSnippet({
     componentName,
     from: storySource,
     args: { ...meta.args, ...definition.args, ...edits },
     source: authoredCode,
+    renderSource,
     // A story name is not a component name: only a part-qualified name (the rare `Dialog.Content`
     // story) is worth using as the JSX tag, otherwise the component's own name is the honest one.
     jsxName: storyName.includes('.') ? storyName : undefined,

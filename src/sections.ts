@@ -180,14 +180,16 @@ export function usageSnippet(componentName: string, args: Record<string, unknown
   return `${opening}>${children}</${componentName}>`;
 }
 
-export function buildUsageSnippet({ componentName, from, args, source, jsxName, component }: {
+export function buildUsageSnippet({ componentName, from, args, source, renderSource, jsxName, component }: {
   componentName: string;
   from: string;
   args?: Record<string, unknown>;
   source?: string;
+  renderSource?: string;
   jsxName?: string;
   component?: unknown;
 }): string | null {
+  if (!source?.trim() && renderSource?.trim()) return renderSource;
   const rootName = componentName.split('.')[0]!;
   const identity = component as { displayName?: unknown } | undefined;
   const tag = jsxName ?? (typeof identity?.displayName === 'string' && identity.displayName.startsWith(`${rootName}.`)

@@ -28,6 +28,10 @@ declare module 'virtual:storybook-docs/guidance' {
   export function loadGuidance(slug: string): Promise<{ markdown: string }>;
 }
 
+declare module 'virtual:storybook-docs/story-sources' {
+  export function loadStorySources(slug: string): Promise<{ sources: Record<string, string> }>;
+}
+
 declare module 'virtual:storybook-docs/releases' {
   export const releases: { version: string | null; changelog: string | null };
 }

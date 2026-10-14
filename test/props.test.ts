@@ -122,7 +122,7 @@ test('props presentation shows allowed values, JSDoc and collapsed inherited pro
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const exports: { PropsTable?: (props: { components: ComponentPropsDoc[]; argTypes: Record<string, Record<string, unknown>>; defaultArgs: Record<string, unknown> }) => ReturnType<typeof createElement> } = {};
   runInThisContext(`(function(require, exports) { ${compiled}; exports.PropsTable = PropsTable; })`)(
-    (name: string) => name === 'virtual:storybook-docs/catalog' ? { storySource: '@acme/ui' } : name.startsWith('../') ? { MarkdownView: ({ markdown }: { markdown: string }) => createElement('p', null, markdown) } : require(name), exports,
+    (name: string) => name === 'virtual:storybook-docs/catalog' ? { storySource: '@acme/ui' } : name === 'virtual:storybook-docs/story-sources' ? { loadStorySources: async () => ({ sources: {} }) } : name.startsWith('../') ? { MarkdownView: ({ markdown }: { markdown: string }) => createElement('p', null, markdown) } : require(name), exports,
   );
   const markup = renderToStaticMarkup(createElement(exports.PropsTable!, {
     components: [{ name: 'Widget', props: [
