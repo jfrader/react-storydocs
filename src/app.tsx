@@ -12,7 +12,7 @@ import { ReleasesPage } from './pages/releases';
 import { SearchBox } from './search';
 import { releases } from 'virtual:storybook-docs/releases';
 import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
-import { PageRail, hashPath } from './toc';
+import { PageRail, hashPath, useRailFollow } from './toc';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
 
@@ -45,6 +45,8 @@ export function DocsApp() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [mode, setMode] = useState(theme.values?.[0] ?? 'dark');
   const [navOpen, setNavOpen] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
+  useRailFollow(navRef);
   const headerRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
 
@@ -132,7 +134,7 @@ export function DocsApp() {
         ))}
       </header>
 
-      <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation">
+      <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation" ref={navRef}>
         <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
         </a>
@@ -193,9 +195,6 @@ export function DocsApp() {
               ))}
           </div>
         ))}
-        <div className="nav-note">
-          navigation, examples and API tables generated from {stats.components} story files · {stats.stories} stories
-        </div>
       </nav>
 
       <main id="main" className="main" tabIndex={-1} ref={mainRef}>

@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import './toc.css';
 
 const STORY_PARAM = 'story';
@@ -56,6 +56,55 @@ const slugify = (text: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+
+/**
+ * A rail travels with the document until its own end would pass the fold, then it parks there —
+ * the reader keeps seeing where it continues, and scrolling up lets it fall back into flow. This is
+ * the scroll-linked translation docs sites use, because `position: sticky` cannot move an element
+ * taller than the viewport.
+ */
+export function useRailFollow(ref: RefObject<HTMLElement | null>, ready = true) {
+  useEffect(() => {
+    // The rail can render after the first pass (the aside appears once the page is scanned), so the
+    // caller tells us when its node exists instead of the effect missing a null ref forever.
+    const element = ref.current;
+    if (!element) return;
+    let frame = 0;
+    let applied = 0;
+    const limit = () =>
+      window.innerHeight -
+      (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sd-header-height')) || 56) -
+      20;
+    const apply = () => {
+      frame = 0;
+      // Where the rail's bottom sits in the document, and where it first crosses the fold.
+      const bottomInDocument = element.getBoundingClientRect().bottom + window.scrollY - applied;
+      const crossing = bottomInDocument - limit();
+      // No cap: once the rail's end reaches the fold it parks there for the rest of the page, so a
+      // reader deep in a long document still sees where the rail continues. Scrolling up returns it
+      // to flow.
+      const next = Math.max(0, window.scrollY - crossing);
+      if (next !== applied) {
+        applied = next;
+        element.style.setProperty('--sd-rail-follow', `${next}px`);
+      }
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+    apply();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    const observer = new ResizeObserver(schedule);
+    observer.observe(element);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      observer.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [ready, ref]);
+}
 
 function scanPage(root: HTMLElement, pageKey: string): Scan {
   const used = new Set<string>();
@@ -220,6 +269,8 @@ export function PageRail({ pageKey }: { pageKey: string }) {
     setTarget(null);
   }, [target, scan, pageKey]);
 
+  const railRef = useRef<HTMLElement | null>(null);
+  useRailFollow(railRef, scan !== null);
   const active = useActiveIds(scan);
   const go = useCallback((element: HTMLElement) => scrollToElement(element), []);
 
@@ -227,7 +278,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
   return (
     <>
       {scan.sections.length > 0 ? (
-        <aside className="toc" aria-label="On this page">
+        <aside className="toc" aria-label="On this page" ref={railRef}>
           <div className="toc-title">On this page</div>
           <ul>
             {scan.sections.map((section) => (

@@ -62,18 +62,12 @@
     display: block;
     grid-column: 3;
     grid-row: 2;
-    position: sticky;
-    top: var(--sd-header-height, 56px);
     align-self: start;
-    max-height: calc(100dvh - var(--sd-header-height, 56px));
-    overflow-y: auto;
-    /* The page keeps the only visible scrollbar; this one still scrolls (wheel, keyboard focus). */
-    scrollbar-width: none;
+    /* It follows the document (see useRailFollow): the page keeps the only scrollbar, and the rail
+       parks once its own end is visible. */
+    transform: translateY(var(--sd-rail-follow, 0px));
     padding: 34px 18px 40px 6px;
     font-size: 12.5px;
-  }
-  .toc::-webkit-scrollbar {
-    display: none;
   }
   .toc-title {
     margin-bottom: 8px;
