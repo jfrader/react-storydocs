@@ -63,11 +63,13 @@
   }
   .toc-track {
     display: block;
+    min-width: 0;
     grid-column: 3;
     grid-row: 2;
   }
   .toc {
     display: block;
+    min-width: 0;
     padding: 34px 18px 40px 6px;
     font-size: 12.5px;
   }
@@ -88,9 +90,12 @@
     border-left: 1px solid var(--sd-border);
   }
   .toc-link {
-    display: flex;
-    align-items: center;
+    display: block;
     width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     /* Touch screens: the rail is a list of targets, not a block of text. */
     min-block-size: 24px;
     padding: 4px 8px;

@@ -29,7 +29,10 @@ function fixture() {
     matchMedia: () => media,
     addEventListener: (key: string, listener: () => void) => listeners.set(key, listener),
     removeEventListener: (key: string) => listeners.delete(key),
+    setTimeout: (callback: () => void) => { settle = callback; return 1; },
+    clearTimeout: () => { settle = () => {}; },
   };
+  let settle = () => {};
   let resize = () => {};
   let disconnected = false;
   const compiled = ts.transpileModule(readFileSync(new URL('../src/rail.ts', import.meta.url), 'utf8'), {
@@ -46,7 +49,7 @@ function fixture() {
   });
   const cleanup = exports.followRail!(rail, { offsetHeight: 56 });
   const scroll = (y: number) => { window.scrollY = y; listeners.get('scroll')!(); };
-  return { rail, style, properties, window, media, listeners, scroll, resize: () => resize(), cleanup, disconnected: () => disconnected };
+  return { rail, style, properties, window, media, listeners, scroll, resize: () => resize(), settle: () => settle(), cleanup, disconnected: () => disconnected };
 }
 
 test('rails switch armed edge only on reversal and freeze at the previous scroll position', () => {
@@ -57,14 +60,15 @@ test('rails switch armed edge only on reversal and freeze at the previous scroll
   f.scroll(4000);
   assert.equal(f.properties.get('--sd-rail-offset'), '0px');
   f.scroll(3880);
-  assert.equal(f.properties.get('--sd-rail-offset'), '3024px');
+  assert.equal(f.properties.get('--sd-rail-start'), '20px');
+  assert.equal(f.properties.get('--sd-rail-offset'), '3004px');
   assert.equal(f.style.top, 'auto');
   assert.equal(f.style.bottom, '-976px');
   f.scroll(3760);
-  assert.equal(f.properties.get('--sd-rail-offset'), '3024px');
+  assert.equal(f.properties.get('--sd-rail-offset'), '3004px');
   f.scroll(3880);
   assert.equal(f.style.top, '-920px');
-  assert.equal(f.properties.get('--sd-rail-offset'), '3024px');
+  assert.equal(f.properties.get('--sd-rail-offset'), '3004px');
   assert.ok(!('transform' in f.style));
   f.cleanup();
   assert.equal(f.listeners.size, 0);
@@ -79,13 +83,60 @@ test('viewport and content resize rearm without recapturing the spacer', () => {
   f.scroll(3880);
   f.window.innerHeight = 700;
   f.listeners.get('resize')!();
-  assert.equal(f.properties.get('--sd-rail-offset'), '3024px');
+  assert.equal(f.properties.get('--sd-rail-offset'), '3004px');
   assert.equal(f.style.top, '-1120px');
   f.rail.offsetHeight = 1900;
   f.resize();
-  assert.equal(f.properties.get('--sd-rail-offset'), '3024px');
+  assert.equal(f.properties.get('--sd-rail-offset'), '3004px');
   assert.equal(f.style.top, '-1220px');
   f.cleanup();
+});
+
+test('shrinking a tall rail while scrolling down keeps its top until scrolling settles', () => {
+  const f = fixture();
+  f.scroll(4000);
+  f.rail.offsetHeight = 1686;
+  f.resize();
+  assert.equal(f.style.top, '-920px', 'no 114px jump against downward scrolling');
+  f.scroll(4120);
+  f.resize();
+  assert.equal(f.style.top, '-920px');
+  assert.equal(f.properties.get('--sd-rail-offset'), '0px');
+  f.settle();
+  assert.equal(f.style.top, '-806px', 'the resized rail parks at the fold after scrolling stops');
+  f.cleanup();
+});
+
+test('reversing during a deferred resize freezes the actually armed top', () => {
+  const f = fixture();
+  f.scroll(4000);
+  f.rail.offsetHeight = 1686;
+  f.resize();
+  f.scroll(3880);
+  assert.equal(f.properties.get('--sd-rail-offset'), '3004px', 'reversal captures the held -920px inset, not the new -806px inset');
+  assert.equal(f.style.top, 'auto');
+  assert.equal(f.style.bottom, '-862px');
+  f.cleanup();
+});
+
+test('collapsing a tall rail into a fitting rail during scrolling parks at the header only after idle', () => {
+  const f = fixture();
+  f.scroll(4000);
+  f.rail.offsetHeight = 524;
+  f.resize();
+  assert.equal(f.style.top, '-920px');
+  assert.equal(f.properties.get('--sd-rail-offset'), '0px');
+  f.scroll(4120);
+  f.resize();
+  assert.equal(f.style.top, '-920px');
+  f.scroll(4000);
+  assert.equal(f.style.top, '-920px', 'reversal does not jump to the header before idle');
+  f.settle();
+  assert.equal(f.style.top, '76px');
+  assert.equal(f.style.bottom, 'auto');
+  f.cleanup();
+  f.settle();
+  assert.equal(f.style.position, '', 'cleanup cancels deferred re-arming');
 });
 
 test('short rails stay top-sticky and below the breakpoint all inline styles are removed', () => {
