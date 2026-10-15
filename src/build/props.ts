@@ -387,8 +387,12 @@ export function createPropsCollector() {
           part: depth === 0 ? undefined : partToken(symbol.getName()),
           signatures: signatures.length ? signatures : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
+          // A slot map is this component's contract even when the owner adopts it from a shared
+          // seam, so both `slots` and `slotProps` expand wherever they are declared.
           members: depth === 0
-            ? (symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers) ? describeProps(memberType, location, depth + 1) : undefined)
+            ? (symbol.getName() === 'slots' || symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)
+              ? describeProps(memberType, location, depth + 1)
+              : undefined)
             : depth === 1 && !inheritedFrom && ownedMembers ? describeProps(memberType, location, depth + 1) : undefined,
         };
       }).sort(compareProps);
