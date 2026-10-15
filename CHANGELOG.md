@@ -6,6 +6,7 @@
 - Story canvases mount with the page. The "On this page" rail no longer follows a document that grows as examples load.
 - A custom render whose source could not be extracted no longer gets a one-tag snippet from its arguments. The frame says "No usage code for this example."
 - `composition.module` renders a consumer panel from the props tables and the other catalog components a component imports. Prop types link to that other component when the declaration belongs to it.
+- A slot reports the contract its own component declares (so a panel can list what the part accepts) and the `data-ui` token that component's source gives the part, which names the default it renders.
 
 ## 0.11.0
 
