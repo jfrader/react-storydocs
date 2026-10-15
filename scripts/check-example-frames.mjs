@@ -100,7 +100,7 @@ for (const slug of slugs) {
           failed.push(`${story}: ${lane.querySelector('.story-failed').textContent.slice(0, 120)}`);
           continue;
         }
-        if (!lane.firstElementChild || frame.querySelector('.lazy-placeholder .skeleton')) continue;
+        if (!lane.firstElementChild) continue;
         mounted += 1;
 
         const laneRect = lane.getBoundingClientRect();

@@ -172,6 +172,23 @@ test('sectionStories: buckets by convention and keeps every story', () => {
   assert.ok(titles.includes('Variants & sizes'));
 });
 
+test('sectionStories: displays variants before environments and keeps match priority', () => {
+  const sections = sectionStories(['Default', 'DarkVariants', 'Sizes', 'LightTheme', 'Keyboard', 'LongContent', 'Reject', 'Wibble']);
+  assert.deepEqual(sections.map((section) => section.title), [
+    'Overview',
+    'Variants & sizes',
+    'Interaction & keyboard',
+    'Content & layout',
+    'Environments',
+    'Edge cases',
+    'More stories',
+  ]);
+  const environments = sections.find((section) => section.title === 'Environments')!;
+  assert.ok(environments.stories.includes('DarkVariants'), 'environment match still wins when both patterns match');
+  assert.ok(environments.stories.includes('LightTheme'));
+  assert.deepEqual(sections.find((section) => section.title === 'Variants & sizes')?.stories, ['Sizes']);
+});
+
 test('sectionStories: never loses an unrecognised story', () => {
   const sections = sectionStories(['Wibble', 'Default']);
   assert.equal(sections.flatMap((section) => section.stories).length, 2);
@@ -308,6 +325,18 @@ test('buildUsageSnippet: root import and a complete args-derived example', () =>
     "import { Dialog } from '@acme/ui';\n\n<Dialog.Content>Hello</Dialog.Content>");
   assert.equal(buildUsageSnippet({ componentName: 'Dialog', component: { displayName: 'Dialog.Content' }, from: '@acme/ui', args: { children: 'Hello' } }),
     "import { Dialog } from '@acme/ui';\n\n<Dialog.Content>Hello</Dialog.Content>");
+});
+
+test('buildUsageSnippet: a render that only spreads args yields the named arguments', () => {
+  assert.equal(
+    buildUsageSnippet({ componentName: 'Button', from: '@acme/ui', renderSource: '<Button {...args} data-ui="custom" />', args: { children: 'Save', tone: 'accent' } }),
+    "import { Button } from '@acme/ui';\n\n<Button tone=\"accent\">Save</Button>",
+  );
+  // A composition the arguments cannot describe still keeps its own extracted source.
+  assert.equal(
+    buildUsageSnippet({ componentName: 'Button', from: '@acme/ui', renderSource: '<div>{TONES.map((tone) => <Button tone={tone} />)}</div>', args: { children: 'Save' } }),
+    '<div>{TONES.map((tone) => <Button tone={tone} />)}</div>',
+  );
 });
 
 test('buildUsageSnippet: compound root args do not invent its missing anatomy', () => {

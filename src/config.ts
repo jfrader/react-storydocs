@@ -80,6 +80,16 @@ export interface StorybookDocsConfig {
     module: string;
   };
 
+  /**
+   * Optional composition panel. `module` is a path relative to the consumer root whose default
+   * export renders `{ entry, components, uses }`. Absent config renders nothing. A throw in the
+   * panel does not take down the page. The engine does not interpret slots or related components;
+   * the consumer does.
+   */
+  composition?: {
+    module: string;
+  };
+
   /** Optional page switches. Foundations pages require `tokens`. */
   pages?: {
     overview?: boolean;

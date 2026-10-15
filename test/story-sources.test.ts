@@ -217,7 +217,7 @@ test('unresolved bindings use lexical scope and platform globals, not property n
   assert.deepEqual(unresolvedSnippetBindings('<div><Button /></div>'), ['Button']);
 });
 
-test('incomplete extraction falls back to own args or remains explicitly an excerpt', () => {
+test('incomplete extraction does not invent a one-tag snippet', () => {
   const sources = extractStorySources(`
 const ITEMS = ['one'];
 const Example = (props) => <Tabs {...props}>{ITEMS.map(item => <Tabs.Tab>{item}</Tabs.Tab>)}</Tabs>;
@@ -226,7 +226,8 @@ export const Unknown = { render: () => <Button disabled={disabledValue}>{TITLE}<
 `);
   assert.match(sources.Default!, /^\/\/ Excerpt from the story; unresolved bindings: ITEMS\./);
   assert.ok(!sources.Default!.includes('{...props}'));
-  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@fixture/ui', renderSource: sources.Unknown, args: { children: 'Own story' } }), "import { Button } from '@fixture/ui';\n\n<Button>Own story</Button>");
+  // The excerpt keeps its own provenance instead of the arguments inventing a one-tag example.
+  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@fixture/ui', renderSource: sources.Unknown, args: { children: 'Own story' } }), sources.Unknown);
   assert.equal(buildUsageSnippet({ componentName: 'Tabs', from: '@fixture/ui', renderSource: sources.Default }), sources.Default);
 });
 
@@ -248,5 +249,5 @@ export const Default = { render: (args) => <Example {...args} /> };
   assert.match(source, /^\/\/ Excerpt from the story/);
   const options = { componentName: 'Dialog', from: '@fixture/ui', renderSource: source };
   assert.equal(buildUsageSnippet(options), source);
-  assert.equal(buildUsageSnippet({ ...options, args: { defaultOpen: true } }), "import { Dialog } from '@fixture/ui';\n\n<Dialog defaultOpen />");
+  assert.equal(buildUsageSnippet({ ...options, args: { defaultOpen: true } }), source);
 });

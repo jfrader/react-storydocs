@@ -15,7 +15,8 @@ test('TOC labels truncate within their rail without losing their full name', () 
     sections: [{ id: 'section', title: labels[0], subs: [{ id: 'sub', title: labels[1] }], stories: [{ id: 'story', name: labels[2] }] }],
     frames: [],
   };
-  const states = [scan, null, { section: null, story: null }];
+  // Hook order: page readiness, the scan, the deep-link target, the active ids.
+  const states = [true, scan, null, { section: null, story: null }];
   let hook = 0;
   const compiled = ts.transpileModule(readFileSync(new URL('../src/toc.tsx', import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },

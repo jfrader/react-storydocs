@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Component, Suspense, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { storySource } from 'virtual:storybook-docs/catalog';
 import { hrefFor } from '../base';
@@ -10,7 +10,8 @@ import { MarkdownView } from '../guidance';
 import { sectionStories, selectExample, buildUsageSnippet, type DocsParameters } from '../sections';
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
-import { useProps, type ComponentPropsDoc, type PropDoc } from '../props';
+import { useProps, type CatalogRef, type ComponentPropsDoc, type PropDoc } from '../props';
+import { Composition as ProvidedComposition, provided as hasComposition } from 'virtual:storybook-docs/composition';
 import { Skeleton } from '../skeleton';
 import { loadStorySources } from 'virtual:storybook-docs/story-sources';
 
@@ -74,7 +75,7 @@ function PropType({ prop }: { prop: PropDoc }) {
   const fields = prop.members?.slice(0, SHAPE_PREVIEW_FIELDS).map((member) => `${member.name}${member.required ? '' : '?'}: …`).join('; ');
   return (
     <>
-      <code className={signature ? 'type signature' : 'type'} tabIndex={signature ? 0 : undefined}>{prop.typeUnavailable ? 'Not resolved' : signature?.type ?? prop.type}</code>
+      <TypeText prop={prop} signature={signature?.type} />
       {signature ? (
         <details>
           <summary>Signature details</summary>
@@ -94,7 +95,7 @@ function PropType({ prop }: { prop: PropDoc }) {
       ) : null}
       {prop.members?.length ? (
         <details>
-          <summary>{prop.name === 'slotProps' ? 'Slots' : 'Fields'} <code>{`{ ${fields}${prop.members.length > SHAPE_PREVIEW_FIELDS ? '; …' : ''} }`}</code></summary>
+          <summary>Fields <code>{`{ ${fields}${prop.members.length > SHAPE_PREVIEW_FIELDS ? '; …' : ''} }`}</code></summary>
           <dl>
             {prop.members.map((member) => (
               <div key={member.name}>
@@ -106,6 +107,44 @@ function PropType({ prop }: { prop: PropDoc }) {
         </details>
       ) : null}
     </>
+  );
+}
+
+function TypeText({ prop, signature }: { prop: PropDoc; signature?: string }) {
+  const text = prop.typeUnavailable ? 'Not resolved' : signature ?? prop.type;
+  const code = <code className={signature ? 'type signature' : 'type'} tabIndex={signature ? 0 : undefined}>{text}</code>;
+  return prop.component
+    ? <a href={`#${hrefFor(`/components/${prop.component.slug}`)}`}>{code}</a>
+    : code;
+}
+
+class CompositionBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function CompositionPanel({ entry, components, uses }: {
+  entry: { slug: string; name: string; group: string };
+  components: ComponentPropsDoc[] | null;
+  uses: CatalogRef[];
+}) {
+  if (!hasComposition || !ProvidedComposition) return null;
+  const Panel = ProvidedComposition as ComponentType<{
+    entry: { slug: string; name: string; group: string };
+    components: ComponentPropsDoc[] | null;
+    uses: CatalogRef[];
+  }>;
+  return (
+    <CompositionBoundary>
+      <Suspense fallback={null}>
+        <Panel entry={entry} components={components} uses={uses} />
+      </Suspense>
+    </CompositionBoundary>
   );
 }
 
@@ -230,7 +269,20 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
     return () => { active = false; };
   }, [entry.slug]);
   const sources = storySources?.slug === entry.slug ? storySources.sources : {};
-  const props = useProps(entry.slug);
+  const loaded = useProps(entry.slug);
+  const props = loaded?.components ?? null;
+  const uses = loaded?.uses ?? [];
+  // The rail must not offer targets while the page is still assembling: the story module and the
+  // props table arrive after the first paint, and every anchor below them would move. The
+  // attribute lives on the main column because this page renders as a fragment.
+  const settled = Boolean(module || error) && loaded !== null;
+  useEffect(() => {
+    const main = document.querySelector<HTMLElement>('.main');
+    if (!main) return;
+    if (settled) main.removeAttribute('data-page-ready');
+    else main.setAttribute('data-page-ready', 'pending');
+    return () => main.removeAttribute('data-page-ready');
+  }, [settled]);
   const meta = (module?.default ?? {}) as MetaShape;
   const argTypes = meta.argTypes ?? {};
   const defaultArgs = meta.args ?? {};
@@ -323,6 +375,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
           ) : null}
 
           <Guidance slug={entry.slug} />
+          <CompositionPanel entry={entry} components={props} uses={uses} />
 
           {sections.map((section) => (
             <section key={section.title}>

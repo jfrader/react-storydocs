@@ -19,7 +19,7 @@ example/            # a consumer you can copy
 | Sidebar, groups, slugs | each story module's `title` (scoped to the `meta` object, so fixtures never leak in) |
 | Search (⌘K) | the catalog, scored over component, group and story names |
 | Examples (all of them, inline, in sections) | the story module itself — meta `component` + merged `args`, or the story's `render` |
-| Sections (Overview / Variants & sizes / States / Interaction & keyboard / Content & layout / Environments / Edge cases) | the story names, bucketed by convention |
+| Sections (Overview / Variants & sizes / States / Interaction & keyboard / Content & layout / Environments / Edge cases) | the story names, bucketed by convention; Environments sits above Edge cases |
 | Props tables (one per component and part, with native-element notes) | the component sources — `react-docgen-typescript` for components, the TypeScript compiler API for exported `*Props` types (where compound parts live) |
 | Usage snippet | the default story's own arguments |
 | Per-example Code disclosures | the story's merged args (hidden when the story uses a custom render, so a snippet never lies) |

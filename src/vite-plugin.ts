@@ -9,7 +9,7 @@ import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
 import type { StorybookDocsConfig } from './config.js';
-import type { ComponentPropsDoc } from './prop-docs.js';
+import type { CatalogRef, ComponentPropsDoc } from './prop-docs.js';
 import { buildCatalog, catalogCode, resolveStoryRoot, scanStories } from './build/catalog.ts';
 import { siteCode } from './build/site.ts';
 import { tokensCode } from './build/tokens.ts';
@@ -18,6 +18,7 @@ import { createPropsCollector, propsCode, propsIndexCode } from './build/props.t
 import { guidanceCode, guidanceIndexCode, indexGuidance } from './build/guidance.ts';
 import { readReleases, releasesCode } from './build/releases.ts';
 import { codeModuleCode, resolveCodeModule } from './build/code.ts';
+import { compositionModuleCode, resolveCompositionModule } from './build/composition.ts';
 import { STORYBOOK_TEST_STUB } from './build/storybook-test.ts';
 import { FILE_PREFIX, VIRTUAL_PREFIX } from './build/module-ids.ts';
 import { extractStorySources, storySourcesCode, storySourcesIndexCode } from './build/story-sources.ts';
@@ -36,22 +37,22 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
   let catalog = buildCatalog(scanStories(config.stories, projectRoot), config.groups);
   catalog.files.clear();
   const engineStyles = path.join(import.meta.dirname, 'styles.css');
-  const propsCache = new Map<string, ComponentPropsDoc[]>();
+  const propsCache = new Map<string, { components: ComponentPropsDoc[]; uses: CatalogRef[] }>();
   const storySourcesCache = new Map<string, Record<string, string>>();
   const propsCollector = createPropsCollector();
   let guidanceFiles = new Map<string, string>();
 
   const loadProps = (slug: string) => {
-    let components = propsCache.get(slug);
-    if (!components) {
+    let collected = propsCache.get(slug);
+    if (!collected) {
       const name = catalog.entries.find((entry) => entry.slug === slug)?.name ?? '';
-      components = propsCollector.collect(catalog.files.get(slug), name, slug, catalog.entries.flatMap((entry) => {
+      collected = propsCollector.collect(catalog.files.get(slug), name, slug, catalog.entries.flatMap((entry) => {
         const storyFile = catalog.files.get(entry.slug);
         return storyFile ? [{ name: entry.name, slug: entry.slug, storyFile }] : [];
       }));
-      propsCache.set(slug, components);
+      propsCache.set(slug, collected);
     }
-    return propsCode(components);
+    return propsCode(collected.components, collected.uses);
   };
 
   const modules: Record<string, () => string> = {
@@ -65,6 +66,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
     'story-sources': () => storySourcesIndexCode(catalog.files.keys()),
     releases: () => releasesCode(readReleases(config, projectRoot)),
     code: () => codeModuleCode(resolveCodeModule(config.code?.module, projectRoot)),
+    composition: () => compositionModuleCode(resolveCompositionModule(config.composition?.module, projectRoot)),
   };
 
   return {

@@ -1,7 +1,6 @@
 /** @jsxImportSource react */
-import { Component, createElement, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { Component, createElement, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from './config';
-import { Skeleton } from './skeleton';
 import { mergeAnnotations } from './sections';
 
 interface StoryDefinition {
@@ -135,30 +134,4 @@ export function useStoryModule(entry: CatalogEntry) {
     };
   }, [entry]);
   return { module, error };
-}
-
-/** Mounts children only once they have been scrolled near, so pages with many stories stay cheap. */
-export function LazySection({ children, placeholder = '…' }: { children: ReactNode; placeholder?: string }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || visible) return;
-    if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '640px 0px' },
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [visible]);
-  return <div ref={ref}>{visible ? children : <div className="lazy-placeholder"><Skeleton width={190} /></div>}</div>;
 }

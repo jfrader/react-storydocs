@@ -1,3 +1,8 @@
+export interface CatalogRef {
+  name: string;
+  slug: string;
+}
+
 export interface PropDoc {
   name: string;
   type: string;
@@ -6,7 +11,14 @@ export interface PropDoc {
   defaultValue: string | null;
   description: string;
   inheritedFrom?: string;
-  inheritedComponent?: { name: string; slug: string };
+  inheritedComponent?: CatalogRef;
+  /** Another catalog component whose declaration this type belongs to. */
+  component?: CatalogRef;
+  /**
+   * The `data-ui` token this part renders as, when the component's own source declares one for
+   * this key. It names the default: what a reader would be styling or replacing.
+   */
+  part?: string;
   tags?: { name: string; text: string }[];
   members?: PropDoc[];
   signatures?: {
