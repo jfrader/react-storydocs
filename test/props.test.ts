@@ -211,6 +211,46 @@ test('prop types and value imports link other catalog components, not type-only 
   }
 });
 
+test('slot defaults link exact component and own props symbols through aliases and wrappers, not shared part types', () => {
+  const sharedNames = ['Part', 'Compound', 'Content', 'Trigger', 'Root', 'Common', 'Other'];
+  const tables = extract(`
+    import type { ComponentType } from 'react';
+    import { Button as Action, type ButtonProps as ActionProps, type ButtonSlotProps as ActionSlotProps, type ButtonRootSlotProps as ActionRootSlotProps,
+      ${sharedNames.map((name) => `type Button${name}Props`).join(', ')} } from '../button/button';
+    export function Widget(props: {
+      component?: typeof Action;
+      ownProps?: ActionProps;
+      ownSlotProps?: ActionSlotProps;
+      ownRootSlotProps?: ActionRootSlotProps;
+      wrappedComponent?: ComponentType<typeof Action>;
+      wrappedProps?: ComponentType<ActionProps>;
+      ${sharedNames.map((name) => `shared${name}?: Button${name}Props; wrapped${name}?: ComponentType<Button${name}Props>;`).join('\n')}
+    }) { return null; }
+  `, {
+    'button/button.tsx': `
+      export interface ButtonProps { label?: string }
+      export interface ButtonSlotProps { icon?: string }
+      export interface ButtonRootSlotProps { className?: string }
+      export function Button(props: ButtonProps) { return null; }
+      ${sharedNames.map((name) => `export interface Button${name}Props { className?: string }`).join('\n')}
+    `,
+    'button/button.stories.tsx': "const meta = { title: 'Components/Button', component: Button }; export default meta; export const Default = {};",
+  });
+  const widget = tables.find((table) => table.name === 'Widget')!;
+  for (const name of ['component', 'ownProps', 'ownSlotProps', 'ownRootSlotProps', 'wrappedComponent', 'wrappedProps']) {
+    const prop = widget.props.find((prop) => prop.name === name);
+    assert.ok(prop, name);
+    assert.deepEqual(prop.component, { name: 'Button', slug: 'button' }, name);
+  }
+  for (const suffix of sharedNames) {
+    for (const name of [`shared${suffix}`, `wrapped${suffix}`]) {
+      const prop = widget.props.find((prop) => prop.name === name);
+      assert.ok(prop, name);
+      assert.equal(prop.component, undefined, name);
+    }
+  }
+});
+
 test('props presentation shows allowed values, JSDoc and collapsed inherited props', () => {
   const require = createRequire(import.meta.url);
   const source = readFileSync(new URL('../src/pages/component-page.tsx', import.meta.url), 'utf8');

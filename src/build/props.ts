@@ -72,8 +72,13 @@ export function toPropDoc(prop: unknown): PropDoc {
 }
 
 function ownsComponentName(component: string, name: string) {
-  if (!name.startsWith(component)) return false;
-  return name.length === component.length || name[component.length] !== name[component.length]!.toLowerCase();
+  // A shared part type (`ToastPartProps`, `CardPartProps`) is NOT the component, even when it
+  // lives in that component's folder; the link would promise a default renderer that is false.
+  // A root contract (`SurfaceRootSlotProps`, `GameCardRootProps`) IS that component's material.
+  return name === component
+    || name === `${component}Props`
+    || name === `${component}SlotProps`
+    || name === `${component}RootSlotProps`;
 }
 
 function capitalizedValueImport(clause: ts.ImportClause) {
@@ -292,11 +297,7 @@ export function createPropsCollector() {
         if (directory === selfDirectory) continue;
         const base = baseContracts.find((item) => item.directory === directory);
         if (!base) continue;
-        const parent = declaration.parent;
-        const named = parent && (ts.isInterfaceDeclaration(parent) || ts.isTypeAliasDeclaration(parent) || ts.isClassDeclaration(parent) || ts.isFunctionDeclaration(parent))
-          ? parent.name?.text ?? ''
-          : '';
-        if ([target.getName(), named].some((name) => ownsComponentName(base.name, name))) {
+        if (ownsComponentName(base.name, target.getName())) {
           return { name: base.name, slug: base.slug };
         }
       }
