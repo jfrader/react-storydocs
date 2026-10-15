@@ -494,15 +494,22 @@ export function createPropsCollector() {
         }
       }
     };
+    const exports: { symbol: ts.Symbol; source: ts.SourceFile }[] = [];
     for (const file of sources) {
       const source = program.getSourceFile(file);
       const module = source && checker.getSymbolAtLocation(source);
       if (!source || !module) continue;
       for (const symbol of checker.getExportsOfModule(module)) {
-        if (symbol.getName() !== entryName && symbol.getName() !== 'default') continue;
-        const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
-        visitComponent(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), entryName, source);
+        exports.push({ symbol, source });
       }
+    }
+    const exact = exports.filter(({ symbol }) => symbol.getName() === entryName || symbol.getName() === 'default');
+    const candidates = exact.length ? exact : exports.filter(({ symbol }) =>
+      entryName.length > 0 && symbol.getName().toLowerCase().startsWith(entryName.toLowerCase()),
+    );
+    for (const { symbol, source } of candidates) {
+      const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+      visitComponent(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), symbol.getName() === 'default' ? entryName : symbol.getName(), source);
     }
     return tables;
   };
