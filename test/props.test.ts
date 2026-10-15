@@ -164,6 +164,40 @@ test('a mapped slot key carries the comment written above its literal', () => {
   });
 });
 
+test('single-key inline slot maps retain documented roots with indexed intersection contracts', () => {
+  const tables = extract(`
+    import type { ComponentPropsWithRef, ComponentType, RefObject } from 'react';
+    type ScopeRootProps = ComponentPropsWithRef<'div'> & {
+      [attribute: \`data-\${string}\`]: string | number | boolean | undefined;
+    };
+    interface SxProps { css?: string }
+    export interface WidgetProviderProps extends ScopeRootProps, SxProps {
+      scopeRef?: RefObject<HTMLElement | null>;
+      component?: ComponentType<ScopeRootProps>;
+      slots?: {
+        /** Replaces the scope root. */
+        root?: ComponentType<ScopeRootProps>;
+      };
+      slotProps?: {
+        /** Customizes the scope root. */
+        root?: ScopeRootProps & { css?: string };
+      };
+    }
+    function Provider(props: WidgetProviderProps) { return null; }
+    export const Widget = Object.assign(() => null, { Provider });
+  `);
+  const provider = tables.find((table) => table.name === 'Widget.Provider')!;
+  for (const [name, description] of [
+    ['slots', 'Replaces the scope root.'],
+    ['slotProps', 'Customizes the scope root.'],
+  ]) {
+    const members = provider.props.find((prop) => prop.name === name)?.members;
+    assert.equal(members?.length, 1, `${name} expands its single root`);
+    assert.equal(members[0]?.name, 'root');
+    assert.equal(members[0]?.description, description);
+  }
+});
+
 test('a slot carries the props its own component declares, and links a foreign contract', () => {
   const tables = extract(`
     import type { ComponentPropsWithRef } from 'react';
