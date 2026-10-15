@@ -67,12 +67,14 @@ import { loadProps } from 'virtual:storybook-docs/props';
 import { loadGuidance } from 'virtual:storybook-docs/guidance';
 import { releases } from 'virtual:storybook-docs/releases';
 import { Code, provided } from 'virtual:storybook-docs/code';
+import { Composition, provided as compositionProvided } from 'virtual:storybook-docs/composition';
 import 'virtual:storybook-docs/global-styles';
 const config: StorybookDocsConfig = { site, stories: { from: '.', pattern: '*.stories.tsx' } };
 const entries: CatalogEntry[] = catalog;
 // @ts-expect-error Virtual types must not silently resolve as any.
 const invalid: number = site.title;
-void [storybookDocs({ config }), entries, vars, loadProps, loadGuidance, releases, Code, provided, invalid];
+const panel: typeof Composition = compositionProvided ? Composition : undefined;
+void [storybookDocs({ config }), entries, vars, loadProps, loadGuidance, releases, Code, provided, panel, invalid];
 `);
   await write('tsconfig.json', JSON.stringify({ compilerOptions: { target: 'ES2022', module: 'ESNext', moduleResolution: 'bundler', strict: true, skipLibCheck: false, noEmit: true, jsx: 'react-jsx', types: ['node', 'react', 'react-dom'], noUncheckedSideEffectImports: true }, include: ['*.ts', '*.tsx'] }, null, 2));
   run(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit']);

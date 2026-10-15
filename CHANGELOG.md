@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.0
 
 - Story sections render as Overview, Variants & sizes, States, Interaction & keyboard, Content & layout, Environments, Edge cases. A name that matches both an environment and a variant still lands in Environments.
 - Story canvases mount with the page. The "On this page" rail no longer follows a document that grows as examples load.

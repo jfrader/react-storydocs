@@ -48,7 +48,8 @@ declare module 'virtual:storybook-docs/code' {
 
 declare module 'virtual:storybook-docs/composition' {
   import type { ComponentType } from 'react';
-  import type { CatalogRef, ComponentPropsDoc } from './prop-docs.js';
+  type CatalogRef = import('./prop-docs.js').CatalogRef;
+  type ComponentPropsDoc = import('./prop-docs.js').ComponentPropsDoc;
   export const provided: boolean;
   export const Composition: ComponentType<{
     entry: { slug: string; name: string; group: string };
