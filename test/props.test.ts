@@ -221,6 +221,7 @@ test('slot defaults link exact component and own props symbols through aliases a
       component?: typeof Action;
       ownProps?: ActionProps;
       ownSlotProps?: ActionSlotProps;
+      ownRootSlotProps?: ActionRootSlotProps;
       wrappedComponent?: ComponentType<typeof Action>;
       wrappedProps?: ComponentType<ActionProps>;
       ${sharedNames.map((name) => `shared${name}?: Button${name}Props; wrapped${name}?: ComponentType<Button${name}Props>;`).join('\n')}
@@ -229,13 +230,14 @@ test('slot defaults link exact component and own props symbols through aliases a
     'button/button.tsx': `
       export interface ButtonProps { label?: string }
       export interface ButtonSlotProps { icon?: string }
+      export interface ButtonRootSlotProps { className?: string }
       export function Button(props: ButtonProps) { return null; }
       ${sharedNames.map((name) => `export interface Button${name}Props { className?: string }`).join('\n')}
     `,
     'button/button.stories.tsx': "const meta = { title: 'Components/Button', component: Button }; export default meta; export const Default = {};",
   });
   const widget = tables.find((table) => table.name === 'Widget')!;
-  for (const name of ['component', 'ownProps', 'ownSlotProps', 'wrappedComponent', 'wrappedProps']) {
+  for (const name of ['component', 'ownProps', 'ownSlotProps', 'ownRootSlotProps', 'wrappedComponent', 'wrappedProps']) {
     const prop = widget.props.find((prop) => prop.name === name);
     assert.ok(prop, name);
     assert.deepEqual(prop.component, { name: 'Button', slug: 'button' }, name);

@@ -72,7 +72,13 @@ export function toPropDoc(prop: unknown): PropDoc {
 }
 
 function ownsComponentName(component: string, name: string) {
-  return name === component || name === `${component}Props` || name === `${component}SlotProps`;
+  // A shared part type (`ToastPartProps`, `CardPartProps`) is NOT the component, even when it
+  // lives in that component's folder; the link would promise a default renderer that is false.
+  // A root contract (`SurfaceRootSlotProps`, `GameCardRootProps`) IS that component's material.
+  return name === component
+    || name === `${component}Props`
+    || name === `${component}SlotProps`
+    || name === `${component}RootSlotProps`;
 }
 
 function capitalizedValueImport(clause: ts.ImportClause) {
