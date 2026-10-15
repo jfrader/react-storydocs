@@ -215,7 +215,7 @@ test('slot defaults link exact component and own props symbols through aliases a
   const sharedNames = ['Part', 'Compound', 'Content', 'Trigger', 'Root', 'Common', 'Other'];
   const tables = extract(`
     import type { ComponentType } from 'react';
-    import { Button as Action, type ButtonProps as ActionProps, type ButtonSlotProps as ActionSlotProps,
+    import { Button as Action, type ButtonProps as ActionProps, type ButtonSlotProps as ActionSlotProps, type ButtonRootSlotProps as ActionRootSlotProps,
       ${sharedNames.map((name) => `type Button${name}Props`).join(', ')} } from '../button/button';
     export function Widget(props: {
       component?: typeof Action;
