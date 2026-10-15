@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { CodeBlock } from './code';
 import type { StoryControl } from './controls';
-import { LazySection } from './story-view';
 import { storyLink } from './toc';
 import './controls.css';
 import './component-demo.css';
@@ -164,15 +163,13 @@ export function ComponentDemo({
       <div className="shot" data-layout={storyLayout} ref={canvasRef}
         tabIndex={scrollable ? 0 : undefined} role={scrollable ? 'region' : undefined}
         aria-label={scrollable ? storyName : undefined}>
-        <LazySection>
-          <div className="story-lane" data-layout={laneLayout} ref={laneRef}>{children}</div>
-        </LazySection>
+        <div className="story-lane" data-layout={laneLayout} ref={laneRef}>{children}</div>
       </div>
       <details className="code-toggle" onToggle={(event) => setCodeOpen(event.currentTarget.open)}>
         <summary><span className="sd-demo-code-actions">Code</span></summary>
         {codeOpen ? <div className="sd-demo-code">{snippet
           ? <CodeBlock code={snippet} language={codeLanguage} label={`${storyName} code`} />
-          : <p>No usage code is authored for this component.</p>
+          : <p>No usage code for this example.</p>
         }</div> : null}
       </details>
     </div>

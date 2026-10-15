@@ -194,6 +194,33 @@ test('virtual code re-exports the configured consumer renderer', async () => {
   } finally { await consumer.close(); }
 });
 
+test('virtual composition without a panel exports an explicit fallback', async () => {
+  const consumer = await fixture();
+  try {
+    const composition = await consumer.evaluate('composition');
+    assert.equal(composition.provided, false);
+    assert.equal(composition.Composition, undefined);
+  } finally { await consumer.close(); }
+});
+
+test('virtual composition re-exports the configured consumer panel', async () => {
+  const consumer = await fixture({ composition: { module: './composition.ts' } });
+  try {
+    writeFileSync(path.join(consumer.root, 'composition.ts'), 'export default function Composition() { return null; }\n');
+    const source = await consumer.source('composition');
+    assert.match(source, /export const provided = true;/);
+    assert.match(source, /lazy\(/);
+    assert.ok(source.includes(JSON.stringify(path.join(consumer.root, 'composition.ts'))));
+  } finally { await consumer.close(); }
+});
+
+test('virtual composition fails loudly when the configured panel is missing', async () => {
+  const consumer = await fixture({ composition: { module: './missing-composition.ts' } });
+  try {
+    await assert.rejects(consumer.source('composition'), /storybook-docs: composition\.module "\.\/missing-composition\.ts" does not exist/);
+  } finally { await consumer.close(); }
+});
+
 test('virtual code fails loudly when the configured renderer is missing', async () => {
   const consumer = await fixture({ code: { module: './missing-code.ts' } });
   try {
@@ -215,7 +242,7 @@ test('fixtures consumer builds the engine and every story through real virtual m
     }],
     build: { write: false, minify: false },
   });
-  for (const name of ['catalog', 'site', 'tokens', 'props', 'guidance', 'story-sources', 'releases', 'code', 'global-styles']) {
+  for (const name of ['catalog', 'site', 'tokens', 'props', 'guidance', 'story-sources', 'releases', 'code', 'composition', 'global-styles']) {
     assert.ok(modules.has(`\0${prefix}${name}`), `${name} participates in the consumer build`);
   }
   for (const slug of ['button', 'alert', 'select']) {

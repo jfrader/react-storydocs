@@ -1,3 +1,8 @@
+export interface CatalogRef {
+  name: string;
+  slug: string;
+}
+
 export interface PropDoc {
   name: string;
   type: string;
@@ -6,7 +11,9 @@ export interface PropDoc {
   defaultValue: string | null;
   description: string;
   inheritedFrom?: string;
-  inheritedComponent?: { name: string; slug: string };
+  inheritedComponent?: CatalogRef;
+  /** Another catalog component whose declaration this type belongs to. */
+  component?: CatalogRef;
   tags?: { name: string; text: string }[];
   members?: PropDoc[];
   signatures?: {

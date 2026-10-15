@@ -20,8 +20,9 @@ declare module 'virtual:storybook-docs/tokens' {
 }
 
 declare module 'virtual:storybook-docs/props' {
+  type CatalogRef = import('./prop-docs.js').CatalogRef;
   type ComponentPropsDoc = import('./prop-docs.js').ComponentPropsDoc;
-  export function loadProps(slug: string): Promise<{ components: ComponentPropsDoc[] }>;
+  export function loadProps(slug: string): Promise<{ components: ComponentPropsDoc[]; uses: CatalogRef[] }>;
 }
 
 declare module 'virtual:storybook-docs/guidance' {
@@ -43,4 +44,15 @@ declare module 'virtual:storybook-docs/code' {
   export const provided: boolean;
   /** The consumer's code renderer, or undefined when the config names none. */
   export const Code: ComponentType<{ code: string; language?: string }> | undefined;
+}
+
+declare module 'virtual:storybook-docs/composition' {
+  import type { ComponentType } from 'react';
+  import type { CatalogRef, ComponentPropsDoc } from './prop-docs.js';
+  export const provided: boolean;
+  export const Composition: ComponentType<{
+    entry: { slug: string; name: string; group: string };
+    components: ComponentPropsDoc[] | null;
+    uses: CatalogRef[];
+  }> | undefined;
 }

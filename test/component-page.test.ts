@@ -18,9 +18,10 @@ function renderPage(module: Record<string, unknown>, name = 'Button') {
     'virtual:storybook-docs/catalog': { storySource: '@fixture/ui' },
     '../base': { hrefFor: (path: string) => path },
     'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
+    'virtual:storybook-docs/composition': { provided: false, Composition: undefined },
     '../sections': sections,
     '../story-view': { useStoryModule: () => ({ module }) },
-    '../props': { useProps: () => [] },
+    '../props': { useProps: () => ({ components: [], uses: [] }) },
     '../controls': {
       defaultsFromProps: () => ({}),
       ControlledStoryFrame: ({ story }: { story: string }) => createElement('div', { 'data-story': story }, story),

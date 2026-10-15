@@ -11,6 +11,29 @@ const SETTLE_TOLERANCE_PX = 4;
 const FLASH_MS = 2600;
 const ACTIVE_ROOT_MARGIN = `-${SCROLL_OFFSET_PX}px 0px -60% 0px`;
 
+/**
+ * A page that renders its own content in stages marks the main column while it is still
+ * assembling (`data-page-ready="pending"`) and clears it once the document is complete. The rail
+ * waits for the complete document, so a reader never clicks a target that is about to move.
+ * Pages that do not mark anything are ready as soon as they render.
+ */
+const PAGE_READY_ATTRIBUTE = 'data-page-ready';
+const PAGE_READY_PENDING = 'pending';
+
+function usePageReady(pageKey: string) {
+  const [ready, setReady] = useState(true);
+  useEffect(() => {
+    const main = document.querySelector<HTMLElement>('.main');
+    if (!main) return;
+    const read = () => setReady(main.getAttribute(PAGE_READY_ATTRIBUTE) !== PAGE_READY_PENDING);
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(main, { attributes: true, attributeFilter: [PAGE_READY_ATTRIBUTE] });
+    return () => observer.disconnect();
+  }, [pageKey]);
+  return ready;
+}
+
 /** The hash without its query: `#/components/button?story=Variants` → `#/components/button`. */
 export function hashPath(hash: string): string {
   const query = hash.indexOf('?');
@@ -186,6 +209,7 @@ function useActiveIds(scan: Scan | null) {
 
 /** The "On this page" rail and the `?story=` deep-link landing. */
 export function PageRail({ pageKey }: { pageKey: string }) {
+  const ready = usePageReady(pageKey);
   const [scan, setScan] = useState<Scan | null>(null);
   const pageKeyRef = useRef(pageKey);
   pageKeyRef.current = pageKey;
@@ -199,6 +223,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
   useEffect(() => () => cancelScroll.current?.(), []);
 
   useEffect(() => {
+    if (!ready) return;
     const main = document.querySelector<HTMLElement>('.main');
     if (!main) return;
     let frame = 0;
@@ -219,7 +244,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [pageKey]);
+  }, [pageKey, ready]);
 
   useEffect(() => {
     const onHash = () => setTarget(storyFromHash(window.location.hash));
@@ -244,10 +269,13 @@ export function PageRail({ pageKey }: { pageKey: string }) {
   }, [target, scan, pageKey, go]);
 
   const railRef = useRef<HTMLElement | null>(null);
-  useRailFollow(railRef, scan !== null);
+  // The rail exists only once both the page and the scan are ready. Passing anything else would
+  // re-run the follower while the rail is unmounted, and its cleanup would strip the styles the
+  // next mount needs.
+  useRailFollow(railRef, ready && scan !== null);
   const active = useActiveIds(scan);
 
-  if (!scan) return null;
+  if (!scan || !ready) return null;
   return (
     <>
       {scan.sections.length > 0 ? (

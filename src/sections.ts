@@ -36,6 +36,8 @@ export function mergeAnnotations(...values: Array<Record<string, unknown> | unde
 /**
  * Story names carry the structure of a component's docs: which stories are variants,
  * which are states, which are environments. Bucketing them beats one flat list.
+ *
+ * Array order is match priority, not page order. Display order is `DISPLAY_ORDER`.
  */
 const SECTIONS: Array<{ title: string; match: RegExp }> = [
   {
@@ -64,6 +66,16 @@ const SECTIONS: Array<{ title: string; match: RegExp }> = [
   },
 ];
 
+/** Page order. Independent of the first-match priority above. */
+const DISPLAY_ORDER = [
+  'Variants & sizes',
+  'States',
+  'Interaction & keyboard',
+  'Content & layout',
+  'Environments',
+  'Edge cases',
+];
+
 export interface StorySection {
   title: string;
   stories: string[];
@@ -80,13 +92,15 @@ export function sectionStories(stories: string[]): StorySection[] {
     (bucket ? bucket.stories : more).push(story);
   }
 
+  const filled = new Map(buckets.map((bucket) => [bucket.title, bucket.stories]));
   const sections: StorySection[] = [];
   if (overview.length > 0) {
     sections.push({ title: 'Overview', stories: overview });
   }
-  for (const bucket of buckets) {
-    if (bucket.stories.length > 0) {
-      sections.push({ title: bucket.title, stories: bucket.stories });
+  for (const title of DISPLAY_ORDER) {
+    const bucketStories = filled.get(title);
+    if (bucketStories && bucketStories.length > 0) {
+      sections.push({ title, stories: bucketStories });
     }
   }
   if (more.length > 0) {
@@ -218,7 +232,15 @@ export function buildUsageSnippet({ componentName, from, args, source, renderSou
   const generated = () => compound && !tag.includes('.') ? null : usageSnippet(tag, args);
   const extracted = renderSource?.trim();
   const excerpt = extracted?.startsWith(STORY_EXCERPT);
-  const example = source?.trim() || (excerpt ? generated() || extracted : extracted || generated());
+  // A render that spreads the story's own arguments into the root describes nothing those
+  // arguments do not, and `{...args}` is not an example a reader copies. Prefer the arguments,
+  // which name every prop the canvas actually renders.
+  const passThrough = !excerpt && extracted !== undefined
+    && new RegExp(`<${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b[^>]*\\{\\.\\.\\.args\\}`).test(extracted);
+  // An excerpt is an incomplete custom render. A generated one-tag snippet would describe
+  // different JSX than the canvas, so the frame stays empty until someone authors the code.
+  const example = source?.trim()
+    || (excerpt ? null : passThrough ? generated() ?? extracted : extracted || generated());
   if (!example) return null;
   const rootTag = jsxRootTag(example);
   if (!source?.trim() && example === extracted) {

@@ -71,6 +71,22 @@ in authored Markdown. A design system that highlights code opt-in per component 
 loader, as Storybook does) wires it here once for the whole docs site. If the renderer throws, that
 block falls back to plain text rather than failing the page.
 
+### Composition panel
+
+An optional consumer module renders extra component-page content after guidance and before the
+story sections. Libraries without the key see no panel.
+
+```js
+composition: { module: './src/composition.tsx' },
+```
+
+The default export receives `{ entry, components, uses }`. `entry` is `{ slug, name, group }`.
+`components` is the props tables, or `null` while they load. A prop or member may include
+`component: { name, slug }` when its type declaration belongs to another catalog component.
+`uses` lists other catalog components value-imported from this component's source. The engine
+does not name slots or decide which relationships to show. If the module throws, the page
+continues without the panel.
+
 ## Groups
 
 | Key | Type | Default | Effect |

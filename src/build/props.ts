@@ -1,8 +1,8 @@
-import { readdirSync, realpathSync } from 'node:fs';
+import { readdirSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { withCompilerOptions } from 'react-docgen-typescript';
 import ts from 'typescript';
-import type { ComponentPropsDoc, PropDoc } from '../prop-docs.js';
+import type { CatalogRef, ComponentPropsDoc, PropDoc } from '../prop-docs.js';
 import { VIRTUAL_PREFIX } from './module-ids.ts';
 
 function compareProps(a: PropDoc, b: PropDoc): number {
@@ -71,6 +71,57 @@ export function toPropDoc(prop: unknown): PropDoc {
   };
 }
 
+function ownsComponentName(component: string, name: string) {
+  if (!name.startsWith(component)) return false;
+  return name.length === component.length || name[component.length] !== name[component.length]!.toLowerCase();
+}
+
+function capitalizedValueImport(clause: ts.ImportClause) {
+  if (clause.name && /^[A-Z]/.test(clause.name.text)) return true;
+  const named = clause.namedBindings;
+  if (!named || !ts.isNamedImports(named)) return false;
+  return named.elements.some((element) => !element.isTypeOnly && /^[A-Z]/.test((element.propertyName ?? element.name).text));
+}
+
+/** Capitalized value imports whose module lives in another catalog component's folder. */
+export function referencedUses(
+  sources: string[],
+  bases: { name: string; slug: string; storyFile: string }[],
+  selfDirectory: string,
+): CatalogRef[] {
+  const catalogs = bases.flatMap((base) => {
+    try {
+      const directory = path.dirname(realpathSync(base.storyFile));
+      return directory === selfDirectory ? [] : [{ ...base, directory }];
+    } catch {
+      return [];
+    }
+  });
+  const uses = new Map<string, CatalogRef>();
+  for (const file of sources) {
+    const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const visit = (node: ts.Node) => {
+      if (ts.isImportDeclaration(node) && node.importClause && !node.importClause.isTypeOnly && ts.isStringLiteral(node.moduleSpecifier)) {
+        // A linked design system resolves inside `node_modules`, so `isExternalLibraryImport` is
+        // true for its own source. The catalog directory is the real test, not that flag.
+        const resolved = ts.resolveModuleName(node.moduleSpecifier.text, file, TYPE_PROPS_COMPILER_OPTIONS, ts.sys).resolvedModule;
+        if (resolved) {
+          try {
+            const directory = path.dirname(realpathSync(resolved.resolvedFileName));
+            const base = catalogs.find((item) => item.directory === directory);
+            if (base && capitalizedValueImport(node.importClause)) uses.set(base.slug, { name: base.name, slug: base.slug });
+          } catch {
+            // A missing import is not a relationship.
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  return [...uses.values()];
+}
+
 export function createPropsCollector() {
   let isBuild = false;
   const programCaches = new Map<ts.CompilerOptions, { host: ts.CompilerHost; program?: ts.Program }>();
@@ -97,7 +148,7 @@ export function createPropsCollector() {
   };
 
   /** Parses every component declared in the folder — compound parts included. */
-  const collect = (storyFile: string | undefined, entryName: string, slug: string, bases: { name: string; slug: string; storyFile: string }[] = []): ComponentPropsDoc[] => {
+  const collect = (storyFile: string | undefined, entryName: string, slug: string, bases: { name: string; slug: string; storyFile: string }[] = []): { components: ComponentPropsDoc[]; uses: CatalogRef[] } => {
     if (storyFile) {
       const directory = path.dirname(storyFile);
       const sources = readdirSync(directory)
@@ -123,15 +174,20 @@ export function createPropsCollector() {
             ? parsed.filter((component) => matchesOwnName(component.name))
             : parsed;
           const typed = collectTypeProps(sources, entryName, bases);
-          return mergePropsTables(typed.length > 0
-            ? [...relevant.filter((table) => typed.some((item) => item.name === table.name)), ...typed]
-            : relevant);
+          let selfDirectory = directory;
+          try { selfDirectory = realpathSync(directory); } catch { /* the story path is enough */ }
+          return {
+            components: mergePropsTables(typed.length > 0
+              ? [...relevant.filter((table) => typed.some((item) => item.name === table.name)), ...typed]
+              : relevant),
+            uses: referencedUses(sources, bases, selfDirectory),
+          };
         } catch (cause) {
           console.warn(`storybook-docs: could not read props for "${slug}" (${String(cause)})`);
         }
       }
     }
-    return [];
+    return { components: [], uses: [] };
   };
 
   /** Follow callable exports and their members, not unrelated exported helper types. */
@@ -214,6 +270,53 @@ export function createPropsCollector() {
       return unresolved;
     };
 
+    const selfDirectory = sources[0] ? path.dirname(realpathSync(sources[0])) : '';
+    const catalogOf = (symbol: ts.Symbol): CatalogRef | undefined => {
+      const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+      for (const declaration of target.declarations ?? []) {
+        const file = declaration.getSourceFile().fileName;
+        if (isExternal(file)) continue;
+        let directory: string;
+        try { directory = path.dirname(realpathSync(file)); } catch { continue; }
+        if (directory === selfDirectory) continue;
+        const base = baseContracts.find((item) => item.directory === directory);
+        if (!base) continue;
+        const parent = declaration.parent;
+        const named = parent && (ts.isInterfaceDeclaration(parent) || ts.isTypeAliasDeclaration(parent) || ts.isClassDeclaration(parent) || ts.isFunctionDeclaration(parent))
+          ? parent.name?.text ?? ''
+          : '';
+        if ([target.getName(), named].some((name) => ownsComponentName(base.name, name))) {
+          return { name: base.name, slug: base.slug };
+        }
+      }
+      return undefined;
+    };
+    const referencedCatalog = (type: ts.Type, seen = new Set<ts.Type>()): CatalogRef | undefined => {
+      if (seen.has(type) || seen.size > 16) return undefined;
+      seen.add(type);
+      if (type.isUnion() || type.isIntersection()) {
+        for (const part of type.types) {
+          const found = referencedCatalog(part, seen);
+          if (found) return found;
+        }
+        return undefined;
+      }
+      const symbol = type.aliasSymbol ?? type.getSymbol();
+      const direct = symbol ? catalogOf(symbol) : undefined;
+      if (direct) return direct;
+      const args = [
+        ...(type.aliasTypeArguments ?? []),
+        ...((type.flags & ts.TypeFlags.Object) && ((type as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference)
+          ? checker.getTypeArguments(type as ts.TypeReference)
+          : []),
+      ];
+      for (const arg of args) {
+        const found = referencedCatalog(arg, seen);
+        if (found) return found;
+      }
+      return undefined;
+    };
+
     const describeProps = (type: ts.Type, location: ts.Node, depth = 0): PropDoc[] =>
       checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
         const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
@@ -260,6 +363,7 @@ export function createPropsCollector() {
           description: ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
           inheritedFrom,
           inheritedComponent: inheritedComponent ? { name: inheritedComponent.name, slug: inheritedComponent.slug } : undefined,
+          component: referencedCatalog(propType),
           signatures: signatures.length ? signatures : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
           members: depth === 0 && (symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
@@ -355,8 +459,8 @@ export function mergePropsTables(tables: ComponentPropsDoc[]): ComponentPropsDoc
   return [...byName.values()].sort((a, b) => a.name.split('.').length - b.name.split('.').length || a.name.localeCompare(b.name));
 }
 
-export function propsCode(components: ComponentPropsDoc[]): string {
-  return `export const components = ${JSON.stringify(components)};`;
+export function propsCode(components: ComponentPropsDoc[], uses: CatalogRef[] = []): string {
+  return `export const components = ${JSON.stringify(components)};\nexport const uses = ${JSON.stringify(uses)};`;
 }
 
 export function propsIndexCode(slugs: Iterable<string>): string {
@@ -364,7 +468,7 @@ export function propsIndexCode(slugs: Iterable<string>): string {
 export function loadProps(slug) {
   switch (slug) {
 ${[...slugs].map((slug) => `    case ${JSON.stringify(slug)}: return import(${JSON.stringify(`${VIRTUAL_PREFIX}props/${slug}`)});`).join('\n')}
-    default: return Promise.resolve({ components: [] });
+    default: return Promise.resolve({ components: [], uses: [] });
   }
 }
 `;

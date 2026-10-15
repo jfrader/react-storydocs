@@ -11,6 +11,30 @@ import ts from 'typescript';
 import { storybookDocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
 import type { ResolvedConfig } from 'vite';
 
+function readConst(code: string, name: string) {
+  const marker = `export const ${name} = `;
+  const start = code.indexOf(marker);
+  if (start < 0) throw new Error(`missing ${name}`);
+  let index = start + marker.length;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (; index < code.length; index += 1) {
+    const char = code[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === '{' || char === '[') depth += 1;
+    else if (char === '}' || char === ']') depth -= 1;
+    else if (char === ';' && depth === 0) break;
+  }
+  return JSON.parse(code.slice(start + marker.length, index));
+}
+
 function extract(source: string, files: Record<string, string> = {}): ComponentPropsDoc[] {
   const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-props-'));
   try {
@@ -27,7 +51,7 @@ function extract(source: string, files: Record<string, string> = {}): ComponentP
     resolved.call({}, { root } as ResolvedConfig);
     const load = plugin.load as (id: string) => string;
     const code = load.call({}, '\0virtual:storybook-docs/props/widget');
-    return JSON.parse(code.replace('export const components = ', '').replace(/;$/, ''));
+    return readConst(code, 'components');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -120,6 +144,35 @@ test('mapped slot names and const literal defaults are resolved without evaluati
   assert.match(props.find((prop) => prop.name === 'slotProps')?.members?.[0]?.type ?? '', /info.*warning/);
 });
 
+test('prop types and value imports link other catalog components, not type-only imports', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-props-'));
+  try {
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    const write = (file: string, content: string) => {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), content);
+    };
+    write('button/button.tsx', `export interface ButtonProps { label?: string }\nexport function Button(props: ButtonProps) { return null }\n`);
+    write('button/button.stories.tsx', "const meta = { title: 'Components/Button', component: Button }; export default meta; export const Default = {};");
+    write('drawer/drawer.tsx', `export interface DrawerProps { open?: boolean }\nexport function Drawer(props: DrawerProps) { return null }\n`);
+    write('drawer/drawer.stories.tsx', "const meta = { title: 'Components/Drawer', component: Drawer }; export default meta; export const Default = {};");
+    write('widget/widget.tsx', `import { Button, type ButtonProps } from '../button/button';\nimport type { DrawerProps } from '../drawer/drawer';\nexport function Widget({ action, slotProps }: { action?: ButtonProps; hidden?: DrawerProps; slotProps?: { icon?: ButtonProps } }) { return <Button />; }\n`);
+    write('widget/widget.stories.tsx', "const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};");
+    const plugin = storybookDocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
+    (plugin.configResolved as (config: ResolvedConfig) => void).call({}, { root } as ResolvedConfig);
+    const code = (plugin.load as (id: string) => string).call({}, '\0virtual:storybook-docs/props/widget');
+    const components = readConst(code, 'components') as ComponentPropsDoc[];
+    const uses = readConst(code, 'uses') as Array<{ name: string; slug: string }>;
+    const widget = components.find((table) => table.name === 'Widget')!;
+    assert.equal(widget.props.find((prop) => prop.name === 'action')?.component?.slug, 'button');
+    assert.equal(widget.props.find((prop) => prop.name === 'hidden')?.component?.slug, 'drawer');
+    assert.equal(widget.props.find((prop) => prop.name === 'slotProps')?.members?.find((member) => member.name === 'icon')?.component?.slug, 'button');
+    assert.deepEqual(uses, [{ name: 'Button', slug: 'button' }]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('props presentation shows allowed values, JSDoc and collapsed inherited props', () => {
   const require = createRequire(import.meta.url);
   const source = readFileSync(new URL('../src/pages/component-page.tsx', import.meta.url), 'utf8');
@@ -128,6 +181,7 @@ test('props presentation shows allowed values, JSDoc and collapsed inherited pro
   const dependencies: Record<string, unknown> = {
     'virtual:storybook-docs/catalog': { storySource: '@acme/ui' },
     'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
+    'virtual:storybook-docs/composition': { provided: false, Composition: undefined },
     '../base': { hrefFor: (path: string) => `/docs${path}` },
   };
   runInThisContext(`(function(require, exports) { ${compiled}; exports.PropsTable = PropsTable; })`)(
