@@ -2,13 +2,56 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { collectMatches, extractTitle, readStoryFile } from '../src/scan.ts';
+import { buildCatalog, scanStories } from '../src/build/catalog.ts';
 import { sectionStories } from '../src/sections.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const acmeRoot = path.resolve(__dirname, '../examples/fixtures/packages/acme-ui');
 const storyPattern = 'src/components/*/*.stories.tsx';
+
+test('fixtures: only files with autodocs-visible stories enter the catalog and resolver', () => {
+  const root = mkdtempSync(path.resolve('.scan-test-'));
+  try {
+    const sources = {
+      hidden: `
+        const meta = { title: 'Components/Hidden' } satisfies Meta;
+        export default meta;
+        export const First = { tags: ['!autodocs'], args: {} } satisfies Story;
+        export const Second = { tags: ["!autodocs"] };
+      `,
+      mixed: `
+        const meta = { title: 'Components/Mixed', tags: ['autodocs'] };
+        export default meta;
+        export const Hidden = { tags: ['!autodocs'] };
+        export const Visible = { tags: ['!test', '!dev', 'custom'], args: { tags: ['!autodocs'] } };
+      `,
+      meta: `
+        const meta = { title: 'Components/Meta', tags: ['!autodocs'] } satisfies Meta;
+        export default meta;
+        export const First = {};
+        export const Second = { tags: ['autodocs'] };
+      `,
+      inline: `
+        export default { title: 'Components/Inline', tags: ['!autodocs'] };
+        export const First = {};
+      `,
+      empty: `const meta = { title: 'Components/Empty' }; export default meta;`,
+    };
+    for (const [name, source] of Object.entries(sources)) {
+      writeFileSync(path.join(root, `${name}.stories.tsx`), source);
+    }
+    const stories = scanStories({ from: '.', pattern: '*.stories.tsx' }, root);
+    assert.deepEqual(stories.map(({ facts }) => facts.title), ['Components/Mixed']);
+    const catalog = buildCatalog(stories, undefined);
+    assert.deepEqual(catalog.entries.map(({ slug, stories }) => ({ slug, stories })), [{ slug: 'mixed', stories: ['Visible'] }]);
+    assert.deepEqual([...catalog.files.keys()], ['mixed']);
+    assert.deepEqual(catalog.stats, { components: 1, stories: 1, groups: 1 });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('fixtures: collectMatches discovers every story file', () => {
   const matches = collectMatches(acmeRoot, storyPattern);

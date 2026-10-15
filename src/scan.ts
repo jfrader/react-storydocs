@@ -4,6 +4,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
 
 /** Minimal glob: `*` matches within a path segment, `**` matches any depth. */
 export function matchGlob(pattern: string, candidate: string): boolean {
@@ -72,7 +73,41 @@ export function readStoryFile(file: string): StoryFileFacts | null {
   const source = readFileSync(file, 'utf8');
   const title = extractTitle(source);
   if (!title) return null;
-  const stories = [...source.matchAll(/^export const ([A-Za-z0-9_]+)/gm)].map((match) => match[1] ?? '');
+  const module = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const bindings = new Map<string, ts.Expression>();
+  const exports = new Map<string, ts.Expression | undefined>();
+  let meta: ts.Expression | undefined;
+  for (const statement of module.statements) {
+    if (ts.isExportAssignment(statement) && !statement.isExportEquals) meta = statement.expression;
+    if (!ts.isVariableStatement(statement)) continue;
+    const exported = statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name)) continue;
+      if (declaration.initializer) bindings.set(declaration.name.text, declaration.initializer);
+      if (exported) exports.set(declaration.name.text, declaration.initializer);
+    }
+  }
+  const resolve = (node: ts.Expression | undefined, seen = new Set<ts.Expression>()): ts.Expression | undefined => {
+    if (!node || seen.has(node)) return undefined;
+    seen.add(node);
+    if (ts.isIdentifier(node)) return resolve(bindings.get(node.text), seen);
+    if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return resolve(node.expression, seen);
+    return node;
+  };
+  const hidden = (expression: ts.Expression | undefined) => {
+    const object = resolve(expression);
+    if (!object || !ts.isObjectLiteralExpression(object)) return false;
+    const tags = object.properties.find((property): property is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(property) && !ts.isComputedPropertyName(property.name) && property.name.text === 'tags');
+    const array = resolve(tags?.initializer);
+    return Boolean(array && ts.isArrayLiteralExpression(array) && array.elements.some((element) => {
+      const tag = resolve(element);
+      return tag && ts.isStringLiteral(tag) && tag.text === '!autodocs';
+    }));
+  };
+  if (hidden(meta)) return null;
+  const stories = [...exports].filter(([, expression]) => !hidden(expression)).map(([name]) => name);
+  if (!stories.length) return null;
   return { title, stories, hasComponent: /component:\s*\w+/.test(source) };
 }
 

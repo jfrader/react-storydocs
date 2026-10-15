@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Slot defaults link only to the component itself or its own props types, not shared part types. Story files with no autodocs-visible examples no longer create empty pages or override component links.
+
 ## 0.12.0
 
 - Story sections render as Overview, Variants & sizes, States, Interaction & keyboard, Content & layout, Environments, Edge cases. A name that matches both an environment and a variant still lands in Environments.
@@ -18,4 +22,3 @@
 - Object and slot disclosures preview their fields. Primitive unions no longer show prototype methods as object fields.
 - Inherited props link to catalog components whose public contracts contain those declarations; full inherited rows remain available.
 - Props columns keep type contracts and notes readable without widening the table on desktop.
-
