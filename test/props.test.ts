@@ -144,6 +144,26 @@ test('mapped slot names and const literal defaults are resolved without evaluati
   assert.match(props.find((prop) => prop.name === 'slotProps')?.members?.[0]?.type ?? '', /info.*warning/);
 });
 
+test('a mapped slot key carries the comment written above its literal', () => {
+  const tables = extract(`
+    export interface WidgetPartProps { className?: string }
+    export type WidgetSlotProps = Partial<Record<
+      | /** Groups the title above the body. */
+        'header'
+      | /** Holds the widget body. */
+        'body',
+      WidgetPartProps
+    >>;
+    export function Widget({ slotProps }: { slotProps?: WidgetSlotProps }) { return null; }
+  `);
+  const slots = tables[0]!.props.find((prop) => prop.name === 'slotProps')!;
+  const described = Object.fromEntries(slots.members?.map((member) => [member.name, member.description]) ?? []);
+  assert.deepEqual(described, {
+    header: 'Groups the title above the body.',
+    body: 'Holds the widget body.',
+  });
+});
+
 test('a slot carries the props its own component declares, and links a foreign contract', () => {
   const tables = extract(`
     import type { ComponentPropsWithRef } from 'react';

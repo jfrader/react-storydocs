@@ -328,7 +328,51 @@ export function createPropsCollector() {
       return undefined;
     };
 
-    const describeProps = (type: ts.Type, location: ts.Node, depth = 0): PropDoc[] =>
+    const describe = (symbol: ts.Symbol): string =>
+      ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim();
+
+    const cleanComment = (text: string): string =>
+      text.replace(/^\/\*\*?/, '').replace(/\*\/\s*$/, '')
+        .split('\n').map((line) => line.replace(/^\s*\*\s?/, '')).join(' ')
+        .replace(/\s+/g, ' ').trim();
+
+    /**
+     * `slotProps?: Partial<Record<'header' | 'body', …>>` synthesizes its keys, so the checker
+     * reports no declarations for them. The comment is the block written before each literal, and
+     * TypeScript attaches nothing to a literal inside a union: the gap between two members is what
+     * carries it.
+     */
+    const partComments = (declaration: ts.Declaration | undefined): Map<string, string> => {
+      const comments = new Map<string, string>();
+      const typeNode = declaration && ts.isPropertySignature(declaration) ? declaration.type : undefined;
+      if (!typeNode) return comments;
+      const visited = new Set<ts.Node>();
+      const scan = (node: ts.Node) => {
+        if (visited.has(node)) return;
+        visited.add(node);
+        if (ts.isUnionTypeNode(node)) {
+          const source = node.getSourceFile().getFullText();
+          let previousEnd = node.getStart();
+          for (const member of node.types) {
+            const block = source.slice(previousEnd, member.getStart()).match(/\/\*\*[\s\S]*?\*\//)?.[0];
+            const name = ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal) ? member.literal.text : undefined;
+            if (block && name) comments.set(name, cleanComment(block));
+            previousEnd = member.getEnd();
+          }
+        }
+        // `slotProps?: WidgetSlotProps` keeps the keys in the alias the name points at.
+        const named = ts.isTypeReferenceNode(node) ? node.typeName : undefined;
+        const symbol = named ? checker.getSymbolAtLocation(named) : undefined;
+        for (const target of symbol?.declarations ?? []) {
+          if (ts.isTypeAliasDeclaration(target)) scan(target.type);
+        }
+        ts.forEachChild(node, scan);
+      };
+      scan(typeNode);
+      return comments;
+    };
+
+    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map()): PropDoc[] =>
       checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
         const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
         const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? location);
@@ -380,7 +424,7 @@ export function createPropsCollector() {
           typeUnavailable: false,
           required: !optional,
           defaultValue: null,
-          description: ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
+          description: describe(symbol) || partDocs.get(symbol.getName()) || '',
           inheritedFrom,
           inheritedComponent: inheritedComponent ? { name: inheritedComponent.name, slug: inheritedComponent.slug } : undefined,
           component: referencedCatalog(propType),
@@ -391,7 +435,7 @@ export function createPropsCollector() {
           // seam, so both `slots` and `slotProps` expand wherever they are declared.
           members: depth === 0
             ? (symbol.getName() === 'slots' || symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)
-              ? describeProps(memberType, location, depth + 1)
+              ? describeProps(memberType, location, depth + 1, partComments(declaration))
               : undefined)
             : depth === 1 && !inheritedFrom && ownedMembers ? describeProps(memberType, location, depth + 1) : undefined,
         };
