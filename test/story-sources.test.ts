@@ -226,8 +226,9 @@ export const Unknown = { render: () => <Button disabled={disabledValue}>{TITLE}<
 `);
   assert.match(sources.Default!, /^\/\/ Excerpt from the story; unresolved bindings: ITEMS\./);
   assert.ok(!sources.Default!.includes('{...props}'));
-  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@fixture/ui', renderSource: sources.Unknown, args: { children: 'Own story' } }), null);
-  assert.equal(buildUsageSnippet({ componentName: 'Tabs', from: '@fixture/ui', renderSource: sources.Default }), null);
+  // The excerpt keeps its own provenance instead of the arguments inventing a one-tag example.
+  assert.equal(buildUsageSnippet({ componentName: 'Button', from: '@fixture/ui', renderSource: sources.Unknown, args: { children: 'Own story' } }), sources.Unknown);
+  assert.equal(buildUsageSnippet({ componentName: 'Tabs', from: '@fixture/ui', renderSource: sources.Default }), sources.Default);
 });
 
 test('helper binding substitution requires an unmodified args spread and respects nested scopes', () => {
@@ -247,6 +248,6 @@ export const Default = { render: (args) => <Example {...args} /> };
 `).Default!;
   assert.match(source, /^\/\/ Excerpt from the story/);
   const options = { componentName: 'Dialog', from: '@fixture/ui', renderSource: source };
-  assert.equal(buildUsageSnippet(options), null);
-  assert.equal(buildUsageSnippet({ ...options, args: { defaultOpen: true } }), null);
+  assert.equal(buildUsageSnippet(options), source);
+  assert.equal(buildUsageSnippet({ ...options, args: { defaultOpen: true } }), source);
 });

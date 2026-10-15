@@ -237,10 +237,11 @@ export function buildUsageSnippet({ componentName, from, args, source, renderSou
   // which name every prop the canvas actually renders.
   const passThrough = !excerpt && extracted !== undefined
     && new RegExp(`<${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b[^>]*\\{\\.\\.\\.args\\}`).test(extracted);
-  // An excerpt is an incomplete custom render. A generated one-tag snippet would describe
-  // different JSX than the canvas, so the frame stays empty until someone authors the code.
+  // An excerpt is an incomplete custom render: the arguments cannot describe its anatomy, so the
+  // excerpt is shown with its own provenance comment instead of a one-tag snippet that would
+  // describe different JSX than the canvas.
   const example = source?.trim()
-    || (excerpt ? null : passThrough ? generated() ?? extracted : extracted || generated());
+    || (passThrough ? generated() ?? extracted : extracted || generated());
   if (!example) return null;
   const rootTag = jsxRootTag(example);
   if (!source?.trim() && example === extracted) {
