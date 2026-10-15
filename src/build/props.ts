@@ -173,7 +173,7 @@ export function createPropsCollector() {
           const relevant = parsed.some((component) => matchesOwnName(component.name))
             ? parsed.filter((component) => matchesOwnName(component.name))
             : parsed;
-          const typed = collectTypeProps(sources, entryName, bases);
+          const typed = collectTypeProps(sources, entryName, bases, slug);
           let selfDirectory = directory;
           try { selfDirectory = realpathSync(directory); } catch { /* the story path is enough */ }
           return {
@@ -191,7 +191,7 @@ export function createPropsCollector() {
   };
 
   /** Follow callable exports and their members, not unrelated exported helper types. */
-  const collectTypeProps = (sources: string[], entryName: string, bases: { name: string; slug: string; storyFile: string }[]): ComponentPropsDoc[] => {
+  const collectTypeProps = (sources: string[], entryName: string, bases: { name: string; slug: string; storyFile: string }[], slug = ''): ComponentPropsDoc[] => {
     const program = createPropsProgram(sources, TYPE_PROPS_COMPILER_OPTIONS);
     const checker = program.getTypeChecker();
     const tables: ComponentPropsDoc[] = [];
@@ -271,6 +271,17 @@ export function createPropsCollector() {
     };
 
     const selfDirectory = sources[0] ? path.dirname(realpathSync(sources[0])) : '';
+    // Generated parts carry their own data-ui token in this component's source. The token is the
+    // honest answer to "what does this slot render by default?".
+    const parts = new Map<string, string>();
+    for (const file of sources) {
+      for (const match of readFileSync(file, 'utf8').matchAll(/data-ui="([a-z0-9-]+)"/g)) {
+        const token = match[1]!;
+        const key = token.startsWith(`${slug}-`) ? token.slice(slug.length + 1) : token;
+        if (!parts.has(key)) parts.set(key, token);
+      }
+    }
+    const partToken = (key: string) => parts.get(key) ?? parts.get(key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase());
     const catalogOf = (symbol: ts.Symbol): CatalogRef | undefined => {
       const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
       for (const declaration of target.declarations ?? []) {
@@ -353,7 +364,16 @@ export function createPropsCollector() {
           };
         });
         const objectTypes = memberType.isUnion() ? memberType.types : [memberType];
-        const hasLocalMembers = objectTypes.every((part) => Boolean(part.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection))) && !checker.isArrayType(memberType) && !checker.isTupleType(memberType) && !signatures.length && checker.getPropertiesOfType(memberType).some((member) => member.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)));
+        const shape = objectTypes.every((part) => Boolean(part.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection)))
+          && !checker.isArrayType(memberType) && !checker.isTupleType(memberType) && !signatures.length;
+        const properties = shape ? checker.getPropertiesOfType(memberType) : [];
+        const declaredIn = (member: ts.Symbol, files: string[]) =>
+          Boolean(member.declarations?.some((node) => files.includes(node.getSourceFile().fileName)));
+        const hasLocalMembers = properties.some((member) => member.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)));
+        // A slot's own contract expands only when this component declares it: the generated part
+        // accepts the family's part props, while a slot typed as another component's props links
+        // to that component instead of restating its whole DOM surface.
+        const ownedMembers = properties.length > 0 && properties.every((member) => declaredIn(member, sources));
         return {
           name: symbol.getName(),
           type: displayType || 'unknown',
@@ -364,9 +384,12 @@ export function createPropsCollector() {
           inheritedFrom,
           inheritedComponent: inheritedComponent ? { name: inheritedComponent.name, slug: inheritedComponent.slug } : undefined,
           component: referencedCatalog(propType),
+          part: depth === 0 ? undefined : partToken(symbol.getName()),
           signatures: signatures.length ? signatures : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
-          members: depth === 0 && (symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
+          members: depth === 0
+            ? (symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers) ? describeProps(memberType, location, depth + 1) : undefined)
+            : depth === 1 && !inheritedFrom && ownedMembers ? describeProps(memberType, location, depth + 1) : undefined,
         };
       }).sort(compareProps);
 

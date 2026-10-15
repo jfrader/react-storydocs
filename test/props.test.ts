@@ -144,6 +144,24 @@ test('mapped slot names and const literal defaults are resolved without evaluati
   assert.match(props.find((prop) => prop.name === 'slotProps')?.members?.[0]?.type ?? '', /info.*warning/);
 });
 
+test('a slot carries the props its own component declares, and links a foreign contract', () => {
+  const tables = extract(`
+    import type { ComponentPropsWithRef } from 'react';
+    export interface WidgetPartProps { className?: string; css?: string }
+    export interface WidgetSlotProps {
+      root?: ComponentPropsWithRef<'div'>;
+      header?: WidgetPartProps;
+    }
+    function Root({ slotProps, children }: { slotProps?: WidgetSlotProps; children?: string }) { return null; }
+    export const Widget = Object.assign(Root, {});
+  `);
+  const slots = tables[0]!.props.find((prop) => prop.name === 'slotProps')!;
+  const header = slots.members!.find((member) => member.name === 'header')!;
+  assert.deepEqual(header.members?.map((member) => member.name).sort(), ['className', 'css']);
+  const root = slots.members!.find((member) => member.name === 'root')!;
+  assert.equal(root.members, undefined, 'a DOM contract is not restated inline');
+});
+
 test('prop types and value imports link other catalog components, not type-only imports', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-props-'));
   try {
