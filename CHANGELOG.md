@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Slot and slotProps members expose their default HTML element or component, inferred from their type contracts or the component's default slots map.
 - Props and slot maps are expanded for component families whose exports add a suffix to the catalog name, such as `CardFlightsProvider`.
 - Slot defaults link only to the component itself or its own props types, not shared part types. Story files with no autodocs-visible examples no longer create empty pages or override component links.
 

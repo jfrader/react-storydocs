@@ -14,6 +14,7 @@ export interface PropDoc {
   inheritedComponent?: CatalogRef;
   /** Another catalog component whose declaration this type belongs to. */
   component?: CatalogRef;
+  defaultElement?: string;
   /**
    * The `data-ui` token this part renders as, when the component's own source declares one for
    * this key. It names the default: what a reader would be styling or replacing.

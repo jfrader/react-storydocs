@@ -329,6 +329,176 @@ export function createPropsCollector() {
       return undefined;
     };
 
+    const htmlTags = new Map<string, string[]>();
+    for (const source of program.getSourceFiles()) {
+      if (!source.fileName.endsWith('/lib.dom.d.ts')) continue;
+      for (const node of source.statements) {
+        if (!ts.isInterfaceDeclaration(node) || node.name.text !== 'HTMLElementTagNameMap') continue;
+        for (const member of node.members) {
+          if (!ts.isPropertySignature(member) || !member.type || !ts.isStringLiteral(member.name)) continue;
+          const name = checker.getTypeFromTypeNode(member.type).getSymbol()?.getName();
+          if (name) htmlTags.set(name, [...(htmlTags.get(name) ?? []), member.name.text]);
+        }
+      }
+    }
+    const uniformElement = (values: (string | undefined)[]) =>
+      values.length && values[0] && values.every((value) => value === values[0]) ? values[0] : undefined;
+    const elementFromType = (type: ts.Type, seen = new Set<ts.Type>()): string | undefined => {
+      if (seen.has(type) || seen.size > 32) return undefined;
+      const visited = new Set(seen).add(type);
+      if (type.isUnion()) return uniformElement(type.types.map((part) => elementFromType(part, visited)));
+      if (type.isIntersection()) {
+        for (const part of type.types) {
+          const value = elementFromType(part, visited);
+          if (value) return value;
+        }
+        return undefined;
+      }
+      const catalog = referencedCatalog(type);
+      if (catalog) return catalog.name;
+      const tags = htmlTags.get(type.getSymbol()?.getName() ?? '');
+      if (tags?.length === 1) return tags[0];
+      const args = [
+        ...(type.aliasTypeArguments ?? []),
+        ...((type.flags & ts.TypeFlags.Object) && ((type as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference)
+          ? checker.getTypeArguments(type as ts.TypeReference) : []),
+      ];
+      for (const arg of args) {
+        const value = elementFromType(arg, visited);
+        if (value) return value;
+      }
+      return undefined;
+    };
+    const elementFromNode = (node: ts.TypeNode, seen = new Set<ts.Node>()): string | undefined => {
+      if (seen.has(node) || seen.size > 32) return undefined;
+      const visited = new Set(seen).add(node);
+      if (ts.isParenthesizedTypeNode(node)) return elementFromNode(node.type, visited);
+      if (ts.isUnionTypeNode(node)) return uniformElement(node.types.map((part) => elementFromNode(part, visited)));
+      if (ts.isIntersectionTypeNode(node)) {
+        for (const part of node.types) {
+          const value = elementFromNode(part, visited);
+          if (value) return value;
+        }
+        return undefined;
+      }
+      if (ts.isIndexedAccessTypeNode(node) && ts.isTypeReferenceNode(node.objectType)
+        && ['HTMLElementTagNameMap', 'HTMLTagNameMap'].includes(node.objectType.typeName.getText())
+        && ts.isLiteralTypeNode(node.indexType) && ts.isStringLiteral(node.indexType.literal)) return node.indexType.literal.text;
+      if (ts.isTypeReferenceNode(node)) {
+        const symbol = checker.getSymbolAtLocation(node.typeName);
+        const target = symbol && (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
+        const name = target?.getName();
+        const argument = node.typeArguments?.[0];
+        if (name === 'ComponentPropsWithRef' && argument && ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) return argument.literal.text;
+        if ((name === 'ComponentType' || name === 'ElementType') && argument) return elementFromNode(argument, visited);
+        if (name === 'HTMLAttributes' || name === 'DetailedHTMLProps') {
+          for (const argument of node.typeArguments ?? []) {
+            const value = elementFromNode(argument, visited);
+            if (value) return value;
+          }
+        }
+        const catalog = target ? catalogOf(target) : undefined;
+        if (catalog) return catalog.name;
+        for (const declaration of target?.declarations ?? []) {
+          if (ts.isTypeAliasDeclaration(declaration) && !declaration.typeParameters?.length) {
+            return elementFromNode(declaration.type, visited);
+          }
+        }
+      }
+      return elementFromType(checker.getTypeFromTypeNode(node));
+    };
+    const defaultElement = (type: ts.Type, declaration: ts.Declaration | undefined) => {
+      const node = declaration && ts.isPropertySignature(declaration) ? declaration.type : undefined;
+      return node ? elementFromNode(node) : elementFromType(checker.getNonNullableType(type));
+    };
+    const slotsObject = (node: ts.Expression, source: ts.SourceFile, seen = new Set<ts.Node>()): ts.ObjectLiteralExpression | undefined => {
+      if (seen.has(node) || seen.size > 32) return undefined;
+      const visited = new Set(seen).add(node);
+      if (ts.isObjectLiteralExpression(node)) return node;
+      if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return slotsObject(node.expression, source, visited);
+      if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        && node.expression.expression.getText() === 'Object' && node.expression.name.text === 'freeze' && node.arguments.length === 1) {
+        return slotsObject(node.arguments[0]!, source, visited);
+      }
+      if (ts.isIdentifier(node)) {
+        const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
+        if (declaration && declaration.getSourceFile() === source && ts.isVariableDeclaration(declaration)
+          && declaration.initializer && ts.isVariableDeclarationList(declaration.parent) && (declaration.parent.flags & ts.NodeFlags.Const)) {
+          return slotsObject(declaration.initializer, source, visited);
+        }
+      }
+      return undefined;
+    };
+    const elementFromValue = (node: ts.Expression, symbol?: ts.Symbol): string | undefined => {
+      if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return elementFromValue(node.expression);
+      if (ts.isStringLiteral(node)) return node.text;
+      if (!ts.isIdentifier(node) || !/^[A-Z]/.test(node.text)) return undefined;
+      const reference = symbol ?? checker.getSymbolAtLocation(node);
+      const target = reference && (reference.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(reference) : reference);
+      const type = checker.getTypeAtLocation(node);
+      return target?.declarations?.length && (type.getCallSignatures().length || type.getConstructSignatures().length) ? node.text : undefined;
+    };
+    const nullishOperands = (node: ts.Expression): ts.Expression[] => {
+      if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return nullishOperands(node.expression);
+      return ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+        ? [...nullishOperands(node.left), ...nullishOperands(node.right)] : [node];
+    };
+    const bodySlotDefaults = new Map<ts.Declaration, string>();
+    for (const file of sources) {
+      const source = program.getSourceFile(file);
+      if (!source) continue;
+      const visit = (node: ts.Node) => {
+        if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && /^[A-Z]/.test(node.name.text) && node.initializer) {
+          const [access, ...fallbacks] = nullishOperands(node.initializer);
+          if (access && ts.isPropertyAccessExpression(access)) {
+            const member = checker.getSymbolAtLocation(access.name);
+            const value = fallbacks.map((fallback) => elementFromValue(fallback)).find((value) => value !== undefined);
+            if (value) for (const declaration of member?.declarations ?? []) {
+              if (!bodySlotDefaults.has(declaration)) bodySlotDefaults.set(declaration, value);
+            }
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    const valueSlotDefaults = (declaration: ts.SignatureDeclaration | undefined, propsType: ts.Type): Map<string, string> => {
+      const defaults = new Map<string, string>();
+      if (!declaration) return defaults;
+      const source = declaration.getSourceFile();
+      let object: ts.ObjectLiteralExpression | undefined;
+      const binding = declaration.parameters[0]?.name;
+      if (binding && ts.isObjectBindingPattern(binding)) {
+        const slot = binding.elements.find((element) => (element.propertyName ?? element.name).getText() === 'slots');
+        if (slot?.initializer) object = slotsObject(slot.initializer, source);
+      }
+      const visit = (node: ts.Node) => {
+        if (object || (ts.isFunctionLike(node) && node !== declaration)) return;
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+          && (ts.isIdentifier(node.left) ? node.left.text === 'slots' : ts.isPropertyAccessExpression(node.left) && node.left.name.text === 'slots')) {
+          object = slotsObject(node.right, source);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(declaration);
+      for (const property of object?.properties ?? []) {
+        if ((!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) || ts.isComputedPropertyName(property.name)) continue;
+        const value = ts.isPropertyAssignment(property) ? property.initializer : property.name;
+        const symbol = ts.isShorthandPropertyAssignment(property) ? checker.getShorthandAssignmentValueSymbol(property) : undefined;
+        const element = elementFromValue(value, symbol);
+        if (element) defaults.set(property.name.text, element);
+      }
+      const slots = propsType.getProperty('slots');
+      if (slots) {
+        const type = checker.getNonNullableType(checker.getTypeOfSymbolAtLocation(slots, declaration));
+        for (const member of checker.getPropertiesOfType(type)) {
+          const value = member.declarations?.map((item) => bodySlotDefaults.get(item)).find((value) => value !== undefined);
+          if (value && !defaults.has(member.getName())) defaults.set(member.getName(), value);
+        }
+      }
+      return defaults;
+    };
+
     const describe = (symbol: ts.Symbol): string =>
       ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim();
 
@@ -373,7 +543,7 @@ export function createPropsCollector() {
       return comments;
     };
 
-    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map()): PropDoc[] =>
+    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, string>): PropDoc[] =>
       checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
         const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
         const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? location);
@@ -429,6 +599,7 @@ export function createPropsCollector() {
           inheritedFrom,
           inheritedComponent: inheritedComponent ? { name: inheritedComponent.name, slug: inheritedComponent.slug } : undefined,
           component: referencedCatalog(propType),
+          defaultElement: slotDefaults ? defaultElement(propType, declaration) ?? slotDefaults.get(symbol.getName()) : undefined,
           part: depth === 0 ? undefined : partToken(symbol.getName()),
           signatures: signatures.length ? signatures : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
@@ -436,7 +607,7 @@ export function createPropsCollector() {
           // seam, so both `slots` and `slotProps` expand wherever they are declared.
           members: depth === 0
             ? (symbol.getName() === 'slots' || symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)
-              ? describeProps(memberType, location, depth + 1, partComments(declaration))
+              ? describeProps(memberType, location, depth + 1, partComments(declaration), ['slots', 'slotProps'].includes(symbol.getName()) ? valueSlotDefaults(ts.isFunctionLike(location) ? location : undefined, type) : undefined)
               : undefined)
             : depth === 1 && !inheritedFrom && ownedMembers ? describeProps(memberType, location, depth + 1) : undefined,
         };
