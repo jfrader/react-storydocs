@@ -287,7 +287,7 @@ export function createPropsCollector() {
       }
     }
     const partToken = (key: string) => parts.get(key) ?? parts.get(key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase());
-    const catalogOf = (symbol: ts.Symbol): CatalogRef | undefined => {
+    const catalogOf = (symbol: ts.Symbol, requireOwnName = true): CatalogRef | undefined => {
       const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
       for (const declaration of target.declarations ?? []) {
         const file = declaration.getSourceFile().fileName;
@@ -297,7 +297,7 @@ export function createPropsCollector() {
         if (directory === selfDirectory) continue;
         const base = baseContracts.find((item) => item.directory === directory);
         if (!base) continue;
-        if (ownsComponentName(base.name, target.getName())) {
+        if (!requireOwnName || ownsComponentName(base.name, target.getName())) {
           return { name: base.name, slug: base.slug };
         }
       }
@@ -429,21 +429,39 @@ export function createPropsCollector() {
       }
       return undefined;
     };
-    const elementFromValue = (node: ts.Expression, symbol?: ts.Symbol): string | undefined => {
+    type SlotDefault = Pick<PropDoc, 'component' | 'defaultElement'>;
+    const displayNameOf = (target: ts.Symbol): string | undefined => {
+      const source = target.valueDeclaration?.getSourceFile();
+      if (!source) return undefined;
+      let displayName: string | undefined;
+      const visit = (node: ts.Node) => {
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+          && ts.isPropertyAccessExpression(node.left) && node.left.name.text === 'displayName'
+          && checker.getSymbolAtLocation(node.left.expression) === target && ts.isStringLiteral(node.right)) {
+          displayName = node.right.text;
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+      return displayName;
+    };
+    const elementFromValue = (node: ts.Expression, symbol?: ts.Symbol): SlotDefault | undefined => {
       if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return elementFromValue(node.expression);
-      if (ts.isStringLiteral(node)) return node.text;
+      if (ts.isStringLiteral(node)) return { defaultElement: node.text };
       if (!ts.isIdentifier(node) || !/^[A-Z]/.test(node.text)) return undefined;
       const reference = symbol ?? checker.getSymbolAtLocation(node);
       const target = reference && (reference.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(reference) : reference);
       const type = checker.getTypeAtLocation(node);
-      return target?.declarations?.length && (type.getCallSignatures().length || type.getConstructSignatures().length) ? node.text : undefined;
+      if (!target?.declarations?.length || !(type.getCallSignatures().length || type.getConstructSignatures().length)) return undefined;
+      const component = catalogOf(target, false);
+      return component ? { component } : { defaultElement: displayNameOf(target) ?? node.text };
     };
     const nullishOperands = (node: ts.Expression): ts.Expression[] => {
       if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return nullishOperands(node.expression);
       return ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
         ? [...nullishOperands(node.left), ...nullishOperands(node.right)] : [node];
     };
-    const bodySlotDefaults = new Map<ts.Declaration, string>();
+    const bodySlotDefaults = new Map<ts.Declaration, SlotDefault>();
     for (const file of sources) {
       const source = program.getSourceFile(file);
       if (!source) continue;
@@ -462,8 +480,8 @@ export function createPropsCollector() {
       };
       visit(source);
     }
-    const valueSlotDefaults = (declaration: ts.SignatureDeclaration | undefined, propsType: ts.Type): Map<string, string> => {
-      const defaults = new Map<string, string>();
+    const valueSlotDefaults = (declaration: ts.SignatureDeclaration | undefined, propsType: ts.Type): Map<string, SlotDefault> => {
+      const defaults = new Map<string, SlotDefault>();
       if (!declaration) return defaults;
       const source = declaration.getSourceFile();
       let object: ts.ObjectLiteralExpression | undefined;
@@ -543,7 +561,7 @@ export function createPropsCollector() {
       return comments;
     };
 
-    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, string>): PropDoc[] =>
+    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, SlotDefault>): PropDoc[] =>
       checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
         const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
         const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? location);
@@ -589,6 +607,9 @@ export function createPropsCollector() {
         // accepts the family's part props, while a slot typed as another component's props links
         // to that component instead of restating its whole DOM surface.
         const ownedMembers = properties.length > 0 && properties.every((member) => declaredIn(member, sources));
+        const component = referencedCatalog(propType);
+        const element = slotDefaults ? defaultElement(propType, declaration) : undefined;
+        const slotDefault = component || element ? undefined : slotDefaults?.get(symbol.getName());
         return {
           name: symbol.getName(),
           type: displayType || 'unknown',
@@ -598,8 +619,8 @@ export function createPropsCollector() {
           description: describe(symbol) || partDocs.get(symbol.getName()) || '',
           inheritedFrom,
           inheritedComponent: inheritedComponent ? { name: inheritedComponent.name, slug: inheritedComponent.slug } : undefined,
-          component: referencedCatalog(propType),
-          defaultElement: slotDefaults ? defaultElement(propType, declaration) ?? slotDefaults.get(symbol.getName()) : undefined,
+          component: component ?? slotDefault?.component,
+          defaultElement: element ?? slotDefault?.defaultElement,
           part: depth === 0 ? undefined : partToken(symbol.getName()),
           signatures: signatures.length ? signatures : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),

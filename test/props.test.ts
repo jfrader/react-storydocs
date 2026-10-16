@@ -343,11 +343,13 @@ test('slot member defaults reuse exact foreign contracts and actual shared-part 
   const widget = tables.find((table) => table.name === 'Widget')!;
   const slots = widget.props.find((prop) => prop.name === 'slots')!.members!;
   assert.deepEqual(Object.fromEntries(slots.map((member) => [member.name, member.defaultElement])), {
-    contract: 'Button', dynamic: undefined, item: 'div', local: 'Local', root: 'ButtonRoot', toggle: 'Button', typed: 'span',
+    contract: 'Button', dynamic: undefined, item: 'div', local: 'Local', root: undefined, toggle: undefined, typed: 'span',
   });
-  assert.equal(slots.find((member) => member.name === 'toggle')!.component, undefined);
+  for (const name of ['toggle', 'root']) assert.deepEqual(slots.find((member) => member.name === name)!.component, { name: 'Button', slug: 'button' });
   assert.deepEqual(slots.find((member) => member.name === 'contract')!.component, { name: 'Button', slug: 'button' });
-  assert.deepEqual(widget.props.find((prop) => prop.name === 'slotProps')!.members!.map((member) => [member.name, member.defaultElement]), [['item', 'div'], ['toggle', 'Button']]);
+  const slotProps = widget.props.find((prop) => prop.name === 'slotProps')!.members!;
+  assert.deepEqual(slotProps.map((member) => [member.name, member.defaultElement]), [['item', 'div'], ['toggle', undefined]]);
+  assert.deepEqual(slotProps.find((member) => member.name === 'toggle')!.component, { name: 'Button', slug: 'button' });
   assert.equal(tables.find((table) => table.name === 'Widget.Unused')!.props.find((prop) => prop.name === 'slots')!.members!.find((member) => member.name === 'item')!.defaultElement, undefined);
   assert.equal(tables.find((table) => table.name === 'Widget.Coalesced')!.props.find((prop) => prop.name === 'slots')!.members!.find((member) => member.name === 'item')!.defaultElement, 'div');
   assert.equal(tables.find((table) => table.name === 'Widget.Cyclic')!.props.find((prop) => prop.name === 'slots')!.members!.find((member) => member.name === 'item')!.defaultElement, undefined);
@@ -392,6 +394,7 @@ test('body slot fallbacks resolve component chains, local parts and imported cat
     interface PartProps { className?: string }
     interface Slots { root?: ComponentType<PartProps>; title?: ComponentType<PartProps>; surface?: ComponentType<CardPartProps>; typed?: ComponentType<ComponentPropsWithRef<'span'>>; unknown?: ComponentType<PartProps> }
     function CardTitle(props: PartProps) { return null; }
+    CardTitle.displayName = 'Widget.Title';
     export function Widget({ slots, component }: { slots?: Slots; slotProps?: { surface?: CardPartProps; title?: PartProps; root?: PartProps }; component?: ComponentType<PartProps> }) {
       const Root = slots?.root ?? component ?? 'div';
       const Title = slots?.title ?? CardTitle;
@@ -406,8 +409,30 @@ test('body slot fallbacks resolve component chains, local parts and imported cat
     'card/card.stories.tsx': "export default { title: 'Components/Card', component: Card }; export const Default = {};",
   });
   const props = tables[0]!.props;
-  assert.deepEqual(Object.fromEntries(props.find((prop) => prop.name === 'slots')!.members!.map((member) => [member.name, member.defaultElement])), { root: 'div', surface: 'Card', title: 'CardTitle', typed: 'span', unknown: undefined });
-  for (const name of ['slots', 'slotProps']) assert.equal(props.find((prop) => prop.name === name)!.members!.find((member) => member.name === 'surface')!.component, undefined);
+  assert.deepEqual(Object.fromEntries(props.find((prop) => prop.name === 'slots')!.members!.map((member) => [member.name, member.defaultElement])), { root: 'div', surface: undefined, title: 'Widget.Title', typed: 'span', unknown: undefined });
+  for (const name of ['slots', 'slotProps']) {
+    const surface = props.find((prop) => prop.name === name)!.members!.find((member) => member.name === 'surface')!;
+    assert.deepEqual(surface.component, { name: 'Card', slug: 'card' });
+    assert.equal(surface.defaultElement, undefined);
+  }
+});
+
+test('local slot defaults use their displayName or identifier without a catalog link', () => {
+  const tables = extract(`
+    import type { ComponentType } from 'react';
+    interface PartProps { className?: string }
+    interface Slots { part?: ComponentType<PartProps>; unnamed?: ComponentType<PartProps>; root?: ComponentType<PartProps> }
+    function WidgetPart(props: PartProps) { return null; }
+    WidgetPart.displayName = 'Widget.Part';
+    function WidgetUnnamed(props: PartProps) { return null; }
+    const defaults = { part: WidgetPart, unnamed: WidgetUnnamed, root: 'div' };
+    export function Widget({ slots = defaults }: { slots?: Slots; slotProps?: { part?: PartProps; unnamed?: PartProps; root?: PartProps } }) { return null; }
+  `);
+  for (const name of ['slots', 'slotProps']) {
+    const members = tables[0]!.props.find((prop) => prop.name === name)!.members!;
+    assert.deepEqual(Object.fromEntries(members.map((member) => [member.name, member.defaultElement])), { part: 'Widget.Part', root: 'div', unnamed: 'WidgetUnnamed' });
+    assert.ok(members.every((member) => member.component === undefined));
+  }
 });
 
 test('props presentation shows allowed values, JSDoc and collapsed inherited props', () => {
