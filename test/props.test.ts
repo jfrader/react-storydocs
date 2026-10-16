@@ -286,6 +286,58 @@ test('slot defaults link exact component and own props symbols through aliases a
   }
 });
 
+test('slot contracts preserve catalog refs through intersection aliases, indexed access and component wrappers', () => {
+  const tables = extract(`
+    import type { ComponentType, ComponentPropsWithRef } from 'react';
+    import type { ButtonRootSlotProps, ButtonPartProps, ButtonProps } from '../button/button';
+    interface PanelProps {
+      slots?: { root?: ComponentType<ButtonPartProps> };
+      slotProps?: { root?: ButtonRootSlotProps };
+    }
+    interface Props {
+      slots?: {
+        root?: NonNullable<PanelProps['slots']>['root'];
+        wrapped?: ComponentType<ButtonProps>;
+        shared?: ComponentType<ButtonPartProps>;
+        native?: ComponentType<ComponentPropsWithRef<'span'>>;
+      };
+      slotProps?: {
+        root?: NonNullable<PanelProps['slotProps']>['root'];
+        direct?: ButtonRootSlotProps;
+        wrapped?: ButtonProps;
+      };
+    }
+    function Local(props: ButtonPartProps) { return null; }
+    function Root({ slots = { root: Local, wrapped: Local, native: 'button' } }: Props) { return null; }
+    function Panel(props: PanelProps) { return null; }
+    export const Widget = Object.assign(Root, { Panel });
+  `, {
+    'button/button.tsx': `
+      export interface ButtonPartProps { className?: string }
+      export type ButtonRootSlotProps = Partial<ButtonPartProps> & { css?: string };
+      export type ButtonProps = ButtonPartProps & { label?: string };
+      export function Button(props: ButtonProps) { return null; }
+    `,
+    'button/button.stories.tsx': "export default { title: 'Components/Button', component: Button }; export const Default = {};",
+  });
+  for (const tableName of ['Widget', 'Widget.Panel']) {
+    const table = tables.find((table) => table.name === tableName)!;
+    for (const name of ['slots', 'slotProps']) {
+      const members = table.props.find((prop) => prop.name === name)!.members!;
+      const expectedNames = tableName === 'Widget.Panel' ? ['root'] : name === 'slots' ? ['root', 'wrapped'] : ['direct', 'root', 'wrapped'];
+      for (const memberName of expectedNames) {
+        const member = members.find((member) => member.name === memberName)!;
+        assert.deepEqual(member.component, { name: 'Button', slug: 'button' }, `${table.name}.${name}.${member.name}`);
+        assert.equal(member.defaultElement, undefined);
+      }
+    }
+  }
+  const slots = tables.find((table) => table.name === 'Widget')!.props.find((prop) => prop.name === 'slots')!.members!;
+  assert.equal(slots.find((member) => member.name === 'shared')!.component, undefined);
+  assert.equal(slots.find((member) => member.name === 'native')!.defaultElement, 'span');
+  assert.equal(slots.find((member) => member.name === 'native')!.component, undefined);
+});
+
 test('slot member defaults resolve native contracts, wrappers, aliases and uniform unions', () => {
   const tables = extract(`
     import type { ComponentType, ElementType, ComponentPropsWithRef, DetailedHTMLProps, HTMLAttributes } from 'react';
@@ -343,7 +395,7 @@ test('slot member defaults reuse exact foreign contracts and actual shared-part 
   const widget = tables.find((table) => table.name === 'Widget')!;
   const slots = widget.props.find((prop) => prop.name === 'slots')!.members!;
   assert.deepEqual(Object.fromEntries(slots.map((member) => [member.name, member.defaultElement])), {
-    contract: 'Button', dynamic: undefined, item: 'div', local: 'Local', root: undefined, toggle: undefined, typed: 'span',
+    contract: undefined, dynamic: undefined, item: 'div', local: 'Local', root: undefined, toggle: undefined, typed: 'span',
   });
   for (const name of ['toggle', 'root']) assert.deepEqual(slots.find((member) => member.name === name)!.component, { name: 'Button', slug: 'button' });
   assert.deepEqual(slots.find((member) => member.name === 'contract')!.component, { name: 'Button', slug: 'button' });
@@ -383,7 +435,8 @@ test('provider-wrapped components collect per-slot body defaults from their priv
   });
   for (const name of ['slots', 'slotProps']) {
     const members = tables[0]!.props.find((prop) => prop.name === name)!.members!;
-    assert.deepEqual(Object.fromEntries(members.map((member) => [member.name, member.defaultElement])), { item: 'div', list: 'div', root: 'div', toggle: 'Button' }, name);
+    assert.deepEqual(Object.fromEntries(members.map((member) => [member.name, member.defaultElement])), { item: 'div', list: 'div', root: 'div', toggle: undefined }, name);
+    assert.deepEqual(members.find((member) => member.name === 'toggle')!.component, { name: 'Button', slug: 'button' });
   }
 });
 
