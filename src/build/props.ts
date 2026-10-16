@@ -303,32 +303,6 @@ export function createPropsCollector() {
       }
       return undefined;
     };
-    const referencedCatalog = (type: ts.Type, seen = new Set<ts.Type>()): CatalogRef | undefined => {
-      if (seen.has(type) || seen.size > 16) return undefined;
-      seen.add(type);
-      if (type.isUnion() || type.isIntersection()) {
-        for (const part of type.types) {
-          const found = referencedCatalog(part, seen);
-          if (found) return found;
-        }
-        return undefined;
-      }
-      const symbol = type.aliasSymbol ?? type.getSymbol();
-      const direct = symbol ? catalogOf(symbol) : undefined;
-      if (direct) return direct;
-      const args = [
-        ...(type.aliasTypeArguments ?? []),
-        ...((type.flags & ts.TypeFlags.Object) && ((type as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference)
-          ? checker.getTypeArguments(type as ts.TypeReference)
-          : []),
-      ];
-      for (const arg of args) {
-        const found = referencedCatalog(arg, seen);
-        if (found) return found;
-      }
-      return undefined;
-    };
-
     const htmlTags = new Map<string, string[]>();
     for (const source of program.getSourceFiles()) {
       if (!source.fileName.endsWith('/lib.dom.d.ts')) continue;
@@ -341,75 +315,89 @@ export function createPropsCollector() {
         }
       }
     }
-    const uniformElement = (values: (string | undefined)[]) =>
-      values.length && values[0] && values.every((value) => value === values[0]) ? values[0] : undefined;
-    const elementFromType = (type: ts.Type, seen = new Set<ts.Type>()): string | undefined => {
+    type SlotDefault = Pick<PropDoc, 'component' | 'defaultElement'>;
+    const uniformDefault = (values: (SlotDefault | undefined)[]): SlotDefault | undefined => {
+      const component = values.find((value) => value?.component);
+      if (component) return component;
+      const element = values[0]?.defaultElement;
+      return element && values.every((value) => value?.defaultElement === element) ? { defaultElement: element } : undefined;
+    };
+    const defaultFromType = (type: ts.Type, seen = new Set<ts.Type>()): SlotDefault | undefined => {
       if (seen.has(type) || seen.size > 32) return undefined;
       const visited = new Set(seen).add(type);
-      if (type.isUnion()) return uniformElement(type.types.map((part) => elementFromType(part, visited)));
+      const symbol = type.aliasSymbol ?? type.getSymbol();
+      const component = symbol ? catalogOf(symbol) : undefined;
+      if (component) return { component };
+      if (type.isUnion()) return uniformDefault(type.types.map((part) => defaultFromType(part, visited)));
       if (type.isIntersection()) {
-        for (const part of type.types) {
-          const value = elementFromType(part, visited);
-          if (value) return value;
-        }
-        return undefined;
+        const values = type.types.map((part) => defaultFromType(part, visited));
+        return values.find((value) => value?.component) ?? values.find((value) => value !== undefined);
       }
-      const catalog = referencedCatalog(type);
-      if (catalog) return catalog.name;
       const tags = htmlTags.get(type.getSymbol()?.getName() ?? '');
-      if (tags?.length === 1) return tags[0];
+      if (tags?.length === 1) return { defaultElement: tags[0] };
       const args = [
         ...(type.aliasTypeArguments ?? []),
         ...((type.flags & ts.TypeFlags.Object) && ((type as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference)
           ? checker.getTypeArguments(type as ts.TypeReference) : []),
       ];
       for (const arg of args) {
-        const value = elementFromType(arg, visited);
+        const value = defaultFromType(arg, visited);
         if (value) return value;
       }
       return undefined;
     };
-    const elementFromNode = (node: ts.TypeNode, seen = new Set<ts.Node>()): string | undefined => {
+    const defaultFromNode = (node: ts.TypeNode, seen = new Set<ts.Node>()): SlotDefault | undefined => {
       if (seen.has(node) || seen.size > 32) return undefined;
       const visited = new Set(seen).add(node);
-      if (ts.isParenthesizedTypeNode(node)) return elementFromNode(node.type, visited);
-      if (ts.isUnionTypeNode(node)) return uniformElement(node.types.map((part) => elementFromNode(part, visited)));
+      if (ts.isParenthesizedTypeNode(node)) return defaultFromNode(node.type, visited);
+      if (ts.isUnionTypeNode(node)) return uniformDefault(node.types.map((part) => defaultFromNode(part, visited)));
       if (ts.isIntersectionTypeNode(node)) {
-        for (const part of node.types) {
-          const value = elementFromNode(part, visited);
-          if (value) return value;
-        }
-        return undefined;
+        const values = node.types.map((part) => defaultFromNode(part, visited));
+        return values.find((value) => value?.component) ?? values.find((value) => value !== undefined);
       }
       if (ts.isIndexedAccessTypeNode(node) && ts.isTypeReferenceNode(node.objectType)
         && ['HTMLElementTagNameMap', 'HTMLTagNameMap'].includes(node.objectType.typeName.getText())
-        && ts.isLiteralTypeNode(node.indexType) && ts.isStringLiteral(node.indexType.literal)) return node.indexType.literal.text;
+        && ts.isLiteralTypeNode(node.indexType) && ts.isStringLiteral(node.indexType.literal)) return { defaultElement: node.indexType.literal.text };
       if (ts.isTypeReferenceNode(node)) {
         const symbol = checker.getSymbolAtLocation(node.typeName);
         const target = symbol && (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
+        const component = target ? catalogOf(target) : undefined;
+        if (component) return { component };
         const name = target?.getName();
         const argument = node.typeArguments?.[0];
-        if (name === 'ComponentPropsWithRef' && argument && ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) return argument.literal.text;
-        if ((name === 'ComponentType' || name === 'ElementType') && argument) return elementFromNode(argument, visited);
+        if (name === 'ComponentPropsWithRef' && argument && ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) return { defaultElement: argument.literal.text };
+        if ((name === 'ComponentType' || name === 'ElementType') && argument) return defaultFromNode(argument, visited);
         if (name === 'HTMLAttributes' || name === 'DetailedHTMLProps') {
           for (const argument of node.typeArguments ?? []) {
-            const value = elementFromNode(argument, visited);
+            const value = defaultFromNode(argument, visited);
             if (value) return value;
           }
         }
-        const catalog = target ? catalogOf(target) : undefined;
-        if (catalog) return catalog.name;
         for (const declaration of target?.declarations ?? []) {
           if (ts.isTypeAliasDeclaration(declaration) && !declaration.typeParameters?.length) {
-            return elementFromNode(declaration.type, visited);
+            return defaultFromNode(declaration.type, visited);
           }
         }
       }
-      return elementFromType(checker.getTypeFromTypeNode(node));
+      return defaultFromType(checker.getTypeFromTypeNode(node));
     };
-    const defaultElement = (type: ts.Type, declaration: ts.Declaration | undefined) => {
+    const defaultFromContract = (type: ts.Type, declaration: ts.Declaration | undefined): SlotDefault | undefined => {
       const node = declaration && ts.isPropertySignature(declaration) ? declaration.type : undefined;
-      return node ? elementFromNode(node) : elementFromType(checker.getNonNullableType(type));
+      return (node ? defaultFromNode(node) : undefined) ?? defaultFromType(checker.getNonNullableType(type));
+    };
+    const slotCatalogs = (type: ts.Type, location: ts.Node): Map<string, SlotDefault> => {
+      const catalogs = new Map<string, SlotDefault>();
+      for (const name of ['slots', 'slotProps']) {
+        const slots = type.getProperty(name);
+        if (!slots) continue;
+        const slotType = checker.getNonNullableType(checker.getTypeOfSymbolAtLocation(slots, location));
+        for (const member of checker.getPropertiesOfType(slotType)) {
+          const declaration = member.valueDeclaration ?? member.declarations?.[0];
+          const value = defaultFromContract(checker.getTypeOfSymbolAtLocation(member, declaration ?? location), declaration);
+          if (value?.component) catalogs.set(member.getName(), value);
+        }
+      }
+      return catalogs;
     };
     const slotsObject = (node: ts.Expression, source: ts.SourceFile, seen = new Set<ts.Node>()): ts.ObjectLiteralExpression | undefined => {
       if (seen.has(node) || seen.size > 32) return undefined;
@@ -429,7 +417,6 @@ export function createPropsCollector() {
       }
       return undefined;
     };
-    type SlotDefault = Pick<PropDoc, 'component' | 'defaultElement'>;
     const displayNameOf = (target: ts.Symbol): string | undefined => {
       const source = target.valueDeclaration?.getSourceFile();
       if (!source) return undefined;
@@ -445,8 +432,8 @@ export function createPropsCollector() {
       visit(source);
       return displayName;
     };
-    const elementFromValue = (node: ts.Expression, symbol?: ts.Symbol): SlotDefault | undefined => {
-      if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return elementFromValue(node.expression);
+    const defaultFromValue = (node: ts.Expression, symbol?: ts.Symbol): SlotDefault | undefined => {
+      if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return defaultFromValue(node.expression);
       if (ts.isStringLiteral(node)) return { defaultElement: node.text };
       if (!ts.isIdentifier(node) || !/^[A-Z]/.test(node.text)) return undefined;
       const reference = symbol ?? checker.getSymbolAtLocation(node);
@@ -470,7 +457,7 @@ export function createPropsCollector() {
           const [access, ...fallbacks] = nullishOperands(node.initializer);
           if (access && ts.isPropertyAccessExpression(access)) {
             const member = checker.getSymbolAtLocation(access.name);
-            const value = fallbacks.map((fallback) => elementFromValue(fallback)).find((value) => value !== undefined);
+            const value = fallbacks.map((fallback) => defaultFromValue(fallback)).find((value) => value !== undefined);
             if (value) for (const declaration of member?.declarations ?? []) {
               if (!bodySlotDefaults.has(declaration)) bodySlotDefaults.set(declaration, value);
             }
@@ -503,7 +490,7 @@ export function createPropsCollector() {
         if ((!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) || ts.isComputedPropertyName(property.name)) continue;
         const value = ts.isPropertyAssignment(property) ? property.initializer : property.name;
         const symbol = ts.isShorthandPropertyAssignment(property) ? checker.getShorthandAssignmentValueSymbol(property) : undefined;
-        const element = elementFromValue(value, symbol);
+        const element = defaultFromValue(value, symbol);
         if (element) defaults.set(property.name.text, element);
       }
       const slots = propsType.getProperty('slots');
@@ -561,7 +548,7 @@ export function createPropsCollector() {
       return comments;
     };
 
-    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, SlotDefault>): PropDoc[] =>
+    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, SlotDefault>, catalogs?: Map<string, SlotDefault>): PropDoc[] =>
       checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
         const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
         const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? location);
@@ -607,9 +594,11 @@ export function createPropsCollector() {
         // accepts the family's part props, while a slot typed as another component's props links
         // to that component instead of restating its whole DOM surface.
         const ownedMembers = properties.length > 0 && properties.every((member) => declaredIn(member, sources));
-        const component = referencedCatalog(propType);
-        const element = slotDefaults ? defaultElement(propType, declaration) : undefined;
-        const slotDefault = component || element ? undefined : slotDefaults?.get(symbol.getName());
+        const isSlotMap = ['slots', 'slotProps'].includes(symbol.getName());
+        const contractDefault = defaultFromContract(propType, declaration);
+        const slotDefault = slotDefaults
+          ? contractDefault ?? catalogs?.get(symbol.getName()) ?? slotDefaults.get(symbol.getName())
+          : contractDefault?.component ? contractDefault : undefined;
         return {
           name: symbol.getName(),
           type: displayType || 'unknown',
@@ -619,16 +608,16 @@ export function createPropsCollector() {
           description: describe(symbol) || partDocs.get(symbol.getName()) || '',
           inheritedFrom,
           inheritedComponent: inheritedComponent ? { name: inheritedComponent.name, slug: inheritedComponent.slug } : undefined,
-          component: component ?? slotDefault?.component,
-          defaultElement: element ?? slotDefault?.defaultElement,
+          component: slotDefault?.component,
+          defaultElement: slotDefault?.defaultElement,
           part: depth === 0 ? undefined : partToken(symbol.getName()),
           signatures: signatures.length ? signatures : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
           // A slot map is this component's contract even when the owner adopts it from a shared
           // seam, so both `slots` and `slotProps` expand wherever they are declared.
           members: depth === 0
-            ? (symbol.getName() === 'slots' || symbol.getName() === 'slotProps' || (!inheritedFrom && hasLocalMembers)
-              ? describeProps(memberType, location, depth + 1, partComments(declaration), ['slots', 'slotProps'].includes(symbol.getName()) ? valueSlotDefaults(ts.isFunctionLike(location) ? location : undefined, type) : undefined)
+            ? (isSlotMap || (!inheritedFrom && hasLocalMembers)
+              ? describeProps(memberType, location, depth + 1, partComments(declaration), isSlotMap ? valueSlotDefaults(ts.isFunctionLike(location) ? location : undefined, type) : undefined, isSlotMap ? slotCatalogs(type, location) : undefined)
               : undefined)
             : depth === 1 && !inheritedFrom && ownedMembers ? describeProps(memberType, location, depth + 1) : undefined,
         };
