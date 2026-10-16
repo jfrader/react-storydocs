@@ -195,6 +195,7 @@ test('single-key inline slot maps retain documented roots with indexed intersect
     assert.equal(members?.length, 1, `${name} expands its single root`);
     assert.equal(members[0]?.name, 'root');
     assert.equal(members[0]?.description, description);
+    assert.equal(members[0]?.defaultElement, 'div');
   }
 });
 
@@ -283,6 +284,130 @@ test('slot defaults link exact component and own props symbols through aliases a
       assert.equal(prop.component, undefined, name);
     }
   }
+});
+
+test('slot member defaults resolve native contracts, wrappers, aliases and uniform unions', () => {
+  const tables = extract(`
+    import type { ComponentType, ElementType, ComponentPropsWithRef, DetailedHTMLProps, HTMLAttributes } from 'react';
+    type ScopeRootProps = ComponentPropsWithRef<'div'> & { [attribute: \`data-\${string}\`]: unknown };
+    type Uniform = (HTMLAttributes<HTMLButtonElement> & { primary: true }) | (HTMLAttributes<HTMLButtonElement> & { primary: false });
+    export function Widget(props: { slots?: {
+      root?: ComponentType<ComponentPropsWithRef<'div'>>;
+      button?: ComponentType<DetailedHTMLProps<HTMLAttributes<HTMLButtonElement>, HTMLButtonElement>>;
+      indexed?: ComponentType<HTMLAttributes<HTMLElementTagNameMap['section']>>;
+      alias?: ElementType<ScopeRootProps>;
+      uniform?: ComponentType<Uniform>;
+      wrappedUnion?: ComponentType<HTMLAttributes<HTMLSpanElement>> | ElementType<HTMLAttributes<HTMLSpanElement>>;
+      dialog?: ComponentType<HTMLAttributes<HTMLDialogElement>>;
+      input?: ComponentType<HTMLAttributes<HTMLInputElement>>;
+      paragraph?: ComponentType<HTMLAttributes<HTMLParagraphElement>>;
+      list?: ComponentType<HTMLAttributes<HTMLOListElement>>;
+      heading?: ComponentType<ComponentPropsWithRef<'h3'>>;
+      ambiguousHeading?: ComponentType<HTMLAttributes<HTMLHeadingElement>>;
+      ambiguous?: ComponentType<HTMLAttributes<HTMLButtonElement> | HTMLAttributes<HTMLDivElement>>;
+      partial?: ComponentType<HTMLAttributes<HTMLButtonElement> | { custom: true }>;
+      unknown?: ComponentType<{ className?: string }>;
+    }; slotProps?: { root?: ComponentPropsWithRef<'div'>; button?: HTMLAttributes<HTMLButtonElement> } }) { return null; }
+  `);
+  const props = tables[0]!.props;
+  const defaults = Object.fromEntries(props.find((prop) => prop.name === 'slots')!.members!.map((member) => [member.name, member.defaultElement]));
+  assert.deepEqual(defaults, {
+    alias: 'div', ambiguous: undefined, ambiguousHeading: undefined, button: 'button', dialog: 'dialog',
+    heading: 'h3', indexed: 'section', input: 'input', list: 'ol', paragraph: 'p', partial: undefined, root: 'div', uniform: 'button', unknown: undefined, wrappedUnion: 'span',
+  });
+  assert.deepEqual(props.find((prop) => prop.name === 'slotProps')!.members!.map((member) => [member.name, member.defaultElement]), [['button', 'button'], ['root', 'div']]);
+});
+
+test('slot member defaults reuse exact foreign contracts and actual shared-part defaults without adding links', () => {
+  const tables = extract(`
+    import type { ComponentType, ComponentPropsWithRef } from 'react';
+    import { Button, ButtonRoot, type ButtonSlotProps } from '../button/button';
+    interface ToastPartProps { className?: string }
+    interface Slots { item?: ComponentType<ToastPartProps>; toggle?: ComponentType<ToastPartProps>; root?: ComponentType<ToastPartProps>; typed?: ComponentType<ComponentPropsWithRef<'span'>>; contract?: ComponentType<ButtonSlotProps>; dynamic?: ComponentType<ToastPartProps>; local?: ComponentType<ToastPartProps> }
+    const Local = () => null;
+    const defaults = Object.freeze({ item: 'div', toggle: Button, root: ButtonRoot, typed: 'button', dynamic: choose(), local: Local } satisfies Record<string, unknown>);
+    const alias = defaults;
+    const defaultSlots = alias;
+    function Root({ slots = defaultSlots }: { slots?: Slots; slotProps?: { item?: ToastPartProps; toggle?: ToastPartProps } }) { return null; }
+    function Unused(props: { slots?: Slots }) { return null; }
+    export const WidgetSlots = defaults;
+    function Coalesced({ slots = missing }: { slots?: Slots }) { const actual = slots ?? WidgetSlots; return null; }
+    const cycleA = cycleB;
+    const cycleB = cycleA;
+    function Cyclic({ slots = cycleA }: { slots?: Slots }) { return null; }
+    export const Widget = Object.assign(Root, { Unused, Coalesced, Cyclic });
+  `, {
+    'button/button.tsx': 'export interface ButtonSlotProps { icon?: string } export function Button(props: { className?: string }) { return null; } export const ButtonRoot = Button;',
+    'button/button.stories.tsx': "export default { title: 'Components/Button', component: Button }; export const Default = {};",
+  });
+  const widget = tables.find((table) => table.name === 'Widget')!;
+  const slots = widget.props.find((prop) => prop.name === 'slots')!.members!;
+  assert.deepEqual(Object.fromEntries(slots.map((member) => [member.name, member.defaultElement])), {
+    contract: 'Button', dynamic: undefined, item: 'div', local: 'Local', root: 'ButtonRoot', toggle: 'Button', typed: 'span',
+  });
+  assert.equal(slots.find((member) => member.name === 'toggle')!.component, undefined);
+  assert.deepEqual(slots.find((member) => member.name === 'contract')!.component, { name: 'Button', slug: 'button' });
+  assert.deepEqual(widget.props.find((prop) => prop.name === 'slotProps')!.members!.map((member) => [member.name, member.defaultElement]), [['item', 'div'], ['toggle', 'Button']]);
+  assert.equal(tables.find((table) => table.name === 'Widget.Unused')!.props.find((prop) => prop.name === 'slots')!.members!.find((member) => member.name === 'item')!.defaultElement, undefined);
+  assert.equal(tables.find((table) => table.name === 'Widget.Coalesced')!.props.find((prop) => prop.name === 'slots')!.members!.find((member) => member.name === 'item')!.defaultElement, 'div');
+  assert.equal(tables.find((table) => table.name === 'Widget.Cyclic')!.props.find((prop) => prop.name === 'slots')!.members!.find((member) => member.name === 'item')!.defaultElement, undefined);
+});
+
+test('provider-wrapped components collect per-slot body defaults from their private renderer', () => {
+  const tables = extract(`
+    import type { ComponentType, ComponentPropsWithRef } from 'react';
+    import { Button, type ButtonProps } from '../button/button';
+    interface ToastPartProps { className?: string }
+    interface Slots { root?: ComponentType<ToastPartProps>; list?: ComponentType<ToastPartProps>; toggle?: ComponentType<ButtonProps>; item?: ComponentType<ToastPartProps> }
+    interface Props { slots?: Slots; slotProps?: { root?: ToastPartProps; list?: ToastPartProps; toggle?: ButtonProps; item?: ToastPartProps }; component?: ComponentType<ToastPartProps> }
+    interface UnrelatedSlots { item?: ComponentType<ToastPartProps> }
+    function Unrelated({ slots }: { slots?: UnrelatedSlots }) { const Item = slots?.item ?? 'aside'; return null; }
+    function WidgetContent({ slots, slotProps, component, ...props }: Props) {
+      const Root = slots?.root ?? component ?? 'div';
+      const List = slots?.list ?? 'div';
+      const Toggle = slots?.toggle ?? Button;
+      const Item = slots?.item ?? 'div';
+      return <Root><List><Item /><Toggle /></List></Root>;
+    }
+    function Provider({ children }: { children?: unknown }) { return null; }
+    export function Widget(props: Props) {
+      const enabled = true;
+      if (!enabled) return null;
+      return <Provider><WidgetContent {...props} /></Provider>;
+    }
+  `, {
+    'button/button.tsx': 'export interface ButtonProps { label?: string } export function Button(props: ButtonProps) { return null; }',
+    'button/button.stories.tsx': "export default { title: 'Components/Button', component: Button }; export const Default = {};",
+  });
+  for (const name of ['slots', 'slotProps']) {
+    const members = tables[0]!.props.find((prop) => prop.name === name)!.members!;
+    assert.deepEqual(Object.fromEntries(members.map((member) => [member.name, member.defaultElement])), { item: 'div', list: 'div', root: 'div', toggle: 'Button' }, name);
+  }
+});
+
+test('body slot fallbacks resolve component chains, local parts and imported catalog families', () => {
+  const tables = extract(`
+    import type { ComponentType, ComponentPropsWithRef } from 'react';
+    import { Card, type CardPartProps } from '../card';
+    interface PartProps { className?: string }
+    interface Slots { root?: ComponentType<PartProps>; title?: ComponentType<PartProps>; surface?: ComponentType<CardPartProps>; typed?: ComponentType<ComponentPropsWithRef<'span'>>; unknown?: ComponentType<PartProps> }
+    function CardTitle(props: PartProps) { return null; }
+    export function Widget({ slots, component }: { slots?: Slots; slotProps?: { surface?: CardPartProps; title?: PartProps; root?: PartProps }; component?: ComponentType<PartProps> }) {
+      const Root = slots?.root ?? component ?? 'div';
+      const Title = slots?.title ?? CardTitle;
+      const Surface = slots?.surface ?? Card;
+      const Typed = slots?.typed ?? 'button';
+      const Unknown = slots?.unknown ?? missing;
+      return null;
+    }
+  `, {
+    'card/index.ts': "export { Card } from './card'; export type { CardPartProps } from './card';",
+    'card/card.tsx': 'export interface CardPartProps { className?: string } export const Card = Object.assign((props: CardPartProps) => null, { Title: (props: CardPartProps) => null });',
+    'card/card.stories.tsx': "export default { title: 'Components/Card', component: Card }; export const Default = {};",
+  });
+  const props = tables[0]!.props;
+  assert.deepEqual(Object.fromEntries(props.find((prop) => prop.name === 'slots')!.members!.map((member) => [member.name, member.defaultElement])), { root: 'div', surface: 'Card', title: 'CardTitle', typed: 'span', unknown: undefined });
+  for (const name of ['slots', 'slotProps']) assert.equal(props.find((prop) => prop.name === name)!.members!.find((member) => member.name === 'surface')!.component, undefined);
 });
 
 test('props presentation shows allowed values, JSDoc and collapsed inherited props', () => {
