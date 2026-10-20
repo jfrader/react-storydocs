@@ -67,14 +67,16 @@ export function OverviewPage(): ReactNode {
           <p>
             Opening a component lazily imports the same module Storybook renders and evaluates it here: the meta&apos;s{' '}
             <code>component</code>, merged <code>args</code>, or the story&apos;s own <code>render</code>. A design system
-            gets a docs page without writing one.
+            gets a docs page without writing one. A meta may curate{' '}
+            <code>parameters.docs.sections</code> to choose and order the examples the page shows.
           </p>
         </div>
         <div className="card">
-          <h3>3 · API tables are argTypes</h3>
+          <h3>3 · API from the component sources</h3>
           <p>
-            Each page&apos;s prop table is derived from the story meta&apos;s <code>argTypes</code> and default{' '}
-            <code>args</code> at runtime. Add a control to a story and the table follows.
+            Each page&apos;s API comes from the component sources: root and part props, native element, slots and their
+            defaults, and inherited contract notes. JSDoc supplies the introduction and part descriptions;{' '}
+            <code>argTypes</code> only drive the controls.
           </p>
         </div>
         <div className="card">
