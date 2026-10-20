@@ -34,8 +34,9 @@ Selection updates must not automatically scroll the selected link into view.
 Section and API-part jumps are immediate. They focus the destination with
 `preventScroll` before positioning it once, so keyboard scrolling belongs to the
 document. There is no smooth-scroll animation to compete with wheel input and no
-delayed correction to pull the reader back. Route changes reset the new document
-once before paint, without resetting the persistent navigation.
+delayed correction to pull the reader back. Page changes reset and focus the new
+document once before paint, without resetting the persistent navigation. A
+same-page story query leaves focus to its destination, not the router's main element.
 
 Apply sticky-header clearance once, using the document's CSS scroll padding;
 do not also add the same offset as a heading scroll margin. Resolve a pending asynchronous

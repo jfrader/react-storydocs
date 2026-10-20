@@ -68,6 +68,7 @@ export function DocsApp() {
   useLayoutEffect(() => {
     if (renderedPage.current !== pageKey) {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      mainRef.current?.focus({ preventScroll: true });
       renderedPage.current = pageKey;
     }
   }, [pageKey]);
@@ -92,7 +93,6 @@ export function DocsApp() {
     const onHash = () => {
       setRoute(parseRoute(window.location.hash));
       setNavOpen(false);
-      mainRef.current?.focus({ preventScroll: true });
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);

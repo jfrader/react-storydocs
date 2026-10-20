@@ -103,6 +103,25 @@ try {
     try {
       await page.goto(target.href, { waitUntil: 'load' });
       await page.locator('main #section-api').waitFor();
+
+      await page.locator('main section > .frame[data-story][id]').nth(1).waitFor();
+      const stories = await page.locator('main section > .frame[data-story][id]').evaluateAll((frames) =>
+        frames.slice(0, 2).map((frame) => ({ story: frame.getAttribute('data-story'), id: frame.id })));
+      check(width, 'same-page story regression has targets', stories.length === 2);
+      for (const { story, id } of stories) {
+        const destination = new URL(page.url());
+        destination.hash = `${destination.hash.split('?')[0]}?story=${encodeURIComponent(story)}`;
+        await page.goto(destination.href);
+        await page.waitForFunction((id) => {
+          const target = document.getElementById(id);
+          return target && Math.abs(target.getBoundingClientRect().top - document.querySelector('.top').getBoundingClientRect().bottom) < 65;
+        }, id);
+        const focused = await page.evaluate((id) => document.activeElement === document.getElementById(id), id);
+        check(width, `same-page ${story} link retains destination focus`, focused,
+          { expected: id, actual: await page.evaluate(() => document.activeElement?.id) });
+      }
+      await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+
       const menu = page.getByRole('button', { name: 'Menu', exact: true });
       const mobile = await menu.isVisible();
       if (mobile) {
@@ -172,10 +191,7 @@ try {
           const before = await measure(page);
           await page.mouse.move(main.x + main.width / 2, HEIGHT / 2);
           if (input === 'wheel') await page.mouse.wheel(0, -600);
-          else {
-            await apiLink.blur();
-            await page.keyboard.press('PageUp');
-          }
+          else await page.keyboard.press('PageUp');
           await page.waitForTimeout(180);
           const samples = await observe(page);
           const first = samples[0];

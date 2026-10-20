@@ -51,11 +51,13 @@ test('TOC labels truncate within their rail without losing their full name', () 
 test('route changes replace document targets but preserve navigation group identity', () => {
   const require = createRequire(import.meta.url);
   const resets: ScrollToOptions[] = [];
+  const focuses: FocusOptions[] = [];
   const refs: Array<{ current: unknown }> = [];
   let refHook = 0;
   const frames = new Map<number, () => void>();
   let frameId = 0;
   let layoutCleanup: (() => void) | undefined;
+  let layoutEffect: (() => (() => void) | undefined) | undefined;
   const catalog = ['game-table', 'pill', 'effects'].map((slug) => ({ slug, group: 'Examples', name: slug }));
   const window = { location: { hash: '#/components/game-table' }, scrollTo: (options: ScrollToOptions) => { resets.push({ ...options }); } };
   const compiled = ts.transpileModule(readFileSync(new URL('../src/app.tsx', import.meta.url), 'utf8'), {
@@ -67,7 +69,7 @@ test('route changes replace document targets but preserve navigation group ident
     'virtual:storybook-docs/site': { pages: { color: true }, site: { title: 'Example' }, theme: {} },
     'virtual:storybook-docs/releases': { releases: {} },
     './base': { STORYBOOK_DOCS_BASE: '', hrefFor: (path: string) => path },
-    './toc': { hashPath: (hash: string) => hash.slice(1), PageRail: () => null },
+    './toc': { hashPath: (hash: string) => hash.split('?')[0], PageRail: () => null },
   };
   runInNewContext(`(function(require, exports) { ${compiled}\n})`, {
     window, document: {},
@@ -79,24 +81,28 @@ test('route changes replace document targets but preserve navigation group ident
       useState: (initial: unknown) => [typeof initial === 'function' ? initial() : initial, () => {}],
       useRef: (current: unknown) => refs[refHook++] ??= { current },
       useEffect: () => {},
-      useLayoutEffect: (effect: () => (() => void) | undefined) => { layoutCleanup?.(); layoutCleanup = effect(); },
+      useLayoutEffect: (effect: () => (() => void) | undefined) => { layoutEffect = effect; },
     };
     return modules[name] ?? (name.startsWith('./') ? {} : require(name));
   }, exports);
   const destinations = ['components/game-table', 'components/pill', 'components/effects'].map((path) => ({ path, pageKey: path }));
+  destinations.splice(1, 0, { path: 'components/game-table?story=Default', pageKey: 'components/game-table' });
   destinations.push({ path: 'tokens/effects', pageKey: 'effects' });
   let groupKeys: Array<string | null> | undefined;
   for (const { path, pageKey } of destinations) {
     window.location.hash = `#/${path}`;
     refHook = 0;
     const shell = exports.DocsApp!();
+    const main = Children.toArray(shell.props.children).find((child) => isValidElement(child) && child.type === 'main');
+    assert.ok(isValidElement<{ children: ReactNode; ref: { current: unknown } }>(main));
+    main.props.ref.current = { focus: (options: FocusOptions) => focuses.push({ ...options }) };
+    layoutCleanup?.();
+    layoutCleanup = layoutEffect?.();
     const rail = Children.toArray(shell.props.children).at(-1);
     assert.ok(isValidElement<{ pageKey: string }>(rail));
     assert.equal(rail.props.pageKey, pageKey);
     assert.ok(rail.key?.endsWith(pageKey), `TOC remount key for ${path}`);
     if (path.startsWith('components/')) {
-      const main = Children.toArray(shell.props.children).find((child) => isValidElement(child) && child.type === 'main');
-      assert.ok(isValidElement<{ children: ReactNode }>(main));
       const content = main.props.children;
       assert.ok(isValidElement(content));
       assert.equal(content.key, pageKey, 'the old scroll target must not be reused by the destination component page');
@@ -110,10 +116,16 @@ test('route changes replace document targets but preserve navigation group ident
     assert.equal(keys.length, 2, 'both foundations and component groups are checked');
     groupKeys ??= keys;
     assert.deepEqual(keys, groupKeys, `navigation state survives ${path}`);
-    if (path === 'components/game-table') assert.equal(resets.length, 0, 'initial mounting preserves reload scroll restoration');
-    else assert.deepEqual(resets.at(-1), { top: 0, left: 0, behavior: 'instant' }, 'navigation resets the committed destination before paint');
+    if (pageKey === 'components/game-table') {
+      assert.equal(resets.length, 0, 'initial mounting and same-page story navigation do not reset the document');
+      assert.equal(focuses.length, 0, 'same-page story navigation owns its destination focus');
+    } else {
+      assert.deepEqual(resets.at(-1), { top: 0, left: 0, behavior: 'instant' }, 'navigation resets the committed destination before paint');
+      assert.deepEqual(focuses.at(-1), { preventScroll: true }, 'focus belongs to the newly committed document');
+    }
   }
-  assert.equal(resets.length, destinations.length - 1);
+  assert.equal(resets.length, new Set(destinations.map(({ pageKey }) => pageKey)).size - 1);
+  assert.equal(focuses.length, resets.length);
   assert.equal(frames.size, 0, 'route navigation never schedules a second reset over user input');
 });
 
