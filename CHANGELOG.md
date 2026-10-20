@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Documentation scrollbars follow the current theme. Desktop navigation and page outlines use thin native bars, with normal native sizing for touch pointers and high-contrast mode.
+- Scrolling over a desktop sidebar continues on the page at its boundary, including when the page outline fits without scrolling.
+
 ## 0.14.2
 
 - "On this page" and API-part links jump directly to their destination and move keyboard focus there, without an animation or later correction overriding your scrolling.
