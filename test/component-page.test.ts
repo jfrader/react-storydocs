@@ -8,8 +8,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import type { CatalogEntry } from '../src/config.ts';
 import * as sections from '../src/sections.ts';
+import type { CatalogRef, ComponentPropsDoc } from '../src/prop-docs.ts';
 
-function renderPage(module: Record<string, unknown>, name = 'Button') {
+function renderPage(module: Record<string, unknown>, name = 'Button', components: ComponentPropsDoc[] = [], uses: CatalogRef[] = []) {
   const require = createRequire(import.meta.url);
   const source = readFileSync(new URL('../src/pages/component-page.tsx', import.meta.url), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -21,7 +22,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button') {
     'virtual:storybook-docs/composition': { provided: false, Composition: undefined },
     '../sections': sections,
     '../story-view': { useStoryModule: () => ({ module }) },
-    '../props': { useProps: () => ({ components: [], uses: [] }) },
+    '../props': { useProps: () => ({ components, uses }) },
     '../controls': {
       defaultsFromProps: () => ({}),
       ControlledStoryFrame: ({ story }: { story: string }) => createElement('div', { 'data-story': story }, story),
@@ -44,8 +45,8 @@ test('component page without an authored description omits the introduction and 
   assert.doesNotMatch(markup, /class="lede"|every story in/);
   assert.doesNotMatch(markup, /<h2>Notes<\/h2>|Everything above is generated|Editorial judgement/);
   assert.match(markup, /data-story="Default"/);
-  assert.match(markup, /<h2>Usage<\/h2>/);
-  assert.match(markup, /<h2>Props<\/h2>/);
+  assert.doesNotMatch(markup, /<h2>Usage<\/h2>|No usage code is authored/);
+  assert.match(markup, /<h2>API<\/h2>/);
 });
 
 test('component page retains an authored description', () => {
@@ -58,7 +59,7 @@ test('component page retains an authored description', () => {
 
 test('component page moves its selected frame above Usage exactly once', () => {
   const markup = renderPage({
-    default: { component: {}, args: { children: 'Save' } },
+    default: { component: {}, args: { children: 'Save' }, parameters: { docs: { usage: 'Use it.' } } },
     Default: {}, Loading: {}, Highlighted: {}, Hidden: { tags: ['!autodocs'] },
   });
   assert.ok(markup.indexOf('data-story="Highlighted"') < markup.indexOf('<h2>Usage</h2>'));
@@ -70,7 +71,7 @@ test('component page moves its selected frame above Usage exactly once', () => {
 test('component page uses overlay anatomy and open args without admitting !autodocs fixtures', () => {
   const component = Object.assign(() => null, { Trigger: () => null, Content: () => null });
   const markup = renderPage({
-    default: { component }, Default: {},
+    default: { component, parameters: { docs: { usage: 'Use it.' } } }, Default: {},
     Open: { tags: ['!autodocs'], args: { defaultOpen: true } },
     PersistentOpen: { args: { defaultOpen: true } },
     DisabledOpen: { args: { open: true } },
@@ -90,7 +91,7 @@ test('documentation table styling cannot leak into story or portalled calendar t
 
 test('component page combines meta callbacks and sibling open args for single-widget surfaces', () => {
   const markup = renderPage({
-    default: { component: () => null, args: { onOpenChange: () => undefined } },
+    default: { component: () => null, args: { onOpenChange: () => undefined }, parameters: { docs: { usage: 'Use it.' } } },
     Default: {}, HiddenOpen: { tags: ['!autodocs'], args: { open: true } },
     PersistentOpen: { args: { open: true } },
   }, 'TimePicker');
@@ -99,42 +100,117 @@ test('component page combines meta callbacks and sibling open args for single-wi
   assert.doesNotMatch(markup, /data-story="HiddenOpen"/);
 });
 
-test('component Usage merges default-story args, even when its render is custom', () => {
+test('API import does not duplicate a featured story snippet', () => {
   const markup = renderPage({
     default: { component: {}, args: { variant: 'solid', children: 'Meta' } },
     Default: { args: { children: 'Save' }, render: () => null },
   });
   assert.match(markup, /import \{ Button \} from &#x27;@fixture\/ui&#x27;/);
-  assert.match(markup, /&lt;Button variant=&quot;solid&quot;&gt;Save&lt;\/Button&gt;/);
+  assert.doesNotMatch(markup, /&lt;Button|<h2>Usage<\/h2>/);
   assert.doesNotMatch(markup, /&gt;Meta&lt;/);
 });
 
-test('component Usage retains authored source when a story overrides only language', () => {
+test('page-level source is not repeated outside the example Code panel', () => {
   const markup = renderPage({
     default: { component: {}, parameters: { docs: { source: { code: '<Dialog.Content>Hello</Dialog.Content>' } } } },
     Default: { parameters: { docs: { source: { language: 'jsx' } } } },
   }, 'Dialog');
   assert.match(markup, /import \{ Dialog \}/);
-  assert.match(markup, /&lt;Dialog.Content&gt;Hello&lt;\/Dialog.Content&gt;/);
+  assert.doesNotMatch(markup, /&lt;Dialog.Content&gt;|<h2>Usage<\/h2>/);
 });
 
-test('component Usage falls back to another authored composition rather than a bare compound root', () => {
+test('authored composition source does not become a second page-level snippet', () => {
   const markup = renderPage({
     default: { component: Object.assign(() => null, { Content: () => null }), args: { defaultOpen: false } },
     Default: { render: () => null },
     Composition: { parameters: { docs: { source: { code: '<Dialog><Dialog.Content>Hello</Dialog.Content></Dialog>' } } } },
   }, 'Dialog');
-  assert.match(markup, /&lt;Dialog&gt;&lt;Dialog.Content&gt;Hello&lt;\/Dialog.Content&gt;&lt;\/Dialog&gt;/);
+  assert.doesNotMatch(markup, /&lt;Dialog&gt;/);
   assert.doesNotMatch(markup, /&lt;Dialog defaultOpen/);
 });
 
-test('component Usage uses dotted part identity and reports missing compound examples honestly', () => {
+test('API import falls back to the catalog name without docgen', () => {
   const part = renderPage({
     default: { component: { displayName: 'Dialog.Content' } }, Default: { args: { children: 'Hello' } },
   }, 'Dialog');
   assert.match(part, /import \{ Dialog \}/);
-  assert.match(part, /&lt;Dialog.Content&gt;Hello&lt;\/Dialog.Content&gt;/);
+  assert.doesNotMatch(part, /&lt;Dialog.Content&gt;/);
   const missing = renderPage({ default: { component: {} }, Default: { render: () => null } }, 'Dialog');
-  assert.match(missing, /No usage code is authored for this component\./);
-  assert.doesNotMatch(missing, /import \{ Dialog \}|&lt;Dialog/);
+  assert.doesNotMatch(missing, /No usage code is authored for this component\.|&lt;Dialog/);
+  assert.match(missing, /import \{ Dialog \}/);
+});
+
+test('explicit sections control all examples and keep the featured frame above authored Usage', () => {
+  const markup = renderPage({
+    default: { component: {}, parameters: { docs: { usage: 'Use the widget.', sections: [
+      { title: 'Basic', stories: ['Hidden', 'Variant'] },
+      { title: 'Behavior', stories: ['Variant', 'Unknown', 'Controlled'] },
+    ] } } },
+    Default: {}, Variant: {}, Controlled: {}, Hidden: { tags: ['!autodocs'] },
+  });
+  assert.ok(markup.indexOf('data-story="Variant"') < markup.indexOf('<h2>Usage</h2>'));
+  assert.ok(markup.indexOf('<h2>Behavior</h2>') < markup.indexOf('<h2>API</h2>'));
+  assert.equal(markup.match(/data-story="Variant"/g)?.length, 1);
+  assert.match(markup, /<span class="chip">2 stories<\/span>/);
+  assert.doesNotMatch(markup, /data-story="(?:Hidden|Default|Unknown)"|<h2>Basic<\/h2>|More stories/);
+});
+
+test('API renders named parts, descriptions, native notes, slots and relationships with captions', () => {
+  const prop = (name: string, extra = {}) => ({ name, type: 'string', required: false, defaultValue: null, description: '', ...extra });
+  const markup = renderPage({ default: { component: {} }, Default: {} }, 'Widget', [
+    { name: 'Widget', description: 'Root description.', props: [
+      prop('slotProps', { members: [prop('root', { description: 'Root slot.', defaultElement: 'div', part: 'widget-root' }), prop('content', { description: 'Content slot.' })] }),
+      prop('slots', { members: [prop('content', { description: 'Replacement.', defaultElement: 'Widget.Content' }), prop('action', { component: { name: 'Action', slug: 'action' } }), prop('unknown')] }),
+      prop('id', { inheritedFrom: 'HTMLAttributes' }),
+    ] },
+    { name: 'Widget.Content', description: 'Part description.', native: 'section', props: [] },
+  ], [{ name: 'Surface', slug: 'surface' }]);
+  assert.equal(markup.match(/Root description\./g)?.length, 1);
+  assert.match(markup, /<p class="lede">Root description\.<\/p>/);
+  assert.match(markup, /import \{ Widget \}/);
+  assert.match(markup, /<section class="api-part"><h3 id="api-widget">Widget<\/h3>/);
+  assert.match(markup, /<h3 id="api-widget-content">Widget.Content<\/h3><p>Part description\.<\/p>/);
+  assert.match(markup, /Native element: <code>&lt;section&gt;<\/code>/);
+  assert.match(markup, /No component-specific props\./);
+  assert.match(markup, /<summary>Inherited props \(1\)<\/summary>/);
+  assert.match(markup, /<h3>Slots<\/h3>/);
+  const slots = markup.slice(markup.indexOf('<h3>Slots</h3>'), markup.indexOf('<h3>Also uses</h3>'));
+  assert.ok(slots.indexOf('<code>root</code>') < slots.indexOf('<code>action</code>'), slots);
+  assert.equal(slots.match(/<code>content<\/code>/g)?.length, 1);
+  assert.match(slots, /data-ui=&quot;widget-root&quot;/);
+  assert.match(slots, /class="api-part-link"/);
+  assert.doesNotMatch(slots, /href="#api-/);
+  assert.match(slots, /href="#\/components\/action"/);
+  assert.match(slots, /Content slot\./);
+  assert.doesNotMatch(slots, /Replacement\./);
+  assert.match(markup, /<h3>Also uses<\/h3><ul><li><a href="#\/components\/surface">Surface<\/a>/);
+  assert.equal(markup.match(/class="table-scroll"/g)?.length, markup.match(/<caption /g)?.length);
+});
+
+test('API retains argTypes fallback and omits empty slot and relationship headings', () => {
+  const markup = renderPage({ default: { component: {}, argTypes: { label: { control: 'text' } } }, Default: {} });
+  assert.match(markup, /<h2>API<\/h2>/);
+  assert.match(markup, /<th scope="col">Control<\/th>/);
+  assert.doesNotMatch(markup, /<h3>Slots<\/h3>|<h3>Also uses<\/h3>/);
+});
+
+test('Slots merges keys across parts and keeps the first slotProps description', () => {
+  const member = (name: string, description: string) => ({ name, description, type: 'object', required: false, defaultValue: null });
+  const markup = renderPage({ default: { component: {} }, Default: {} }, 'Widget', [
+    { name: 'Widget', props: [{ ...member('slotProps', ''), members: [member('shared', 'Root meaning.')] }] },
+    { name: 'Widget.Content', props: [{ ...member('slots', ''), members: [member('shared', 'Part meaning.'), member('extra', 'Extra slot.')] }] },
+  ]);
+  const slots = markup.slice(markup.indexOf('<h3>Slots</h3>'));
+  assert.equal(slots.match(/<code>shared<\/code>/g)?.length, 1);
+  assert.match(slots, /Root meaning\./);
+  assert.match(slots, /Extra slot\./);
+  assert.doesNotMatch(slots, /Part meaning\./);
+});
+
+test('an authored introduction overrides root JSDoc without repeating either in API', () => {
+  const markup = renderPage({ default: { component: {}, parameters: { docs: { description: { component: 'Authored introduction.' } } } }, Default: {} }, 'Widget', [
+    { name: 'Widget', description: 'Source introduction.', props: [] },
+  ]);
+  assert.equal(markup.match(/Authored introduction\./g)?.length, 1);
+  assert.doesNotMatch(markup, /Source introduction\./);
 });

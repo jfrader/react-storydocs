@@ -30,7 +30,12 @@ test('build collection retains indexed-interface slot maps after other families'
             root?: RootProps & { css?: Interpolation<unknown> };
           };
         }
+        /** Provides the widget. */
         export function WidgetProvider(props: WidgetProps) { return null; }
+        export namespace WidgetProvider {
+          /** Renders widget content. */
+          export function Content(props: { label?: string }) { return null; }
+        }
       `],
     ];
     for (const [slug, name, source] of fixtures) {
@@ -46,6 +51,8 @@ test('build collection retains indexed-interface slot maps after other families'
         const code = (plugin.load as (id: string) => string).call({}, `\0virtual:storybook-docs/props/${slug}`);
         components = JSON.parse(code.match(/export const components = (.*);/)![1]!);
       }
+      assert.equal(components.find((component) => component.name === 'WidgetProvider')?.description, 'Provides the widget.');
+      assert.equal(components.find((component) => component.name === 'WidgetProvider.Content')?.description, 'Renders widget content.');
       return components.find((component) => component.name === 'WidgetProvider')!;
     };
     for (const slugs of [['widget'], ['button', 'card', 'widget']]) {

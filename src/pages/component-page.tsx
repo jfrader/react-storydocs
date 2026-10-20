@@ -7,7 +7,7 @@ import { Guidance } from '../guidance';
 import { CodeBlock } from '../code';
 import { defaultsFromProps } from '../controls';
 import { MarkdownView } from '../guidance';
-import { sectionStories, selectExample, buildUsageSnippet, type DocsParameters } from '../sections';
+import { resolveSections, selectExample, type DocsParameters } from '../sections';
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
 import { useProps, type CatalogRef, type ComponentPropsDoc, type PropDoc } from '../props';
@@ -41,10 +41,10 @@ interface UsageStory {
 }
 
 
-function TableFrame({ label, children }: { label: string; children: ReactNode }) {
+function TableFrame({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return (
     <div className="table-scroll" role="region" aria-label={label} tabIndex={0}>
-      <table className="props-table">
+      <table className={`props-table${className ? ` ${className}` : ''}`}>
         <caption className="sr-only">{label}</caption>
         {children}
       </table>
@@ -69,6 +69,47 @@ function PropNotes({ prop }: { prop: PropDoc }) {
 }
 
 const SHAPE_PREVIEW_FIELDS = 3;
+
+const apiSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+function PartLink({ name, children }: { name: string; children: ReactNode }) {
+  return <button type="button" className="api-part-link" onClick={() => document.getElementById(`api-${apiSlug(name)}`)?.scrollIntoView({ block: 'start' })}>{children}</button>;
+}
+
+function SlotsTable({ components }: { components: ComponentPropsDoc[] }) {
+  const slots = new Map<string, PropDoc>();
+  for (const propName of ['slotProps', 'slots']) {
+    for (const component of components) {
+      for (const member of component.props.find((prop) => prop.name === propName)?.members ?? []) {
+        const previous = slots.get(member.name);
+        slots.set(member.name, previous ? {
+          ...member, ...previous,
+          description: previous.description || member.description,
+          part: previous.part ?? member.part,
+          component: previous.component ?? member.component,
+          defaultElement: previous.defaultElement ?? member.defaultElement,
+        } : member);
+      }
+    }
+  }
+  if (!slots.size) return null;
+  return <>
+    <h3>Slots</h3>
+    <TableFrame label="Slots" className="slots-table">
+      <thead><tr><th scope="col">Slot</th><th scope="col">Default</th><th scope="col">Description</th></tr></thead>
+      <tbody>{Array.from(slots.values()).sort((a, b) => Number(b.name === 'root') - Number(a.name === 'root') || a.name.localeCompare(b.name)).map((slot) => {
+        const local = components.find((component) => component.name === (slot.component?.name ?? slot.defaultElement));
+        return <tr key={slot.name}>
+          <th scope="row"><code>{slot.name}</code>{slot.part ? <small><code>data-ui="{slot.part}"</code></small> : null}</th>
+          <td>{local ? <PartLink name={local.name}><code>{local.name}</code></PartLink>
+            : slot.component ? <a href={`#${hrefFor(`/components/${slot.component.slug}`)}`}><code>{slot.component.name}</code></a>
+            : slot.defaultElement ? <code>{slot.defaultElement}</code> : '—'}</td>
+          <td>{slot.description ? <MarkdownView markdown={slot.description} /> : '—'}</td>
+        </tr>;
+      })}</tbody>
+    </TableFrame>
+  </>;
+}
 
 function PropType({ prop }: { prop: PropDoc }) {
   const signature = prop.signatures?.[0];
@@ -188,12 +229,12 @@ function PropsTable({
     );
   }
   if (components && components.length > 0) {
-    const single = components.length === 1;
     return (
       <>
-        {components.map((component) => (
-          <section key={component.name}>
-            {!single ? <h3>{component.name}</h3> : null}
+        {components.map((component, index) => (
+          <section className="api-part" key={component.name}>
+            <h3 id={`api-${apiSlug(component.name)}`}>{component.name}</h3>
+            {index > 0 && component.description ? <MarkdownView markdown={component.description} /> : null}
             {component.native ? (
               <p className="hint">
                 Native element: <code>&lt;{component.native}&gt;</code>.
@@ -286,7 +327,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   const meta = (module?.default ?? {}) as MetaShape;
   const argTypes = meta.argTypes ?? {};
   const defaultArgs = meta.args ?? {};
-  const description = meta.parameters?.docs?.description?.component;
+  const description = meta.parameters?.docs?.description?.component ?? props?.[0]?.description;
   const usage = meta.parameters?.docs?.usage;
   // Storybook's `!autodocs` tag excludes a story from docs pages; those stories are usually
   // authored that way because rendering them on a docs page is hostile (inert overlays).
@@ -303,37 +344,14 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
     () => defaultsFromProps(props?.find((component) => component.name === entry.name)?.props ?? []),
     [props, entry.name],
   );
-  const example = selectExample(visibleStories.map((name) => ({
+  const fallbackExample = selectExample(visibleStories.map((name) => ({
     name,
     description: (module?.[name] as UsageStory | undefined)?.parameters?.docs?.description?.story,
     args: { ...defaultArgs, ...(module?.[name] as UsageStory | undefined)?.args },
     play: (module?.[name] as UsageStory | undefined)?.play,
   })), Object.keys(meta.component ?? {}), props === null ? null : componentDefaults);
-  const sections = useMemo(() => sectionStories(visibleStories.filter((story) => story !== example)), [visibleStories, example]);
-  const defaultStory = (module?.[visibleStories.find((name) => /^default$/i.test(name)) ?? example ?? ''] ?? {}) as UsageStory;
-  // Another authored sample can document compound anatomy that Default's args cannot express.
-  const fallbackSource = visibleStories
-    .map((name) => (module?.[name] as UsageStory | undefined)?.parameters?.docs?.source)
-    .find((source) => source?.code?.trim());
-  const source = {
-    code: defaultStory.parameters?.docs?.source?.code ?? meta.parameters?.docs?.source?.code ?? fallbackSource?.code,
-    language: defaultStory.parameters?.docs?.source?.language ?? meta.parameters?.docs?.source?.language ?? fallbackSource?.language,
-  };
-  // Authored samples declare their own language; the snippet derived from arguments is JSX.
-  const codeLanguage = source?.language ?? 'tsx';
-  // Foundations pages are stories-only metas: there is no component to instantiate, so a usage
-  // snippet would be a made-up tag. Skip it there; component pages keep it.
-  const snippet = useMemo(
-    () =>
-      entry.hasComponent ? buildUsageSnippet({
-        componentName: entry.name,
-        from: storySource,
-        component: meta.component,
-        source: source?.code,
-        args: { ...defaultArgs, ...defaultStory.args },
-      }) : null,
-    [source?.code, entry.name, entry.hasComponent, defaultArgs, defaultStory.args, meta.component],
-  );
+  const { example, sections } = resolveSections(visibleStories, meta.parameters?.docs?.sections, fallbackExample);
+  const storyCount = sections.reduce((total, section) => total + section.stories.length, example ? 1 : 0);
   // Own props only: inherited ones (DOM, ARIA) live behind their own disclosure, so counting them
   // here would show a number the reader cannot act on.
   const propCount = props
@@ -347,7 +365,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       </div>
       <h1>{entry.name}</h1>
       <div className="summary-row">
-        <span className="chip">{module ? visibleStories.length : entry.stories.length} stories</span>
+        <span className="chip">{module ? storyCount : entry.stories.length} stories</span>
         <span className="chip">{propCount} props</span>
       </div>
       {description ? <p className="lede">{description}</p> : null}
@@ -364,12 +382,9 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       {module ? (
         <>
           {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[example]} /> : null}
-          {entry.hasComponent ? <h2>Usage</h2> : null}
-          {snippet ? <CodeBlock code={snippet} language={codeLanguage} />
-            : entry.hasComponent ? <p>No usage code is authored for this component.</p> : null}
           {usage ? (
             <>
-              {entry.hasComponent ? null : <h2>Usage</h2>}
+              <h2>Usage</h2>
               <MarkdownView markdown={usage} />
             </>
           ) : null}
@@ -388,8 +403,11 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
         </>
       ) : null}
 
-      <h2>Props</h2>
+      <h2>API</h2>
+      {entry.hasComponent && storySource ? <CodeBlock code={`import { ${props?.[0]?.name ?? entry.name} } from '${storySource}';`} language="tsx" /> : null}
       <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
+      <SlotsTable components={props ?? []} />
+      {uses.length ? <><h3>Also uses</h3><ul>{uses.map((component) => <li key={component.slug}><a href={`#${hrefFor(`/components/${component.slug}`)}`}>{component.name}</a></li>)}</ul></> : null}
     </>
   );
 }

@@ -165,6 +165,7 @@ export function createPropsCollector() {
             .parseWithProgramProvider(sources, () => createPropsProgram(sources, DOCGEN_COMPILER_OPTIONS))
             .map((result) => ({
               name: result.displayName,
+              description: result.description || undefined,
               props: Object.values(result.props ?? {})
                 .map(toPropDoc)
                 .sort(compareProps),
@@ -623,7 +624,7 @@ export function createPropsCollector() {
         };
       }).sort(compareProps);
 
-    const visitComponent = (type: ts.Type, label: string, location: ts.Node, depth = 0) => {
+    const visitComponent = (type: ts.Type, label: string, location: ts.Node, symbol: ts.Symbol, depth = 0) => {
       const signature = type.getCallSignatures()[0];
       if (signature) {
         const parameter = signature.getParameters()[0];
@@ -664,14 +665,15 @@ export function createPropsCollector() {
           if (declaration) {
             ts.forEachChild(declaration, readBodyDefaults);
           }
-          tables.push({ name: label, props });
+          const componentSymbol = type.getSymbol();
+          tables.push({ name: label, description: describe(symbol) || (componentSymbol ? describe(componentSymbol) : '') || undefined, props });
         }
       }
       if (depth >= 2) return;
       for (const member of checker.getPropertiesOfType(type)) {
         const memberType = checker.getTypeOfSymbolAtLocation(member, member.valueDeclaration ?? location);
         if (memberType.getCallSignatures().length > 0 && !['bind', 'call', 'apply'].includes(member.getName())) {
-          visitComponent(memberType, `${label}.${member.getName()}`, location, depth + 1);
+          visitComponent(memberType, `${label}.${member.getName()}`, location, member, depth + 1);
         }
       }
     };
@@ -690,7 +692,7 @@ export function createPropsCollector() {
     );
     for (const { symbol, source } of candidates) {
       const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
-      visitComponent(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), symbol.getName() === 'default' ? entryName : symbol.getName(), source);
+      visitComponent(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), symbol.getName() === 'default' ? entryName : symbol.getName(), source, target);
     }
     return tables;
   };

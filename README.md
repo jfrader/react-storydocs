@@ -1,7 +1,7 @@
 # @jfrader/storybook-docs
 
 A documentation front for **any design system that has Storybook**. Point it at a set of
-story files; it generates the navigation, renders every story in place, and builds API
+story files; it generates the navigation, renders docs-visible stories in place, and builds API
 tables from the stories' own `argTypes`. There is no second component list anywhere.
 
 ```
@@ -18,10 +18,11 @@ example/            # a consumer you can copy
 | --- | --- |
 | Sidebar, groups, slugs | each story module's `title` (scoped to the `meta` object, so fixtures never leak in) |
 | Search (⌘K) | the catalog, scored over component, group and story names |
-| Examples (all of them, inline, in sections) | the story module itself — meta `component` + merged `args`, or the story's `render` |
-| Sections (Overview / Variants & sizes / States / Interaction & keyboard / Content & layout / Environments / Edge cases) | the story names, bucketed by convention; Environments sits above Edge cases |
+| Examples (inline, in sections) | the story module itself — meta `component` + merged `args`, or the story's `render` |
+| Example sections | authored `parameters.docs.sections`, or story-name buckets when absent |
 | Props tables (one per component and part, with native-element notes) | the component sources — `react-docgen-typescript` for components, the TypeScript compiler API for exported `*Props` types (where compound parts live) |
-| Usage snippet | the default story's own arguments |
+| Usage | authored `parameters.docs.usage` Markdown only |
+| API | component import, root and part descriptions and props, merged slots and related components |
 | Per-example Code disclosures | the story's merged args (hidden when the story uses a custom render, so a snippet never lies) |
 | Authored guidance per component | Markdown files in the configured guidance directories, with `> Do —` / `> Don't —` blockquotes rendered as do/don't cards — the part stories cannot generate |
 | Foundations: Color, Typography, Spacing & shape, Elevation & motion | your token module (optional) |

@@ -30,6 +30,7 @@ export interface PropDoc {
 
 export interface ComponentPropsDoc {
   name: string;
+  description?: string;
   props: PropDoc[];
   /** Native element whose full prop set also applies (e.g. `button` for Dialog.Trigger). */
   native?: string;

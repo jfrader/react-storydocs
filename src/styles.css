@@ -439,6 +439,22 @@ code.signature {
 .props-table thead th:nth-child(2) { width: 34%; }
 .props-table thead th:nth-child(3) { width: 12%; }
 .props-table thead th:nth-child(4) { width: 36%; }
+.slots-table thead th:nth-child(1) { width: 25%; }
+.slots-table thead th:nth-child(2) { width: 25%; }
+.slots-table thead th:nth-child(3) { width: 50%; }
+.api-part { min-width: 0; }
+.api-part-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--sd-accent-text);
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.api-part-link:hover { text-decoration: underline; }
+.api-part-link:focus-visible { outline: 2px solid var(--sd-focus-ring); }
+.table-scroll tbody th small { display: block; }
 .props-table :is(th, td) {
   overflow-wrap: anywhere;
 }

@@ -33,14 +33,53 @@ The following authored documentation parameters are rendered without a second co
 
 | Storybook parameter | Where it appears |
 | --- | --- |
-| `parameters.docs.description.component` | Page introduction under the title. |
+| `parameters.docs.description.component` | Page introduction under the title; defaults to the root component's JSDoc. |
 | `parameters.docs.description.story` | Blurb on that story's example. |
 | `parameters.docs.usage` | Usage section, rendered as Markdown (headings, lists, tables, callouts) above the examples. |
-| `parameters.docs.source.code` | The example's Code panel, and the page-level snippet when authored, instead of the snippet derived from default arguments. |
+| `parameters.docs.sections` | Meta-only ordered list of `{ title, stories: string[] }` sections using story export names. Only listed docs-visible examples render. |
+| `parameters.docs.source.code` | The example's Code panel instead of generated example code. |
 | `parameters.docs.source.language` | Language id handed to the consumer's code renderer; the derived snippet is `tsx`. |
 | `tags: ['!autodocs']` | Story is left off docs pages, as in Storybook. Meta and story tags both apply. |
 
 Meta parameters apply to every story; a story's own parameters win.
+
+Author sections on the story meta:
+
+```ts
+parameters: {
+  docs: {
+    sections: [
+      { title: 'Basic', stories: ['Default', 'Variant'] },
+      { title: 'Behavior', stories: ['Controlled'] },
+    ],
+  },
+}
+```
+
+The first listed docs-visible story is featured above Usage and removed from its section.
+Unknown names, `!autodocs` stories and duplicate names are ignored; the first occurrence wins.
+Empty sections (including a section containing only the featured story) have no heading.
+An explicit empty array renders no examples. Without `docs.sections`, the existing heuristic
+featured selection and story-name buckets apply. Usage appears only when `docs.usage` is authored;
+there is no page-level story snippet. Each example retains its own Code panel.
+
+### API section
+
+After the examples, API renders the component import from `stories.from` (when non-empty), then
+one named H3 per component table: root first, followed by compound parts. Each table includes
+own props, a native-element note when available, and inherited props in a disclosure. Pages
+without docgen use their `argTypes` table instead.
+
+`ComponentPropsDoc.description?: string` contains the component symbol's JSDoc, including each
+compound part symbol. The root description supplies the page introduction unless overridden by
+`docs.description.component`; part descriptions appear under their API heading.
+
+Slots merges members of `slotProps`, then `slots`, across all component tables. Each key appears
+once, root first and other keys alphabetical, with its `data-ui` token, default component or
+element, and description. Defaults matching an API part scroll to that heading without changing
+the route hash; other catalog defaults link to their component page. Also uses links to catalog
+components value-imported by this component. Empty Slots and Also uses headings are omitted.
+The page rail includes API and its H3 headings; there is no separate in-page index.
 
 ### Rendering code with the design system's own block
 
@@ -66,7 +105,7 @@ export default function Code({ code, language }: { code: string; language?: stri
 }
 ```
 
-The same renderer is used for the page snippet, every example's Code panel and every fenced block
+The same renderer is used for the API import, every example's Code panel and every fenced block
 in authored Markdown. A design system that highlights code opt-in per component (a `highlight`
 loader, as Storybook does) wires it here once for the whole docs site. If the renderer throws, that
 block falls back to plain text rather than failing the page.
@@ -84,7 +123,7 @@ The default export receives `{ entry, components, uses }`. `entry` is `{ slug, n
 `components` is the props tables, or `null` while they load. A prop or member may include
 `component: { name, slug }` when its type declaration belongs to another catalog component.
 `uses` lists other catalog components value-imported from this component's source. The engine
-does not name slots or decide which relationships to show. If the module throws, the page
+renders Slots and Also uses itself; this panel remains available for additional consumer content. If the module throws, the page
 continues without the panel.
 
 ## Groups

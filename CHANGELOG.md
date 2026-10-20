@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.14.0
+
+- Component pages end with one API section: import, named root and part tables, merged slots and links to components they use. Component JSDoc supplies the introduction and part descriptions.
+- Story metas can author `parameters.docs.sections` to select and order examples without heuristic buckets. The first listed visible example is featured once.
+- Usage renders only authored `parameters.docs.usage` Markdown. Example Code panels remain available without a duplicate page-level snippet.
+
 - Component slot defaults link to their catalog family through type contracts and value defaults, or to the local part's display name.
 - Slot and slotProps members expose their default HTML element or component, inferred from their type contracts or the component's default slots map.
 - Props and slot maps are expanded for component families whose exports add a suffix to the catalog name, such as `CardFlightsProvider`.
