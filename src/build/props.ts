@@ -508,6 +508,61 @@ export function createPropsCollector() {
     const describe = (symbol: ts.Symbol): string =>
       ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim();
 
+    const describeComponent = (symbol: ts.Symbol, seen = new Set<ts.Symbol>()): string => {
+      if (seen.has(symbol)) return '';
+      seen.add(symbol);
+      if (symbol.flags & ts.SymbolFlags.Alias) return describeComponent(checker.getAliasedSymbol(symbol), seen);
+      const own = describe(symbol);
+      if (own) return own;
+      for (const declaration of symbol.declarations ?? []) {
+        const value = ts.isPropertyAssignment(declaration) ? declaration.initializer : undefined;
+        const target = value && ts.isIdentifier(value) ? checker.getSymbolAtLocation(value)
+          : ts.isShorthandPropertyAssignment(declaration) ? checker.getShorthandAssignmentValueSymbol(declaration) : undefined;
+        if (target) {
+          const description = describeComponent(target, seen);
+          if (description) return description;
+        }
+      }
+      return '';
+    };
+
+    const nativeFromProps = (type: ts.Type, location: ts.Node, node: ts.TypeNode | undefined): string | undefined => {
+      const ref = type.getProperty('ref');
+      if (ref) {
+        const text = checker.typeToString(checker.getTypeOfSymbolAtLocation(ref, ref.valueDeclaration ?? location), undefined, ts.TypeFormatFlags.NoTruncation);
+        const elements = new Set(Array.from(text.matchAll(/\bHTML\w*Element\b/g), (match) => match[0]));
+        if (elements.size > 1) return undefined;
+        if (elements.size) {
+          const tags = Array.from(elements).flatMap((element) => htmlTags.get(element) ?? []);
+          if (tags.length === 1) return tags[0];
+        }
+      }
+      const tags = new Set<string>();
+      const seen = new Set<ts.Node>();
+      const visit = (node: ts.Node) => {
+        if (seen.has(node)) return;
+        seen.add(node);
+        if (ts.isTypeReferenceNode(node) || ts.isExpressionWithTypeArguments(node)) {
+          const name = ts.isTypeReferenceNode(node) ? node.typeName : node.expression;
+          const symbol = checker.getSymbolAtLocation(name);
+          const target = symbol && (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
+          const argument = node.typeArguments?.[0];
+          if (target && ['ComponentPropsWithRef', 'ComponentProps'].includes(target.getName())
+            && argument && ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) {
+            tags.add(argument.literal.text);
+          } else {
+            for (const declaration of target?.declarations ?? []) {
+              if (ts.isTypeAliasDeclaration(declaration)) visit(declaration.type);
+              if (ts.isInterfaceDeclaration(declaration)) declaration.heritageClauses?.forEach((clause) => clause.types.forEach(visit));
+            }
+          }
+        } else if (ts.isIntersectionTypeNode(node) || ts.isUnionTypeNode(node)) node.types.forEach(visit);
+        else if (ts.isParenthesizedTypeNode(node)) visit(node.type);
+      };
+      if (node) visit(node);
+      return tags.size === 1 ? Array.from(tags)[0] : undefined;
+    };
+
     const cleanComment = (text: string): string =>
       text.replace(/^\/\*\*?/, '').replace(/\*\/\s*$/, '')
         .split('\n').map((line) => line.replace(/^\s*\*\s?/, '')).join(' ')
@@ -666,7 +721,12 @@ export function createPropsCollector() {
             ts.forEachChild(declaration, readBodyDefaults);
           }
           const componentSymbol = type.getSymbol();
-          tables.push({ name: label, description: describe(symbol) || (componentSymbol ? describe(componentSymbol) : '') || undefined, props });
+          tables.push({
+            name: label,
+            description: describeComponent(symbol) || (componentSymbol ? describeComponent(componentSymbol) : '') || undefined,
+            native: nativeFromProps(propsType, declaration ?? location, declaration?.parameters[0]?.type),
+            props,
+          });
         }
       }
       if (depth >= 2) return;

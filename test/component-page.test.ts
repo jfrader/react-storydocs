@@ -10,7 +10,7 @@ import type { CatalogEntry } from '../src/config.ts';
 import * as sections from '../src/sections.ts';
 import type { CatalogRef, ComponentPropsDoc } from '../src/prop-docs.ts';
 
-function renderPage(module: Record<string, unknown>, name = 'Button', components: ComponentPropsDoc[] = [], uses: CatalogRef[] = []) {
+function renderPage(module: Record<string, unknown>, name = 'Button', components: ComponentPropsDoc[] = [], uses: CatalogRef[] = [], hasComponent = true) {
   const require = createRequire(import.meta.url);
   const source = readFileSync(new URL('../src/pages/component-page.tsx', import.meta.url), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -27,7 +27,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button', components
       defaultsFromProps: () => ({}),
       ControlledStoryFrame: ({ story }: { story: string }) => createElement('div', { 'data-story': story }, story),
     },
-    '../code': { CodeBlock: ({ code }: { code: string }) => createElement('pre', null, code) },
+    '../code': { CodeBlock: ({ code, label }: { code: string; label?: string }) => createElement('pre', { 'aria-label': label }, code) },
     '../guidance': { Guidance: () => null, MarkdownView: ({ markdown }: { markdown: string }) => createElement('p', null, markdown) },
     '../skeleton': { Skeleton: () => null },
   };
@@ -36,7 +36,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button', components
   );
   return renderToStaticMarkup(createElement(exports.ComponentPage!, { entry: {
     slug: 'fixture', name, group: 'Fixtures', storybookTitle: `Fixtures/${name}`,
-    stories: Object.keys(module).filter((key) => key !== 'default'), hasComponent: true, load: async () => module,
+    stories: Object.keys(module).filter((key) => key !== 'default'), hasComponent, load: async () => module,
   } }));
 }
 
@@ -170,9 +170,11 @@ test('API renders named parts, descriptions, native notes, slots and relationshi
   assert.match(markup, /import \{ Widget \}/);
   assert.match(markup, /<section class="api-part"><h3 id="api-widget">Widget<\/h3>/);
   assert.match(markup, /<h3 id="api-widget-content">Widget.Content<\/h3><p>Part description\.<\/p>/);
-  assert.match(markup, /Native element: <code>&lt;section&gt;<\/code>/);
+  assert.match(markup, /Also accepts the attributes of <code>&lt;section&gt;<\/code>/);
   assert.match(markup, /No component-specific props\./);
-  assert.match(markup, /<summary>Inherited props \(1\)<\/summary>/);
+  assert.match(markup, /Also accepts inherited props from <span><code>HTMLAttributes<\/code>/);
+  assert.doesNotMatch(markup, /<summary>Inherited props|<code>id<\/code>/);
+  assert.match(markup, /<pre aria-label="Import">import/);
   assert.match(markup, /<h3>Slots<\/h3>/);
   const slots = markup.slice(markup.indexOf('<h3>Slots</h3>'), markup.indexOf('<h3>Also uses</h3>'));
   assert.ok(slots.indexOf('<code>root</code>') < slots.indexOf('<code>action</code>'), slots);
@@ -213,4 +215,24 @@ test('an authored introduction overrides root JSDoc without repeating either in 
   ]);
   assert.equal(markup.match(/Authored introduction\./g)?.length, 1);
   assert.doesNotMatch(markup, /Source introduction\./);
+});
+
+test('inherited catalog and native props are summarized without inherited rows', () => {
+  const prop = (name: string, extra = {}) => ({ name, type: 'string', description: '', required: false, defaultValue: null, ...extra });
+  const markup = renderPage({ default: { component: {} }, Default: {} }, 'Widget', [{ name: 'Widget', native: 'dialog', props: [
+    prop('own'), prop('id', { inheritedFrom: 'HTMLAttributes' }),
+    prop('surfaceProp', { inheritedFrom: 'SurfaceProps', inheritedComponent: { name: 'Surface', slug: 'surface' } }),
+  ] }]);
+  assert.match(markup, /Also accepts the props of <a href="#\/components\/surface">Surface<\/a>/);
+  assert.match(markup, /Also accepts the attributes of <code>&lt;dialog&gt;<\/code>/);
+  assert.match(markup, /<code>own<\/code>/);
+  assert.doesNotMatch(markup, /<code>id<\/code>|<code>surfaceProp<\/code>|HTMLAttributes|Inherited props/);
+  assert.equal(markup.match(/<tr>/g)?.length, 2);
+});
+
+test('stories-only pages have no empty API but retain authored argTypes APIs', () => {
+  const markup = renderPage({ default: {}, Default: {} }, 'Guide', [], [], false);
+  assert.doesNotMatch(markup, /<h2>API<\/h2>|No props\./);
+  const withArgs = renderPage({ default: { argTypes: { size: { control: 'text' } } }, Default: {} }, 'Guide', [], [], false);
+  assert.match(withArgs, /<h2>API<\/h2>/);
 });

@@ -60,24 +60,33 @@ The first listed docs-visible story is featured above Usage and removed from its
 Unknown names, `!autodocs` stories and duplicate names are ignored; the first occurrence wins.
 Empty sections (including a section containing only the featured story) have no heading.
 An explicit empty array renders no examples. Without `docs.sections`, the existing heuristic
-featured selection and story-name buckets apply. Usage appears only when `docs.usage` is authored;
+featured selection and story-name buckets apply. A non-array `docs.sections` also falls back to
+heuristics; malformed entries or entries without an array of stories are skipped.
+Usage appears only when `docs.usage` is authored;
 there is no page-level story snippet. Each example retains its own Code panel.
 
 ### API section
 
 After the examples, API renders the component import from `stories.from` (when non-empty), then
-one named H3 per component table: root first, followed by compound parts. Each table includes
-own props, a native-element note when available, and inherited props in a disclosure. Pages
-without docgen use their `argTypes` table instead.
+one named H3 per component table: root first, followed by compound parts. Tables list only own
+props, never inherited DOM attributes. Inherited catalog contracts get a short linked line
+("Also accepts the props of Surface"). Known native elements get an attributes line; otherwise
+external inherited contracts are summarized by name without a table. `ComponentPropsDoc.native`
+is inferred from the props' ref element type or React `ComponentPropsWithRef<'tag'>` /
+`ComponentProps<'tag'>` aliases, and omitted when ambiguous. Pages without docgen use their
+`argTypes` table instead. Stories-only pages with no API data omit the API section entirely.
+The import code block is labelled Import, separately from example source code.
 
 `ComponentPropsDoc.description?: string` contains the component symbol's JSDoc, including each
 compound part symbol. The root description supplies the page introduction unless overridden by
-`docs.description.component`; part descriptions appear under their API heading.
+`docs.description.component`; part descriptions appear under their API heading. Parts attached
+with `Object.assign(Root, { Content: ContentFunction })` read the target function's JSDoc,
+including imported aliases.
 
 Slots merges members of `slotProps`, then `slots`, across all component tables. Each key appears
 once, root first and other keys alphabetical, with its `data-ui` token, default component or
 element, and description. Defaults matching an API part scroll to that heading without changing
-the route hash; other catalog defaults link to their component page. Also uses links to catalog
+the route hash, respecting reduced motion; other catalog defaults link to their component page. Also uses links to catalog
 components value-imported by this component. Empty Slots and Also uses headings are omitted.
 The page rail includes API and its H3 headings; there is no separate in-page index.
 

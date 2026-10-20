@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { test } from 'node:test';
 import type { ResolvedConfig } from 'vite';
 import { storybookDocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
+import { createPropsCollector } from '../src/build/props.ts';
 
 test('build collection retains indexed-interface slot maps after other families', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-build-props-'));
@@ -65,6 +66,40 @@ test('build collection retains indexed-interface slot maps after other families'
         assert.deepEqual(members?.map((member) => ({ name: member.name, description: member.description })), [{ name: 'root', description }], `${slugs.join(' → ')}: ${name}`);
       }
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('Object.assign parts resolve function JSDoc through property initializers and import aliases, and infer native elements', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-compound-props-'));
+  try {
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    writeFileSync(path.join(root, 'parts.tsx'), `
+      import type { ComponentPropsWithRef, Ref } from 'react';
+      /** Displays dialog content. */
+      export function DialogContent(props: ComponentPropsWithRef<'dialog'>) { return null; }
+      /** Opens the dialog. */
+      export function DialogTrigger(props: { ref?: Ref<HTMLButtonElement>; disabled?: boolean }) { return null; }
+    `);
+    writeFileSync(path.join(root, 'dialog.tsx'), `
+      import type { ComponentProps, Ref } from 'react';
+      import { DialogContent, DialogTrigger as TriggerAlias } from './parts';
+      function DialogRoot(props: { open?: boolean }) { return null; }
+      function DialogClose(props: ComponentProps<'button'> & { ref?: never }) { return null; }
+      function Ambiguous(props: { ref?: Ref<HTMLButtonElement | HTMLDialogElement> }) { return null; }
+      /** Controls a dialog. */
+      export const Dialog = Object.assign(DialogRoot, { Content: DialogContent, Trigger: TriggerAlias, Close: DialogClose, Ambiguous });
+    `);
+    const components = createPropsCollector().collect(path.join(root, 'dialog.stories.tsx'), 'Dialog', 'dialog').components;
+    const part = (name: string) => components.find((component) => component.name === name);
+    assert.equal(part('Dialog')?.description, 'Controls a dialog.');
+    assert.equal(part('Dialog.Content')?.description, 'Displays dialog content.');
+    assert.equal(part('Dialog.Trigger')?.description, 'Opens the dialog.');
+    assert.equal(part('Dialog.Content')?.native, 'dialog');
+    assert.equal(part('Dialog.Trigger')?.native, 'button');
+    assert.equal(part('Dialog.Close')?.native, 'button');
+    assert.equal(part('Dialog.Ambiguous')?.native, undefined);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

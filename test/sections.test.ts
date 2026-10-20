@@ -25,3 +25,14 @@ test('absent sections retain the heuristic selection and buckets', () => {
     example: 'Default', sections: sectionStories(['Loading', 'Other']),
   });
 });
+
+test('non-array sections fall back to heuristics and malformed entries are skipped', () => {
+  const stories = ['Default', 'Loading', 'Other'];
+  for (const malformed of [null, {}, 'Basic', 42]) {
+    assert.deepEqual(resolveSections(stories, malformed, 'Default'), resolveSections(stories, undefined, 'Default'));
+  }
+  assert.deepEqual(resolveSections(stories, [null, 'Bad', {}, { title: 'Bad', stories: {} },
+    { title: 'Basic', stories: ['Other', null, 42, 'Loading'] }], 'Default'), {
+    example: 'Other', sections: [{ title: 'Basic', stories: ['Loading'] }],
+  });
+});

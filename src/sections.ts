@@ -82,17 +82,18 @@ export interface StorySection {
   stories: string[];
 }
 
-export function resolveSections(visibleStories: string[], authored: StorySection[] | undefined, fallbackExample: string | null): { example: string | null; sections: StorySection[] } {
-  if (authored === undefined) {
+export function resolveSections(visibleStories: string[], authored: unknown, fallbackExample: string | null): { example: string | null; sections: StorySection[] } {
+  if (!Array.isArray(authored)) {
     return { example: fallbackExample, sections: sectionStories(visibleStories.filter((story) => story !== fallbackExample)) };
   }
   const available = new Set(visibleStories);
   const seen = new Set<string>();
   let example: string | null = null;
-  const sections = authored.map(({ title, stories }) => ({
+  const sections = authored.filter((section): section is { title: string; stories: unknown[] } => section !== null && typeof section === 'object'
+    && typeof section.title === 'string' && Array.isArray(section.stories)).map(({ title, stories }) => ({
     title,
-    stories: stories.filter((story) => {
-      if (!available.has(story) || seen.has(story)) return false;
+    stories: stories.filter((story): story is string => {
+      if (typeof story !== 'string' || !available.has(story) || seen.has(story)) return false;
       seen.add(story);
       if (example === null) {
         example = story;

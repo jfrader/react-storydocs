@@ -73,7 +73,11 @@ const SHAPE_PREVIEW_FIELDS = 3;
 const apiSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 function PartLink({ name, children }: { name: string; children: ReactNode }) {
-  return <button type="button" className="api-part-link" onClick={() => document.getElementById(`api-${apiSlug(name)}`)?.scrollIntoView({ block: 'start' })}>{children}</button>;
+  const scrollToPart = () => {
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    document.getElementById(`api-${apiSlug(name)}`)?.scrollIntoView({ behavior, block: 'start' });
+  };
+  return <button type="button" className="api-part-link" onClick={scrollToPart}>{children}</button>;
 }
 
 function SlotsTable({ components }: { components: ComponentPropsDoc[] }) {
@@ -191,9 +195,12 @@ function CompositionPanel({ entry, components, uses }: {
 
 function InheritedLinks({ component }: { component: ComponentPropsDoc }) {
   const bases = Array.from(new Map(component.props.flatMap((prop) => prop.inheritedComponent ? [[prop.inheritedComponent.slug, prop.inheritedComponent] as const] : [])).values());
-  return bases.length ? <p>Also available from {bases.map((entry, index) => (
-    <span key={entry.slug}>{index ? ', ' : ''}<a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a></span>
-  ))}.</p> : null;
+  const external = Array.from(new Set(component.props.filter((prop) => prop.inheritedFrom && !prop.inheritedComponent).map((prop) => prop.inheritedFrom)));
+  return <>
+    {bases.map((entry) => <p key={entry.slug}>Also accepts the props of <a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a>.</p>)}
+    {component.native ? <p>Also accepts the attributes of <code>&lt;{component.native}&gt;</code>.</p>
+      : external.length ? <p>Also accepts inherited props from {external.map((name, index) => <span key={name}>{index ? ', ' : ''}<code>{name}</code></span>)}.</p> : null}
+  </>;
 }
 
 function PropRows({ props }: { props: PropDoc[] }) {
@@ -235,11 +242,6 @@ function PropsTable({
           <section className="api-part" key={component.name}>
             <h3 id={`api-${apiSlug(component.name)}`}>{component.name}</h3>
             {index > 0 && component.description ? <MarkdownView markdown={component.description} /> : null}
-            {component.native ? (
-              <p className="hint">
-                Native element: <code>&lt;{component.native}&gt;</code>.
-              </p>
-            ) : null}
             {component.props.some((prop) => !prop.inheritedFrom) ? <TableFrame label={`${component.name} props`}>
               <thead>
                 <tr>
@@ -254,15 +256,6 @@ function PropsTable({
               </tbody>
             </TableFrame> : <p>No component-specific props.</p>}
             <InheritedLinks component={component} />
-            {component.props.some((prop) => prop.inheritedFrom) ? (
-              <details>
-                <summary>Inherited props ({component.props.filter((prop) => prop.inheritedFrom).length})</summary>
-                <TableFrame label={`${component.name} inherited props`}>
-                  <thead><tr><th scope="col">Prop</th><th scope="col">Type</th><th scope="col">Default</th><th scope="col">Notes</th></tr></thead>
-                  <tbody><PropRows props={component.props.filter((prop) => prop.inheritedFrom)} /></tbody>
-                </TableFrame>
-              </details>
-            ) : null}
           </section>
         ))}
       </>
@@ -403,11 +396,13 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
         </>
       ) : null}
 
-      <h2>API</h2>
-      {entry.hasComponent && storySource ? <CodeBlock code={`import { ${props?.[0]?.name ?? entry.name} } from '${storySource}';`} language="tsx" /> : null}
-      <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
-      <SlotsTable components={props ?? []} />
-      {uses.length ? <><h3>Also uses</h3><ul>{uses.map((component) => <li key={component.slug}><a href={`#${hrefFor(`/components/${component.slug}`)}`}>{component.name}</a></li>)}</ul></> : null}
+      {entry.hasComponent || props?.length || Object.keys(argTypes).length || uses.length ? <>
+        <h2>API</h2>
+        {entry.hasComponent && storySource ? <CodeBlock code={`import { ${props?.[0]?.name ?? entry.name} } from '${storySource}';`} language="tsx" label="Import" /> : null}
+        <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
+        <SlotsTable components={props ?? []} />
+        {uses.length ? <><h3>Also uses</h3><ul>{uses.map((component) => <li key={component.slug}><a href={`#${hrefFor(`/components/${component.slug}`)}`}>{component.name}</a></li>)}</ul></> : null}
+      </> : null}
     </>
   );
 }

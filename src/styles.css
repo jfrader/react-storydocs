@@ -458,6 +458,11 @@ code.signature {
 .props-table :is(th, td) {
   overflow-wrap: anywhere;
 }
+.guidance :is(p, li, code),
+.api-part :is(p, li, code),
+.props-table :is(p, li, code) {
+  overflow-wrap: anywhere;
+}
 .req {
   display: inline-block;
   white-space: nowrap;

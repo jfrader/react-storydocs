@@ -31,3 +31,7 @@ test('the sticky rail still parks and follows', () => {
   assert.match(styles, /\.rail-track::before\s*\{[^}]*height:\s*calc\(var\(--sd-rail-start/,
     'the rail spacer drives the follow-and-park behaviour');
 });
+
+test('long inline usage and API tokens wrap rather than widening the document', () => {
+  assert.match(styles, /\.guidance :is\(p, li, code\),\s*\.api-part :is\(p, li, code\),\s*\.props-table :is\(p, li, code\)\s*\{\s*overflow-wrap:\s*anywhere/);
+});
