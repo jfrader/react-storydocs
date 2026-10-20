@@ -2,7 +2,7 @@
 /**
  * Browser regression checks against a running docs site. Run from a directory with Playwright:
  * node /path/to/check-navigation.mjs http://localhost:4346 [--route /components/button]
- *   [--widths 1440,1100,768,390] [--json /path/to/results.json]
+ *   [--widths 1440,1100,768,390] [--height 900] [--json /path/to/results.json]
  * Playwright and Chromium are caller-owned; this tool does not install dependencies.
  */
 import { createRequire } from 'node:module';
@@ -13,10 +13,11 @@ let chromium;
 let options;
 let target;
 let widths;
+let height;
 try {
   options = parseArgs({
     allowPositionals: true,
-    options: { route: { type: 'string' }, widths: { type: 'string' }, json: { type: 'string' } },
+    options: { route: { type: 'string' }, widths: { type: 'string' }, height: { type: 'string' }, json: { type: 'string' } },
   });
   if (options.positionals.length !== 1) throw new Error('Pass one running docs URL.');
   target = new URL(options.positionals[0]);
@@ -26,16 +27,18 @@ try {
   if (widths.some((width) => !Number.isInteger(width) || width <= 0)) {
     throw new Error('--widths must contain comma-separated positive integers.');
   }
+  height = Number(options.values.height ?? 900);
+  if (!Number.isInteger(height) || height <= 0) throw new Error('--height must be a positive integer.');
   ({ chromium } = createRequire(`${process.cwd()}/package.json`)('playwright'));
 } catch (error) {
   console.error(`check-navigation: ${error.message}\nRun from a directory where playwright resolves.`);
   process.exit(2);
 }
 
-const HEIGHT = 900;
+const HEIGHT = height;
 const TOLERANCE = 4;
 const OBSERVATION_MS = 4200;
-const report = { url: target.href, checks: [] };
+const report = { url: target.href, height: HEIGHT, checks: [] };
 const check = (width, name, pass, details) => {
   report.checks.push({ width, name, pass, details });
   console.log(`${pass ? 'PASS' : 'FAIL'} ${width}px ${name}${pass ? '' : ` ${JSON.stringify(details)}`}`);
@@ -94,7 +97,73 @@ async function followRoute(page, href) {
     document.querySelector('.nav a[aria-current="page"]')?.getAttribute('href') === hash, href);
 }
 
-const browser = await chromium.launch();
+async function scrollbarStyles(page) {
+  return page.evaluate(() => {
+    const read = (element) => {
+      const style = getComputedStyle(element);
+      return { width: style.scrollbarWidth, color: style.scrollbarColor };
+    };
+    const probe = document.createElement('div');
+    probe.style.scrollbarColor = 'var(--sd-text-subtle) transparent';
+    document.body.append(probe);
+    const railColor = getComputedStyle(probe).scrollbarColor;
+    probe.style.scrollbarColor = 'var(--sd-text-subtle) var(--sd-bg)';
+    const documentColor = getComputedStyle(probe).scrollbarColor;
+    probe.remove();
+    return {
+      root: read(document.documentElement),
+      body: read(document.body),
+      nav: read(document.querySelector('.nav')),
+      toc: document.querySelector('.toc') ? read(document.querySelector('.toc')) : null,
+      railColor,
+      documentColor,
+    };
+  });
+}
+
+async function checkScrollbars(page, width) {
+  const normal = await scrollbarStyles(page);
+  check(width, 'native scrollbars use the chrome palette without leaking into stories',
+    normal.root.width === 'auto' && normal.root.color === normal.documentColor &&
+    normal.nav.width === 'thin' && normal.nav.color === normal.railColor &&
+    (!normal.toc || (normal.toc.width === 'thin' && normal.toc.color === normal.railColor)) &&
+    normal.body.color === 'auto', normal);
+  await page.emulateMedia({ forcedColors: 'active' });
+  const forced = await scrollbarStyles(page);
+  check(width, 'forced colors restores native scrollbar width and colors',
+    [forced.root, forced.nav, forced.toc].filter(Boolean).every((style) => style.width === 'auto' && style.color === 'auto'), forced);
+  await page.emulateMedia({ forcedColors: 'none' });
+  if (width <= 1000) return;
+
+  for (const selector of ['.nav', '.toc']) {
+    const rail = page.locator(selector);
+    if (!(await rail.isVisible())) continue;
+    const range = await rail.evaluate((node) => node.scrollHeight - node.clientHeight);
+    for (const boundary of range > 0 ? ['inside', 'bottom', 'top'] : ['fitting']) {
+      await rail.evaluate((node, boundary) => {
+        node.scrollTop = boundary === 'bottom' ? node.scrollHeight : 0;
+        window.scrollTo({ top: boundary === 'top' ? 250 : 0, behavior: 'instant' });
+      }, boundary);
+      const box = await rail.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + Math.min(100, box.height / 2));
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const delta = { inside: Math.min(30, range), bottom: 200, top: -100, fitting: 200 }[boundary];
+      await page.mouse.wheel(0, delta);
+      const passed = await page.waitForFunction(({ selector, boundary, minimumRailMovement }) => {
+        const node = document.querySelector(selector);
+        if (boundary === 'inside') return node.scrollTop >= minimumRailMovement && Math.abs(window.scrollY) <= 4;
+        if (boundary === 'top') return window.scrollY < 200 && node.scrollTop <= 4;
+        return window.scrollY >= 150;
+      }, { selector, boundary, minimumRailMovement: Math.max(1, delta - TOLERANCE) }, { timeout: 1500 }).then(() => true, () => false);
+      check(width, `${selector} ${boundary} wheel input reaches its native scroll owner`, passed,
+        await rail.evaluate((node) => ({ page: window.scrollY, rail: node.scrollTop, client: node.clientHeight, content: node.scrollHeight })));
+    }
+    await rail.evaluate((node) => { node.scrollTop = 0; });
+  }
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+}
+
+const browser = await chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] });
 try {
   for (const width of widths) {
     const context = await browser.newContext({ viewport: { width, height: HEIGHT }, reducedMotion: 'reduce' });
@@ -103,6 +172,8 @@ try {
     try {
       await page.goto(target.href, { waitUntil: 'load' });
       await page.locator('main #section-api').waitFor();
+      await page.locator('.toc').waitFor({ state: 'attached' });
+      await checkScrollbars(page, width);
 
       await page.locator('main section > .frame[data-story][id]').nth(1).waitFor();
       const stories = await page.locator('main section > .frame[data-story][id]').evaluateAll((frames) =>

@@ -25,6 +25,7 @@
 
 html {
   scroll-padding-top: max(72px, var(--sd-header-height, 55px));
+  scrollbar-color: var(--sd-text-subtle) var(--sd-bg);
 }
 html,
 body {
@@ -33,6 +34,9 @@ body {
   color: var(--sd-text);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Inter, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+body {
+  scrollbar-color: auto;
 }
 
 .app {
@@ -211,7 +215,8 @@ body {
 }
 .nav,
 .toc {
-  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sd-text-subtle) transparent;
 }
 .nav {
   border-right: 0;
@@ -735,6 +740,7 @@ code.signature {
     box-sizing: border-box;
     max-height: min(60vh, calc(100dvh - var(--sd-header-height, 55px)));
     overflow-y: auto;
+    overscroll-behavior-y: contain;
     border-right: 0;
     border-bottom: 1px solid var(--sd-border);
     padding-bottom: 20px;
@@ -776,7 +782,19 @@ code.signature {
     max-width: 100%;
   }
 }
+@media (hover: none), (pointer: coarse) {
+  .nav,
+  .toc {
+    scrollbar-width: auto;
+  }
+}
 @media (forced-colors: active) {
+  html,
+  .nav,
+  .toc {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
   .nav a.on,
   .search-results li[aria-selected='true'] {
     outline: 1px solid;

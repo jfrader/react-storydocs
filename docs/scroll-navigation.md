@@ -31,6 +31,23 @@ Keep the sidebar's DOM identity and scroll container stable between routes.
 Selection updates must not automatically scroll the selected link into view.
 [React subtree identity](https://react.dev/learn/preserving-and-resetting-state)
 
+The document keeps a normal-width native scrollbar. Navigation rails use thin
+native bars with the chrome's muted text color and a transparent track. The
+document's scrollbar color stops inheriting at `body`, so example components
+retain their own scrollbar styling. Coarse pointers and forced colors restore
+native rail sizing; forced colors also restores native colors. No bars are hidden
+on hover or focus changes, and overlay visibility remains browser/OS-controlled.
+[CSS scrollbar sizing](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/scrollbar-width),
+[scrollbar colors](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/scrollbar-color)
+
+Desktop rail boundaries allow native wheel chaining to the document. A rail that
+fits must not trap the wheel. The narrow-screen overlay menu keeps containment.
+This follows MUI's document-plus-native-rails structure and desktop chaining,
+without copying its active-item scroll reveal. MUI uses thin bars, not contextual
+hover-only visibility.
+[MUI navigation](https://github.com/mui/material-ui/blob/b8d5b87532f15e2ccdb3e36f7d8c98eadeda6ff6/packages-internal/core-docs/src/AppLayout/navigation/AppNavDrawer.tsx#L440-L478),
+[MUI page outline](https://github.com/mui/material-ui/blob/b8d5b87532f15e2ccdb3e36f7d8c98eadeda6ff6/packages-internal/core-docs/src/TableOfContents/AppTableOfContents.tsx#L14-L44)
+
 Section and API-part jumps are immediate. They focus the destination with
 `preventScroll` before positioning it once, so keyboard scrolling belongs to the
 document. There is no smooth-scroll animation to compete with wheel input and no
@@ -56,4 +73,8 @@ Playwright, like the reference consumer's Storybook app:
 
 ```sh
 node /path/to/storybook-docs/scripts/check-navigation.mjs http://localhost:4346
+node /path/to/storybook-docs/scripts/check-navigation.mjs http://localhost:4346 --widths 1440 --height 600
 ```
+
+The check enables native scrollbar painting, verifies themed and forced-color
+styles, and exercises rail interiors, boundaries and fitting outlines separately.
