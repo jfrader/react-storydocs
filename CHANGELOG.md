@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- "On this page" and API-part links jump directly to their destination and move keyboard focus there, without an animation or later correction overriding your scrolling.
+- Sidebars scroll independently from the document. The left menu keeps its scroll position and expanded groups when you navigate to another page.
+- Section links apply the sticky-header offset once, without a consumer CSS workaround.
+
 ## 0.14.1
 
 - API tables show native `style` as a type and a short note instead of expanding `CSSProperties` into hundreds of member rows. A generic `style` prop no longer dominates a page with platform MDN tables.

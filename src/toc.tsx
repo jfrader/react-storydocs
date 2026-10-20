@@ -1,13 +1,10 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './toc.css';
-import { followRail } from './rail';
+import { scrollToElement } from './scroll';
 
 const STORY_PARAM = 'story';
 const SCROLL_OFFSET_PX = 76;
-const SETTLE_TICK_MS = 250;
-const SETTLE_TICKS = 16;
-const SETTLE_TOLERANCE_PX = 4;
 const FLASH_MS = 2600;
 const ACTIVE_ROOT_MARGIN = `-${SCROLL_OFFSET_PX}px 0px -60% 0px`;
 
@@ -81,15 +78,6 @@ const slugify = (text: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-export function useRailFollow(ref: RefObject<HTMLElement | null>, ready = true, pageKey?: string) {
-  useLayoutEffect(() => {
-    const element = ref.current;
-    const header = element?.closest('.app')?.querySelector<HTMLElement>('.top');
-    if (!ready || !element || !header) return;
-    return followRail(element, header);
-  }, [ready, ref, pageKey]);
-}
-
 function scanPage(root: HTMLElement, pageKey: string): Scan {
   const used = new Set<string>();
   const unique = (prefix: string, text: string) => {
@@ -156,34 +144,6 @@ const signature = (scan: Scan) =>
     .map((s) => `${s.id}(${s.subs.map((sub) => sub.id).join('+')}):${s.stories.map((st) => `${st.id}:${st.name}`).join(',')}`)
     .join(';')}`;
 
-const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-/** Smooth-scrolls, then corrects once the scroll has stopped and lazily mounted examples have changed the layout. */
-function scrollToElement(element: HTMLElement) {
-  const hash = window.location.hash;
-  element.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
-  let ticks = SETTLE_TICKS;
-  let lastY = window.scrollY;
-  let timer: number;
-  let cancelled = false;
-  const settle = () => {
-    if (cancelled || window.location.hash !== hash || !element.isConnected || ticks === 0) return;
-    ticks -= 1;
-    const moving = window.scrollY !== lastY;
-    lastY = window.scrollY;
-    if (!moving && Math.abs(element.getBoundingClientRect().top - SCROLL_OFFSET_PX) > SETTLE_TOLERANCE_PX) {
-      element.scrollIntoView({ behavior: 'auto', block: 'start' });
-      lastY = window.scrollY;
-    }
-    timer = window.setTimeout(settle, SETTLE_TICK_MS);
-  };
-  timer = window.setTimeout(settle, SETTLE_TICK_MS);
-  return () => {
-    cancelled = true;
-    window.clearTimeout(timer);
-  };
-}
-
 function useActiveIds(scan: Scan | null) {
   const [active, setActive] = useState<{ section: string | null; story: string | null }>({ section: null, story: null });
   useEffect(() => {
@@ -215,12 +175,6 @@ export function PageRail({ pageKey }: { pageKey: string }) {
   pageKeyRef.current = pageKey;
   const [target, setTarget] = useState(() => storyFromHash(window.location.hash));
   const flashed = useRef<HTMLElement | null>(null);
-  const cancelScroll = useRef<(() => void) | null>(null);
-  const go = useCallback((element: HTMLElement) => {
-    cancelScroll.current?.();
-    cancelScroll.current = scrollToElement(element);
-  }, []);
-  useEffect(() => () => cancelScroll.current?.(), []);
 
   useEffect(() => {
     if (!ready) return;
@@ -260,19 +214,14 @@ export function PageRail({ pageKey }: { pageKey: string }) {
       scan.frames.find((frame) => frame.name === target) ??
       scan.frames.find((frame) => frame.name.toLowerCase() === target.toLowerCase());
     if (!match) return;
-    go(match.element);
+    scrollToElement(match.element);
     flashed.current?.classList.remove('toc-flash');
     match.element.classList.add('toc-flash');
     flashed.current = match.element;
     window.setTimeout(() => match.element.classList.remove('toc-flash'), FLASH_MS);
     setTarget(null);
-  }, [target, scan, pageKey, go]);
+  }, [target, scan, pageKey]);
 
-  const railRef = useRef<HTMLElement | null>(null);
-  // The rail exists only once both the page and the scan are ready. Passing anything else would
-  // re-run the follower while the rail is unmounted, and its cleanup would strip the styles the
-  // next mount needs.
-  useRailFollow(railRef, ready && scan !== null);
   const active = useActiveIds(scan);
 
   if (!scan || !ready) return null;
@@ -280,7 +229,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
     <>
       {scan.sections.length > 0 ? (
         <div className="rail-track toc-track">
-        <aside className="toc" aria-label="On this page" ref={railRef}>
+        <aside className="toc" aria-label="On this page">
           <div className="toc-title">On this page</div>
           <ul>
             {scan.sections.map((section) => (
@@ -290,7 +239,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
                   className="toc-link"
                   title={section.title}
                   aria-current={active.section === section.id ? 'location' : undefined}
-                  onClick={() => go(section.heading)}
+                  onClick={() => scrollToElement(section.heading)}
                 >
                   {section.title}
                 </button>
@@ -298,7 +247,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
                   <ul>
                     {section.subs.map((sub) => (
                       <li key={sub.id}>
-                        <button type="button" className="toc-link toc-sub" title={sub.title} onClick={() => go(sub.element)}>
+                        <button type="button" className="toc-link toc-sub" title={sub.title} onClick={() => scrollToElement(sub.element)}>
                           {sub.title}
                         </button>
                       </li>
@@ -314,7 +263,7 @@ export function PageRail({ pageKey }: { pageKey: string }) {
                           className="toc-link toc-story"
                           title={story.name}
                           aria-current={active.story === story.id ? 'location' : undefined}
-                          onClick={() => go(story.element)}
+                          onClick={() => scrollToElement(story.element)}
                         >
                           {story.name}
                         </button>

@@ -19,6 +19,7 @@
   --sd-success: #2f9e5b;
   --sd-focus-ring: #a99bff;
   --sd-radius: 12px;
+  --sd-rail-gap: 20px;
 }
 /* The consumer's theme bridge is injected later and overrides these defaults. */
 
@@ -195,12 +196,22 @@ body {
 .nav-track {
   background: var(--sd-surface);
 }
-@media (min-width: 1180px) {
-  .rail-track::before {
-    content: '';
-    display: block;
-    height: calc(var(--sd-rail-start, 0px) + var(--sd-rail-offset, 0px));
+@media (min-width: 1001px) {
+  .rail-track {
+    padding-block-start: var(--sd-rail-gap);
   }
+  .rail-track > :is(.nav, .toc) {
+    position: sticky;
+    top: calc(var(--sd-header-height, 55px) + var(--sd-rail-gap));
+    box-sizing: border-box;
+    max-block-size: calc(100dvh - var(--sd-header-height, 55px) - 2 * var(--sd-rail-gap));
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}
+.nav,
+.toc {
+  overscroll-behavior-y: contain;
 }
 .nav {
   border-right: 0;

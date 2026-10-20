@@ -14,6 +14,7 @@ import { useProps, type CatalogRef, type ComponentPropsDoc, type PropDoc } from 
 import { Composition as ProvidedComposition, provided as hasComposition } from 'virtual:storybook-docs/composition';
 import { Skeleton } from '../skeleton';
 import { loadStorySources } from 'virtual:storybook-docs/story-sources';
+import { scrollToElement } from '../scroll';
 
 function formatValue(value: unknown): string {
   if (value === undefined) return '—';
@@ -76,8 +77,8 @@ const apiSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
 function PartLink({ name, children }: { name: string; children: ReactNode }) {
   const scrollToPart = () => {
-    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    document.getElementById(`api-${apiSlug(name)}`)?.scrollIntoView({ behavior, block: 'start' });
+    const heading = document.getElementById(`api-${apiSlug(name)}`);
+    if (heading) scrollToElement(heading);
   };
   return <button type="button" className="api-part-link" onClick={scrollToPart}>{children}</button>;
 }
