@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { Component, createElement, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from './config';
-import { mergeAnnotations } from './sections';
+import { mergeAnnotations, storyDefinition, storyName } from './sections';
 
 interface StoryDefinition {
   decorators?: DecoratorLike[];
@@ -53,25 +53,29 @@ export function StoryView({
   module,
   story,
   overrides,
+  decorators,
 }: {
   module: Record<string, unknown>;
   story: string;
   overrides?: Record<string, unknown>;
+  decorators?: unknown[];
 }) {
   return (
     <StoryBoundary key={story} story={story} module={module} overrides={overrides}>
-      <StoryContent module={module} story={story} overrides={overrides} />
+      <StoryContent module={module} story={story} overrides={overrides} decorators={decorators} />
     </StoryBoundary>
   );
 }
 
-function StoryContent({ module, story, overrides }: {
+function StoryContent({ module, story, overrides, decorators: globalDecorators }: {
   module: Record<string, unknown>;
   story: string;
   overrides?: Record<string, unknown>;
+  decorators?: unknown[];
 }) {
   const meta = (module.default ?? {}) as MetaDefinition;
-  const definition = (module[story] ?? {}) as StoryDefinition;
+  const exported = module[story];
+  const definition = storyDefinition(exported) as StoryDefinition;
   const args = { ...meta.args, ...definition.args, ...overrides };
   const argTypes = mergeAnnotations(meta.argTypes, definition.argTypes);
   for (const [name, type] of Object.entries(argTypes)) {
@@ -86,7 +90,7 @@ function StoryContent({ module, story, overrides }: {
     args, initialArgs: { ...meta.args, ...definition.args }, argTypes,
     globals: { ...meta.globals, ...definition.globals },
     parameters: mergeAnnotations(meta.parameters, definition.parameters),
-    name: definition.name ?? story, story: definition.name ?? story,
+    name: storyName(exported, story), story: storyName(exported, story),
     title: meta.title, component: meta.component, viewMode: 'story', loaded: {},
   };
   // Storybook's precedence: the story's own render, then the meta's render, then the component
@@ -102,6 +106,7 @@ function StoryContent({ module, story, overrides }: {
   const decorators = [
     ...(definition.decorators ?? []),
     ...(meta.decorators ?? []),
+    ...((globalDecorators ?? []) as DecoratorLike[]),
   ];
   const decorated = decorators.reduce<(current: typeof context) => ReactNode>(
     (inner, decorator) => (current) => decorator(

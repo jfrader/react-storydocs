@@ -19,6 +19,7 @@ import { guidanceCode, guidanceIndexCode, indexGuidance } from './build/guidance
 import { readReleases, releasesCode } from './build/releases.ts';
 import { codeModuleCode, resolveCodeModule } from './build/code.ts';
 import { compositionModuleCode, resolveCompositionModule } from './build/composition.ts';
+import { decoratorsModuleCode, resolveDecoratorsModule } from './build/decorators.ts';
 import { STORYBOOK_TEST_STUB } from './build/storybook-test.ts';
 import { FILE_PREFIX, VIRTUAL_PREFIX } from './build/module-ids.ts';
 import { extractStorySources, storySourcesCode, storySourcesIndexCode } from './build/story-sources.ts';
@@ -49,7 +50,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
       collected = propsCollector.collect(catalog.files.get(slug), name, slug, catalog.entries.flatMap((entry) => {
         const storyFile = catalog.files.get(entry.slug);
         return storyFile ? [{ name: entry.name, slug: entry.slug, storyFile }] : [];
-      }));
+      }), catalog.components.get(slug));
       propsCache.set(slug, collected);
     }
     return propsCode(collected.components, collected.uses);
@@ -67,6 +68,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
     releases: () => releasesCode(readReleases(config, projectRoot)),
     code: () => codeModuleCode(resolveCodeModule(config.code?.module, projectRoot)),
     composition: () => compositionModuleCode(resolveCompositionModule(config.composition?.module, projectRoot)),
+    decorators: () => decoratorsModuleCode(resolveDecoratorsModule(config.decorators?.module, projectRoot)),
   };
 
   return {

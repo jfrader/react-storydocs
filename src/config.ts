@@ -90,6 +90,11 @@ export interface StorybookDocsConfig {
     module: string;
   };
 
+  /** A module relative to the consumer root whose default export is one Storybook decorator or
+   * an array of them. Applied around every example, outside meta/story decorators. The module
+   * can import its own CSS. */
+  decorators?: { module: string };
+
   /** Optional page switches. Foundations pages require `tokens`. */
   pages?: {
     overview?: boolean;

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { ComponentDemo } from './component-demo';
 export { hasHorizontalOverflow } from './component-demo';
-import { mergeAnnotations, buildUsageSnippet, frameSource, type DocsParameters } from './sections';
+import { mergeAnnotations, buildUsageSnippet, frameSource, storyDefinition, storyName as getStoryName, type DocsParameters } from './sections';
 import { StoryView } from './story-view';
 import { storySource } from 'virtual:storybook-docs/catalog';
 
@@ -103,16 +103,17 @@ export function skippedNotice(meta: StoryShape, definition: StoryShape): string 
   return null;
 }
 
-export function ControlledStoryFrame({ module, story, componentName, componentDefaults, renderSource }: {
+export function ControlledStoryFrame({ module, story, componentName, componentDefaults, renderSource, decorators }: {
   module: Record<string, unknown>;
   story: string;
   componentName: string;
   /** Defaults read from the component source, shown until the reader changes them. */
   componentDefaults?: Record<string, unknown>;
   renderSource?: string;
+  decorators?: unknown[];
 }) {
   const meta = (module.default ?? {}) as StoryShape;
-  const definition = (module[story] ?? {}) as StoryShape;
+  const definition = storyDefinition(module[story]) as StoryShape;
   const { args: defaults, controls } = getStoryControls(meta, definition, componentDefaults);
   const [edits, setEdits] = useState<Record<string, unknown>>({});
   const args = { ...defaults, ...edits };
@@ -129,7 +130,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const docsMeta = (meta as { parameters?: { docs?: DocsParameters } }).parameters?.docs;
   const authoredCode = frameSource(meta, definition);
   const authoredStory = docsOverride?.description?.story ?? docsMeta?.description?.story;
-  const storyName = definition.name ?? story;
+  const storyName = getStoryName(module[story], story);
   const notice = skippedNotice(meta, definition);
   const codeLanguage = authoredCode?.trim()
     ? docsOverride?.source?.language ?? docsMeta?.source?.language ?? 'tsx' : 'tsx';
@@ -150,7 +151,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
       storyLayout={storyLayout} snippet={snippet} codeLanguage={codeLanguage}
       onControlChange={(name, value) => setEdits((current) => ({ ...current, [name]: value }))}
       onReset={() => setEdits({})}>
-      <StoryView module={module} story={story} overrides={edits} />
+      <StoryView module={module} story={story} overrides={edits} decorators={decorators} />
     </ComponentDemo>
   );
 }

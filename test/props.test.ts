@@ -10,6 +10,26 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { storybookDocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
 import type { ResolvedConfig } from 'vite';
+import { createPropsCollector } from '../src/build/props.ts';
+
+test('props follow meta.component through a barrel only when the story folder has no sources', () => {
+  const root = mkdtempSync(path.resolve('.props-test-'));
+  try {
+    for (const folder of ['stories', 'components', 'barrel']) mkdirSync(path.join(root, folder));
+    writeFileSync(path.join(root, 'components/Widget.tsx'), 'export function Widget(props: { label: string; count?: number }) { return null; }');
+    writeFileSync(path.join(root, 'components/Unrelated.tsx'), 'export function Unrelated(props: { wrong: string }) { return null; }');
+    writeFileSync(path.join(root, 'barrel/index.ts'), "export { Widget } from '../components/Widget';");
+    const story = path.join(root, 'stories/widget.stories.tsx');
+    writeFileSync(story, "import { Widget } from '../barrel'; const meta = { title: 'Forms/Fields/Widget', component: Widget }; export default meta; export const Default = {};");
+    const collector = createPropsCollector();
+    const separated = collector.collect(story, 'Fields/Widget', 'widget', [], 'Widget').components;
+    assert.deepEqual(separated.map(({ name }) => name), ['Widget']);
+    assert.deepEqual(separated[0]!.props.map(({ name }) => name).sort(), ['count', 'label']);
+    writeFileSync(path.join(root, 'stories/Widget.tsx'), 'export function Widget(props: { local: boolean }) { return null; }');
+    const colocated = collector.collect(story, 'Fields/Widget', 'widget', [], 'Widget').components;
+    assert.deepEqual(colocated[0]!.props.map(({ name }) => name), ['local']);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 function readConst(code: string, name: string) {
   const marker = `export const ${name} = `;
@@ -495,6 +515,7 @@ test('props presentation shows allowed values, JSDoc and compact inherited contr
   const exports: { PropsTable?: (props: { components: ComponentPropsDoc[]; argTypes: Record<string, Record<string, unknown>>; defaultArgs: Record<string, unknown> }) => ReturnType<typeof createElement> } = {};
   const dependencies: Record<string, unknown> = {
     'virtual:storybook-docs/catalog': { storySource: '@acme/ui' },
+    'virtual:storybook-docs/decorators': { decorators: [] },
     'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
     'virtual:storybook-docs/composition': { provided: false, Composition: undefined },
     '../base': { hrefFor: (path: string) => `/docs${path}` },

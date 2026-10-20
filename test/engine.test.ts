@@ -142,7 +142,7 @@ test('storyIdentity: file slugs stay independent of dotted, nested and numbered 
 });
 
 test('catalog: dotted titles resolve to their file slug and duplicate filenames fail rather than overwrite', () => {
-  const story = { file: '/components/next/next.stories.tsx', facts: { title: 'Foundations/Next.js', stories: ['Default'], hasComponent: false } };
+  const story = { file: '/components/next/next.stories.tsx', facts: { title: 'Foundations/Next.js', stories: ['Default'], hasComponent: false, component: null } };
   const catalog = buildCatalog([story], undefined);
   assert.equal(catalog.entries[0]?.slug, 'next');
   assert.equal(catalog.files.get('next'), story.file);

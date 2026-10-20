@@ -2,6 +2,7 @@
 import { Component, Suspense, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { storySource } from 'virtual:storybook-docs/catalog';
+import { decorators as globalDecorators } from 'virtual:storybook-docs/decorators';
 import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
 import { CodeBlock } from '../code';
@@ -381,7 +382,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
 
       {module ? (
         <>
-          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[example]} /> : null}
+          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[example]} decorators={globalDecorators} /> : null}
           {usage ? (
             <>
               <h2>Usage</h2>
@@ -396,7 +397,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             <section key={section.title}>
               <h2>{section.title}</h2>
               {section.stories.map((story) => (
-                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[story]} />
+                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[story]} decorators={globalDecorators} />
               ))}
             </section>
           ))}

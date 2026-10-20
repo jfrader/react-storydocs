@@ -4,6 +4,9 @@
 
 - Documentation scrollbars follow the current theme. Desktop navigation and page outlines use thin native bars, with normal native sizing for touch pointers and high-contrast mode.
 - Scrolling over a desktop sidebar continues on the page at its boundary, including when the page outline fits without scrolling.
+- Configure global example providers and CSS through `decorators.module`, outside meta/story decorators.
+- Render CSF2 function stories with their args and decorators, using export keys for labels.
+- Resolve props from imported `meta.component` sources when stories live in a separate folder, including barrel re-exports and nested titles.
 
 ## 0.14.2
 

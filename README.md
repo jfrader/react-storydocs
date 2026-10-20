@@ -30,8 +30,13 @@ example/            # a consumer you can copy
 
 Known limits: compound parts declared as property assignments (`Dialog.Content = …`) are picked up
 through their exported `*Props` types; parts with no exported props type stay invisible. Stories that
-need project-level Storybook decorators fail soft (an error boundary per story frame). Play functions,
-controls and a11y checks stay in Storybook — this front is for reading and browsing.
+need project-level providers can share decorators through `decorators.module`; `.storybook/preview`
+is not imported automatically. Unhandled render errors fail soft in each story frame. Play functions
+and a11y checks stay in Storybook — this front is for reading and browsing.
+
+CSF3 objects and CSF2 function stories are supported, including bound templates with args and
+decorators. Props use co-located component sources first; when the story folder has no sources,
+the engine follows the imported `meta.component` to its source folder, including barrel re-exports.
 
 ## What it looks like
 
@@ -96,6 +101,7 @@ The consumer contract is four files:
 export default {
   site: { title: 'acme/ui', mark: 'a', links: [{ label: 'GitHub', href: '…' }] },
   stories: { from: '@acme/ui', pattern: 'src/components/*/*.stories.tsx' },
+  decorators: { module: './src/decorators.tsx' }, // optional default-export decorator or array
   groups: { rename: { Data: 'Data display' }, order: ['Foundations', 'Inputs', 'Components'] },
   theme: {
     attribute: 'data-theme',

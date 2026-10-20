@@ -19,6 +19,7 @@ export interface Catalog {
   groups: string[];
   stats: { components: number; stories: number; groups: number };
   files: Map<string, string>;
+  components: Map<string, string | null>;
 }
 
 export function resolveStoryRoot(from: string, root: string): string {
@@ -55,12 +56,14 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsCo
   const order = groupsConfig?.order ?? DEFAULT_GROUP_ORDER;
   const entries: CatalogEntry[] = [];
   const files = new Map<string, string>();
+  const components = new Map<string, string | null>();
   for (const { file, facts } of stories) {
     const { group: authoredGroup, name, slug } = storyIdentity(file, facts.title);
     if (files.has(slug)) {
       throw new Error(`storybook-docs: duplicate story slug "${slug}" in "${files.get(slug)}" and "${file}"`);
     }
     files.set(slug, file);
+    components.set(slug, facts.component);
     entries.push({
       slug,
       name,
@@ -86,6 +89,7 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsCo
     entries,
     groups,
     files,
+    components,
     stats: {
       components: entries.length,
       stories: entries.reduce((total, entry) => total + entry.stories.length, 0),

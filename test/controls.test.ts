@@ -51,6 +51,22 @@ function loadControls(observeStories = false) {
 const exports = loadControls();
 const getStoryControls = exports.getStoryControls!;
 
+test('function story headings use the export key and retain args and parameters', () => {
+  const Template = () => null;
+  const Default = Object.assign(Template.bind({}), {
+    args: { label: 'Records' }, argTypes: { label: { control: 'text' } },
+    parameters: { layout: 'fullscreen', docs: { description: { story: 'Legacy example.' } } },
+  });
+  const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
+    module: { default: {}, Default }, story: 'Default', componentName: 'Widget',
+  }));
+  assert.match(html, /<header><span>Default<\/span>/);
+  assert.match(html, /value="Records"/);
+  assert.match(html, /data-layout="fullscreen"/);
+  assert.match(html, /Legacy example\./);
+  assert.ok(!html.includes('bound Template'));
+});
+
 test('canvas keyboard access requires actual horizontal overflow', () => {
   const overflow = exports.hasHorizontalOverflow!;
   assert.equal(overflow({ scrollWidth: 501, clientWidth: 500 }), true);

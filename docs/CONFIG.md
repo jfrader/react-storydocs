@@ -27,6 +27,25 @@ explicitly. Published packages must include their story sources, or
 `stories.from` must point at a checkout. The scanner supports `*` within one path
 segment and `**` across directories.
 
+CSF3 object stories and CSF2 function stories are supported. Function stories render with
+their attached args, argTypes, decorators and parameters; their export key supplies the label,
+not the function's JavaScript name (such as `bound Template`).
+
+### Global decorators
+
+| Key | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `decorators.module` | `string` | Omitted | Consumer-root-relative module whose default export is one Storybook decorator or an array. |
+
+```js
+decorators: { module: './src/decorators.tsx' },
+```
+
+The module is imported eagerly and may import its own CSS. Its decorators wrap every example,
+outside meta and story decorators: story decorators are reduced first, then meta decorators,
+then configured global decorators. Within each array, the last decorator is outermost.
+`.storybook/preview` is not imported automatically; export shared providers from this module.
+
 ### Authored documentation already in the stories
 
 The following authored documentation parameters are rendered without a second copy of the prose:
@@ -76,6 +95,12 @@ is inferred from the props' ref element type or React `ComponentPropsWithRef<'ta
 `ComponentProps<'tag'>` aliases, and omitted when ambiguous. Pages without docgen use their
 `argTypes` table instead. Stories-only pages with no API data omit the API section entirely.
 The import code block is labelled Import, separately from example source code.
+
+Props use non-story `.tsx`/`.ts` sources in the story folder first. If that folder has none,
+the engine follows the imported `meta.component` identifier to the component's source folder,
+including barrel re-exports. Unresolvable imports fall back to the story folder. Matching uses
+the last title segment (for example `Fields/InputField` matches `InputField`); displayed titles
+are unchanged.
 
 `ComponentPropsDoc.description?: string` contains the component symbol's JSDoc, including each
 compound part symbol. The root description supplies the page introduction unless overridden by
@@ -298,9 +323,10 @@ show up as stories that render wrong rather than as errors:
 - Story `name` supplies the example heading; export names remain the stable identifiers.
   `!dev` and `!test` affect Storybook's sidebar/test runner, not this docs front.
   Custom tags have no filtering effect here. `!autodocs` hides docs examples.
-- Meta and story decorators are applied in Storybook's order. Project-level
-  decorators from `.storybook/preview` are not recreated: theme, global styles
-  and layout come from the docs config instead. A story that throws shows its
+- Meta, story and configured `decorators.module` decorators are applied in Storybook's order.
+  Project-level decorators from `.storybook/preview` are not imported automatically; share them
+  through `decorators.module`. Theme, global styles and layout come from the docs config.
+  A story that throws shows its
   error in place rather than disappearing.
 - Play functions and accessibility checks do not run here. Loaders and beforeEach hooks
   are not executed: test hooks can modify clocks, preferences and shared browser state,

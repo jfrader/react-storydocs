@@ -18,6 +18,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button', components
   const exports: { ComponentPage?: (props: { entry: CatalogEntry }) => ReturnType<typeof createElement> } = {};
   const dependencies: Record<string, unknown> = {
     'virtual:storybook-docs/catalog': { storySource: '@fixture/ui' },
+    'virtual:storybook-docs/decorators': { decorators: [] },
     '../base': { hrefFor: (path: string) => path },
     'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
     'virtual:storybook-docs/composition': { provided: false, Composition: undefined },

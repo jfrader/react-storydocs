@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { runInThisContext } from 'node:vm';
-import { createElement } from 'react';
+import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import * as sections from '../src/sections.ts';
@@ -60,4 +60,24 @@ test('annotation merge replaces arrays and false while retaining sibling keys', 
     { field: { control: 'radio', options: ['a'], table: { category: 'base' } } },
     { field: { control: false, options: ['b'] } },
   ), { field: { control: false, options: ['b'], table: { category: 'base' } } });
+});
+
+test('function stories render their args and context inside story, meta and global decorators', () => {
+  const order: string[] = [];
+  const decorate = (name: string) => (Story: () => ReactNode) => {
+    order.push(name);
+    return createElement('div', { 'data-wrapper': name }, Story());
+  };
+  const Template = (args: Record<string, unknown>, context: { name: string; story: string }) => {
+    assert.equal(context.name, 'Default');
+    assert.equal(context.story, 'Default');
+    return createElement('span', null, String(args.label));
+  };
+  const Default = Object.assign(Template.bind({}), { args: { label: 'CSF2' }, decorators: [decorate('story')] });
+  const html = renderToStaticMarkup(createElement(StoryView, {
+    module: { default: { args: { label: 'meta' }, decorators: [decorate('meta')] }, Default },
+    story: 'Default', decorators: [decorate('global')],
+  }));
+  assert.equal(html, '<div data-wrapper="global"><div data-wrapper="meta"><div data-wrapper="story"><span>CSF2</span></div></div></div>');
+  assert.deepEqual(order, ['global', 'meta', 'story']);
 });

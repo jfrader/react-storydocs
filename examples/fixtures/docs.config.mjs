@@ -3,6 +3,7 @@
  * Demonstrates a different design system layout, title scheme, group IA, tokens and guidance.
  */
 export default {
+  decorators: { module: './src/decorators.tsx' },
   site: {
     title: 'Acme UI (fixtures)',
     mark: 'A',
