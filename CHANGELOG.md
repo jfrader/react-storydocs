@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.14.2
+
+- "On this page" and API-part links jump directly to their destination and move keyboard focus there, without an animation or later correction overriding your scrolling.
+- Sidebars scroll independently from the document. The left menu keeps its scroll position and expanded groups when you navigate to another page.
+- Section links apply the sticky-header offset once, without a consumer CSS workaround.
+- Story links within the current page keep keyboard focus on the selected example.
 
 ## 0.14.1
 

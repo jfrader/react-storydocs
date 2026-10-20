@@ -24,12 +24,19 @@ test('the nav column paints the surface, not just the sticky list', () => {
     '.nav keeps its own paint so the panel is opaque while it sticks');
 });
 
-test('the sticky rail still parks and follows', () => {
-  // Removing the spacer or the stickiness belongs to rail.ts's own tests; here we only pin the
-  // contract that the track exists and is not collapsed.
+test('rails have bounded native scrolling instead of following document scroll', () => {
   assert.match(rule('.rail-track'), /min-width:\s*0/);
-  assert.match(styles, /\.rail-track::before\s*\{[^}]*height:\s*calc\(var\(--sd-rail-start/,
-    'the rail spacer drives the follow-and-park behaviour');
+  const rail = rule('.rail-track > :is\\(\\.nav, \\.toc\\)');
+  assert.match(rail, /position:\s*sticky/);
+  assert.match(rail, /max-block-size:\s*calc\(100dvh/);
+  assert.match(rail, /overflow-y:\s*auto/);
+  assert.doesNotMatch(styles, /--sd-rail-offset|--sd-rail-start/);
+});
+
+test('heading navigation applies the sticky header offset only once', () => {
+  const toc = readFileSync(new URL('../src/toc.css', import.meta.url), 'utf8');
+  assert.match(rule('html'), /scroll-padding-top:/);
+  assert.doesNotMatch(toc, /scroll-margin-top:/);
 });
 
 test('long inline usage and API tokens wrap rather than widening the document', () => {

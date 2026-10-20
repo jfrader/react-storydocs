@@ -21,7 +21,7 @@ test('shell brand links to the base-aware overview and follows the skip link', (
     'virtual:storybook-docs/site': { pages: { color: true }, site: { title: 'Example UI', mark: 'E' }, theme: {} },
     'virtual:storybook-docs/releases': { releases: {} },
     './base': { STORYBOOK_DOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
-    './toc': { hashPath: (hash: string) => hash.slice(1), useRailFollow: () => {} },
+    './toc': { hashPath: (hash: string) => hash.slice(1) },
     './search': { SearchBox: () => null },
     './pages/overview': { OverviewPage: () => null },
   };
@@ -419,4 +419,3 @@ test('buildUsageSnippet: authored snippet importing root from a subpath or root 
   assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '', source: '<GameCard />' }), '<GameCard />');
   assert.equal(buildUsageSnippet({ componentName: 'GameCard', from: '   ', renderSource: '<GameCard {...args} />' }), '<GameCard {...args} />');
 });
-

@@ -12,7 +12,7 @@ import { ReleasesPage } from './pages/releases';
 import { SearchBox } from './search';
 import { releases } from 'virtual:storybook-docs/releases';
 import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
-import { PageRail, hashPath, useRailFollow } from './toc';
+import { PageRail, hashPath } from './toc';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
 function NavGroup({ id, title, active, children }: { id: string; title: string; active: boolean; children: ReactNode }) {
@@ -61,21 +61,17 @@ export function DocsApp() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [mode, setMode] = useState(theme.values?.[0] ?? 'dark');
   const [navOpen, setNavOpen] = useState(false);
-  const navRef = useRef<HTMLElement | null>(null);
   const pageKey = route.kind === 'component' ? `components/${route.slug}` : route.kind;
   const headerRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
   const renderedPage = useRef(pageKey);
   useLayoutEffect(() => {
     if (renderedPage.current !== pageKey) {
-      const reset = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      reset();
-      const frame = requestAnimationFrame(reset);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      mainRef.current?.focus({ preventScroll: true });
       renderedPage.current = pageKey;
-      return () => cancelAnimationFrame(frame);
     }
   }, [pageKey]);
-  useRailFollow(navRef, true, pageKey);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -97,7 +93,6 @@ export function DocsApp() {
     const onHash = () => {
       setRoute(parseRoute(window.location.hash));
       setNavOpen(false);
-      mainRef.current?.focus({ preventScroll: true });
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -161,7 +156,7 @@ export function DocsApp() {
       </header>
 
       <div className="rail-track nav-track">
-      <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation" ref={navRef}>
+      <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation">
         <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
         </a>
@@ -185,7 +180,7 @@ export function DocsApp() {
 
         ) : null}
         {foundations.length > 0 ? (
-          <NavGroup key={`foundations-${activeSlug ?? route.kind}`} id="nav-grp-foundations" title="Design tokens" active={foundations.some((item) => route.kind === item.kind)}>
+          <NavGroup key="foundations" id="nav-grp-foundations" title="Design tokens" active={foundations.some((item) => route.kind === item.kind)}>
             {foundations.map((item) => (
               <a
                 key={item.href}
@@ -202,7 +197,7 @@ export function DocsApp() {
           const entries = catalog.filter((entry) => entry.group === group);
           const active = entries.some((entry) => entry.slug === activeSlug);
           return (
-            <NavGroup key={`${group}-${activeSlug ?? route.kind}`} id={`nav-grp-${index}`} title={group} active={active}>
+            <NavGroup key={group} id={`nav-grp-${index}`} title={group} active={active}>
               {entries.map((entry) => (
                 <a
                   key={entry.slug}
