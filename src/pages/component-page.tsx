@@ -53,9 +53,11 @@ function TableFrame({ label, children, className = '' }: { label: string; childr
 }
 
 function PropNotes({ prop }: { prop: PropDoc }) {
+  const nativeStyle = prop.name === 'style' && !prop.description;
   return (
     <>
       {prop.description ? <MarkdownView markdown={prop.description} /> : null}
+      {nativeStyle ? <MarkdownView markdown="Native style overrides. `sx` applies design-system styling last." /> : null}
       {prop.tags?.map((tag, index) => (
         <div key={`${tag.name}:${index}`}>
           <strong>{tag.name === 'deprecated' ? 'Deprecated' : tag.name === 'since' ? 'Since' : 'Example'}</strong>
@@ -116,8 +118,12 @@ function SlotsTable({ components }: { components: ComponentPropsDoc[] }) {
 }
 
 function PropType({ prop }: { prop: PropDoc }) {
-  const signature = prop.signatures?.[0];
-  const fields = prop.members?.slice(0, SHAPE_PREVIEW_FIELDS).map((member) => `${member.name}${member.required ? '' : '?'}: …`).join('; ');
+  // Native style objects describe the platform, not this component. Expanding CSSProperties turns
+  // one style row into hundreds of MDN member tables; the type text and a note are the API here.
+  const nativeStyle = prop.name === 'style' || /CSSProperties/.test(prop.type);
+  const signature = nativeStyle ? undefined : prop.signatures?.[0];
+  const visibleMembers = nativeStyle ? undefined : prop.members;
+  const fields = visibleMembers?.slice(0, SHAPE_PREVIEW_FIELDS).map((member) => `${member.name}${member.required ? '' : '?'}: …`).join('; ');
   return (
     <>
       <TypeText prop={prop} signature={signature?.type} />
@@ -138,11 +144,11 @@ function PropType({ prop }: { prop: PropDoc }) {
           ))}
         </details>
       ) : null}
-      {prop.members?.length ? (
+      {visibleMembers?.length ? (
         <details>
-          <summary>Fields <code>{`{ ${fields}${prop.members.length > SHAPE_PREVIEW_FIELDS ? '; …' : ''} }`}</code></summary>
+          <summary>Fields <code>{`{ ${fields}${visibleMembers.length > SHAPE_PREVIEW_FIELDS ? '; …' : ''} }`}</code></summary>
           <dl>
-            {prop.members.map((member) => (
+            {visibleMembers.map((member) => (
               <div key={member.name}>
                 <dt><code>{member.name}{member.required ? '' : '?'}</code>{member.required ? ' (required)' : ''}</dt>
                 <dd><PropType prop={member} /><PropNotes prop={member} /></dd>
