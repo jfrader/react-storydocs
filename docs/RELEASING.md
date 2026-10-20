@@ -111,8 +111,8 @@ to OIDC. Keep `--provenance` and GitHub-hosted runners for the fallback too.
 
 ## Version hygiene
 
-The current version is `0.2.1`. Packed dependencies installed by filename or URL
-remain on that exact tarball until consumers update their manifest and lockfile;
+The release version comes from `package.json`. Packed dependencies installed by
+filename or URL remain on that exact tarball until consumers update their manifest and lockfile;
 a version bump does not update them automatically. Do not replace an existing
 version, reuse a tag, or remove `.`/`./vite`. Treat configuration, virtual module,
 CSS delivery, Node/peer minimum and declaration changes as compatibility changes.
