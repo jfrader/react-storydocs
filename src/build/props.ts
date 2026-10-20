@@ -165,6 +165,7 @@ export function createPropsCollector() {
             .parseWithProgramProvider(sources, () => createPropsProgram(sources, DOCGEN_COMPILER_OPTIONS))
             .map((result) => ({
               name: result.displayName,
+              description: result.description || undefined,
               props: Object.values(result.props ?? {})
                 .map(toPropDoc)
                 .sort(compareProps),
@@ -507,6 +508,61 @@ export function createPropsCollector() {
     const describe = (symbol: ts.Symbol): string =>
       ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim();
 
+    const describeComponent = (symbol: ts.Symbol, seen = new Set<ts.Symbol>()): string => {
+      if (seen.has(symbol)) return '';
+      seen.add(symbol);
+      if (symbol.flags & ts.SymbolFlags.Alias) return describeComponent(checker.getAliasedSymbol(symbol), seen);
+      const own = describe(symbol);
+      if (own) return own;
+      for (const declaration of symbol.declarations ?? []) {
+        const value = ts.isPropertyAssignment(declaration) ? declaration.initializer : undefined;
+        const target = value && ts.isIdentifier(value) ? checker.getSymbolAtLocation(value)
+          : ts.isShorthandPropertyAssignment(declaration) ? checker.getShorthandAssignmentValueSymbol(declaration) : undefined;
+        if (target) {
+          const description = describeComponent(target, seen);
+          if (description) return description;
+        }
+      }
+      return '';
+    };
+
+    const nativeFromProps = (type: ts.Type, location: ts.Node, node: ts.TypeNode | undefined): string | undefined => {
+      const ref = type.getProperty('ref');
+      if (ref) {
+        const text = checker.typeToString(checker.getTypeOfSymbolAtLocation(ref, ref.valueDeclaration ?? location), undefined, ts.TypeFormatFlags.NoTruncation);
+        const elements = new Set(Array.from(text.matchAll(/\bHTML\w*Element\b/g), (match) => match[0]));
+        if (elements.size > 1) return undefined;
+        if (elements.size) {
+          const tags = Array.from(elements).flatMap((element) => htmlTags.get(element) ?? []);
+          if (tags.length === 1) return tags[0];
+        }
+      }
+      const tags = new Set<string>();
+      const seen = new Set<ts.Node>();
+      const visit = (node: ts.Node) => {
+        if (seen.has(node)) return;
+        seen.add(node);
+        if (ts.isTypeReferenceNode(node) || ts.isExpressionWithTypeArguments(node)) {
+          const name = ts.isTypeReferenceNode(node) ? node.typeName : node.expression;
+          const symbol = checker.getSymbolAtLocation(name);
+          const target = symbol && (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
+          const argument = node.typeArguments?.[0];
+          if (target && ['ComponentPropsWithRef', 'ComponentProps'].includes(target.getName())
+            && argument && ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) {
+            tags.add(argument.literal.text);
+          } else {
+            for (const declaration of target?.declarations ?? []) {
+              if (ts.isTypeAliasDeclaration(declaration)) visit(declaration.type);
+              if (ts.isInterfaceDeclaration(declaration)) declaration.heritageClauses?.forEach((clause) => clause.types.forEach(visit));
+            }
+          }
+        } else if (ts.isIntersectionTypeNode(node) || ts.isUnionTypeNode(node)) node.types.forEach(visit);
+        else if (ts.isParenthesizedTypeNode(node)) visit(node.type);
+      };
+      if (node) visit(node);
+      return tags.size === 1 ? Array.from(tags)[0] : undefined;
+    };
+
     const cleanComment = (text: string): string =>
       text.replace(/^\/\*\*?/, '').replace(/\*\/\s*$/, '')
         .split('\n').map((line) => line.replace(/^\s*\*\s?/, '')).join(' ')
@@ -623,7 +679,7 @@ export function createPropsCollector() {
         };
       }).sort(compareProps);
 
-    const visitComponent = (type: ts.Type, label: string, location: ts.Node, depth = 0) => {
+    const visitComponent = (type: ts.Type, label: string, location: ts.Node, symbol: ts.Symbol, depth = 0) => {
       const signature = type.getCallSignatures()[0];
       if (signature) {
         const parameter = signature.getParameters()[0];
@@ -664,14 +720,20 @@ export function createPropsCollector() {
           if (declaration) {
             ts.forEachChild(declaration, readBodyDefaults);
           }
-          tables.push({ name: label, props });
+          const componentSymbol = type.getSymbol();
+          tables.push({
+            name: label,
+            description: describeComponent(symbol) || (componentSymbol ? describeComponent(componentSymbol) : '') || undefined,
+            native: nativeFromProps(propsType, declaration ?? location, declaration?.parameters[0]?.type),
+            props,
+          });
         }
       }
       if (depth >= 2) return;
       for (const member of checker.getPropertiesOfType(type)) {
         const memberType = checker.getTypeOfSymbolAtLocation(member, member.valueDeclaration ?? location);
         if (memberType.getCallSignatures().length > 0 && !['bind', 'call', 'apply'].includes(member.getName())) {
-          visitComponent(memberType, `${label}.${member.getName()}`, location, depth + 1);
+          visitComponent(memberType, `${label}.${member.getName()}`, location, member, depth + 1);
         }
       }
     };
@@ -690,7 +752,7 @@ export function createPropsCollector() {
     );
     for (const { symbol, source } of candidates) {
       const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
-      visitComponent(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), symbol.getName() === 'default' ? entryName : symbol.getName(), source);
+      visitComponent(checker.getTypeOfSymbolAtLocation(target, target.valueDeclaration ?? source), symbol.getName() === 'default' ? entryName : symbol.getName(), source, target);
     }
     return tables;
   };

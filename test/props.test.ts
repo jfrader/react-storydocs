@@ -488,7 +488,7 @@ test('local slot defaults use their displayName or identifier without a catalog 
   }
 });
 
-test('props presentation shows allowed values, JSDoc and collapsed inherited props', () => {
+test('props presentation shows allowed values, JSDoc and compact inherited contracts', () => {
   const require = createRequire(import.meta.url);
   const source = readFileSync(new URL('../src/pages/component-page.tsx', import.meta.url), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -516,8 +516,9 @@ test('props presentation shows allowed values, JSDoc and collapsed inherited pro
   assert.match(markup, /required/);
   assert.match(markup, /Deprecated/);
   assert.match(markup, /<code>null<\/code>/);
-  assert.match(markup, /<details><summary>Inherited props \(2\)<\/summary>/);
-  assert.match(markup, /Also available from .*href="#\/docs\/components\/button".*Button/);
+  assert.doesNotMatch(markup, /Inherited props \(2\)|<code>aria-label<\/code>|<code>disabled<\/code>/);
+  assert.match(markup, /Also accepts the props of .*href="#\/docs\/components\/button".*Button/);
+  assert.match(markup, /Also accepts inherited props from .*AriaAttributes/);
   assert.doesNotMatch(markup, /components\/aria/);
   assert.match(markup, /class="type signature" tabindex="0".*reason:.*escape.*backdrop.*=&gt; void/);
   assert.match(markup, /Signature details.*Why the dialog closed/);

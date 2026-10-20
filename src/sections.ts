@@ -5,6 +5,7 @@ export type DocsParameters = {
   description?: { component?: string; story?: string };
   /** Plain text or `- ` bulleted lines about behaviour and composition. */
   usage?: string;
+  sections?: StorySection[];
   source?: { code?: string; language?: string };
 };
 
@@ -79,6 +80,29 @@ const DISPLAY_ORDER = [
 export interface StorySection {
   title: string;
   stories: string[];
+}
+
+export function resolveSections(visibleStories: string[], authored: unknown, fallbackExample: string | null): { example: string | null; sections: StorySection[] } {
+  if (!Array.isArray(authored)) {
+    return { example: fallbackExample, sections: sectionStories(visibleStories.filter((story) => story !== fallbackExample)) };
+  }
+  const available = new Set(visibleStories);
+  const seen = new Set<string>();
+  let example: string | null = null;
+  const sections = authored.filter((section): section is { title: string; stories: unknown[] } => section !== null && typeof section === 'object'
+    && typeof section.title === 'string' && Array.isArray(section.stories)).map(({ title, stories }) => ({
+    title,
+    stories: stories.filter((story): story is string => {
+      if (typeof story !== 'string' || !available.has(story) || seen.has(story)) return false;
+      seen.add(story);
+      if (example === null) {
+        example = story;
+        return false;
+      }
+      return true;
+    }),
+  })).filter((section) => section.stories.length > 0);
+  return { example, sections };
 }
 
 export function sectionStories(stories: string[]): StorySection[] {

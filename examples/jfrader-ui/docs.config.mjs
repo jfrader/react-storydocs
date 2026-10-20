@@ -7,7 +7,7 @@ export default {
     title: 'jfrader/ui',
     mark: 'j',
     tagline:
-      'Component documentation generated from the library’s own Storybook stories — navigation, examples and API tables all come from the story files.',
+      'Component documentation generated from the library’s own Storybook stories — navigation and examples come from the stories, API tables from the component sources.',
     links: [{ label: 'GitHub', href: 'https://github.com/jfrader/jfrader-ui' }],
   },
   stories: {
