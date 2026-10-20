@@ -217,6 +217,20 @@ test('an authored introduction overrides root JSDoc without repeating either in 
   assert.doesNotMatch(markup, /Source introduction\./);
 });
 
+test('API does not expand native style members', () => {
+  const member = (name: string) => ({ name, type: 'string', description: '', required: false, defaultValue: null });
+  const markup = renderPage({ default: { component: {} }, Default: {} }, 'Widget', [{
+    name: 'Widget',
+    props: [{
+      name: 'style', type: 'CSSProperties', description: '', required: false, defaultValue: null,
+      members: [member('accentColor'), member('alignContent'), member('background')],
+    }],
+  }]);
+  assert.match(markup, /CSSProperties/);
+  assert.match(markup, /Native style overrides/);
+  assert.doesNotMatch(markup, /Fields|accentColor|alignContent/);
+});
+
 test('inherited catalog and native props are summarized without inherited rows', () => {
   const prop = (name: string, extra = {}) => ({ name, type: 'string', description: '', required: false, defaultValue: null, ...extra });
   const markup = renderPage({ default: { component: {} }, Default: {} }, 'Widget', [{ name: 'Widget', native: 'dialog', props: [

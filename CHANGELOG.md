@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.14.1
+
+- API tables show native `style` as a type and a short note instead of expanding `CSSProperties` into hundreds of member rows. A generic `style` prop no longer dominates a page with platform MDN tables.
+
 ## 0.14.0
 
 - Component pages end with one API section: import, named root and part tables, merged slots and links to components they use. Component JSDoc supplies the introduction and part descriptions.
