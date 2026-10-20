@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import type { CatalogEntry } from '../src/config.ts';
 import * as sections from '../src/sections.ts';
+import * as scroll from '../src/scroll.ts';
 import type { CatalogRef, ComponentPropsDoc } from '../src/prop-docs.ts';
 
 function renderPage(module: Record<string, unknown>, name = 'Button', components: ComponentPropsDoc[] = [], uses: CatalogRef[] = [], hasComponent = true) {
@@ -21,6 +22,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button', components
     'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
     'virtual:storybook-docs/composition': { provided: false, Composition: undefined },
     '../sections': sections,
+    '../scroll': scroll,
     '../story-view': { useStoryModule: () => ({ module }) },
     '../props': { useProps: () => ({ components, uses }) },
     '../controls': {
