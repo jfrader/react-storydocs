@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0
+
+- Add `api.module`: a consumer component replaces the built-in props and slots tables, receiving `{ components, argTypes, defaultArgs }`. The API heading, Import block and Also uses stay in the engine.
+- Extract every overload signature and expose `signature` on props that belong to one shorthand/composed overload, plus `typeParameters` on the component table.
+- Add `element` to array props (for example what each `options` entry accepts), strip `NoInfer<…>` from displayed types, and read family defaults from the component folder's binding initializers.
+
 ## 0.15.1
 
 - First published version of `@jfrader/react-storydocs`; `0.15.0` could not be reused after npm staged and unpublished it.

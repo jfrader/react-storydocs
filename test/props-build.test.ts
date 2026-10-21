@@ -104,3 +104,46 @@ test('Object.assign parts resolve function JSDoc through property initializers a
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('overloaded generic components expose type parameters, overload ownership, element fields and family defaults', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-generic-props-'));
+  try {
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    writeFileSync(path.join(root, 'choice.tsx'), `
+      import type { ReactNode } from 'react';
+      export interface Choice<V extends string = string> { value: V; label: ReactNode; disabled?: boolean }
+      interface ChoiceOptionsProps<V extends string = string> {
+        options: readonly Choice<V>[];
+        value?: NoInfer<V>;
+        onValueChange?: (value: V) => void;
+        size?: 'sm' | 'md';
+        children?: never;
+        slots?: never;
+      }
+      interface ChoiceComposedProps { options?: never; children?: ReactNode; slots?: { root?: ReactNode } }
+      export interface ChoiceComponent {
+        <V extends string = string>(props: ChoiceOptionsProps<V>): null;
+        (props: ChoiceComposedProps): null;
+      }
+      function ChoiceRoot(props: unknown) { return null; }
+      function ChoicePart({ size = 'md' }: { size?: 'sm' | 'md' }) { return size ? null : null; }
+      export const Choice = ChoiceRoot as ChoiceComponent;
+      void ChoicePart;
+    `);
+    writeFileSync(path.join(root, 'choice.stories.tsx'), `const meta = { title: 'Components/Choice', component: Choice }; export default meta; export const Default = {};`);
+    const components = createPropsCollector().collect(path.join(root, 'choice.stories.tsx'), 'Choice', 'choice').components;
+    const choice = components.find((component) => component.name === 'Choice');
+    assert.ok(choice);
+    assert.deepEqual(choice.typeParameters, [{ name: 'V', constraint: 'string', default: 'string' }]);
+    const prop = (name: string) => choice.props.find((item) => item.name === name);
+    assert.equal(prop('value')?.type, 'V');
+    assert.equal(prop('onValueChange')?.type, '(value: V) => void');
+    assert.equal(prop('size')?.defaultValue, '"md"');
+    assert.deepEqual(prop('options')?.element?.members.map((member) => member.name).sort(), ['disabled', 'label', 'value']);
+    assert.equal(prop('options')?.signature, 0);
+    assert.equal(prop('children')?.signature, 1);
+    assert.equal(prop('children')?.type, 'ReactNode');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

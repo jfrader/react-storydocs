@@ -84,6 +84,17 @@ export interface ReactStorydocsConfig {
   };
 
   /**
+   * Optional API renderer. `module` is a path relative to the consumer root whose default export
+   * renders `{ components, argTypes, defaultArgs }` — normally the design system's own props
+   * table. When present it replaces the built-in props and slots tables; the import block and
+   * related components stay in the engine. Absent or `null` components keeps the current page
+   * loading state.
+   */
+  api?: {
+    module: string;
+  };
+
+  /**
    * Optional composition panel. `module` is a path relative to the consumer root whose default
    * export renders `{ entry, components, uses }`. Absent config renders nothing. A throw in the
    * panel does not take down the page. The engine does not interpret slots or related components;

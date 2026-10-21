@@ -123,6 +123,35 @@ the route hash, respecting reduced motion; other catalog defaults link to their 
 components value-imported by this component. Empty Slots and Also uses headings are omitted.
 The page rail includes API and its H3 headings; there is no separate in-page index.
 
+### Rendering the API with the design system's own table
+
+The built-in API section renders a props table per component and part, a merged Slots table and an
+inherited-props disclosure. A consumer can replace the props and slots part with its own component:
+
+```js
+export default {
+  // …
+  api: { module: './src/api-table.tsx' },
+};
+```
+
+```tsx
+// src/api-table.tsx — receives the source-derived tables plus Storybook's argTypes fallback.
+import { ApiTable, type ApiComponentDoc } from '@acme/ui';
+import type { ApiRendererProps } from '@jfrader/react-storydocs';
+
+export default function Api({ components }: ApiRendererProps) {
+  if (!components) return null; // the page shows its loading state
+  return <ApiTable components={components as ApiComponentDoc[]} />;
+}
+```
+
+The engine keeps the API heading, the Import block and Also uses; the renderer owns the props and
+slots presentation. `components` is `null` while the source tables load; `argTypes` and
+`defaultArgs` carry Storybook's fallback for components without source props. Source tables may
+include `typeParameters` on a component, `element` on an array prop, and `signature` on a prop that
+belongs to one overload of a shorthand/composed pair.
+
 ### Rendering code with the design system's own block
 
 Code renders in the engine's plain block unless the consumer names a renderer:

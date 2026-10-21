@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { loadProps } from 'virtual:react-storydocs/props';
-import type { CatalogRef, ComponentPropsDoc, PropDoc } from './prop-docs';
+import type { ApiRendererProps, CatalogRef, ComponentPropsDoc, PropDoc } from './prop-docs';
 
-export type { CatalogRef, ComponentPropsDoc, PropDoc };
+export type { ApiRendererProps, CatalogRef, ComponentPropsDoc, PropDoc };
 
 export interface PropsLoad {
   components: ComponentPropsDoc[] | null;

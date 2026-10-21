@@ -649,9 +649,10 @@ export function createPropsCollector() {
         const typeFlags = ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope;
         const literalUnion = propType.isUnion() && propType.types.every((part) => Boolean(part.flags & (ts.TypeFlags.Literal | ts.TypeFlags.Null | ts.TypeFlags.Undefined)));
         const printedType = checker.typeToString(propType, undefined, typeFlags);
-        const displayType = literalUnion && propType.isUnion()
+        const displayType = (literalUnion && propType.isUnion()
           ? propType.types.filter((part) => !optional || !(part.flags & ts.TypeFlags.Undefined)).map((part) => checker.typeToString(part, undefined, typeFlags)).join(' | ').replace(/false \| true/g, 'boolean')
-          : optional ? printedType.replace(/ \| undefined$/, '') : printedType;
+          : optional ? printedType.replace(/ \| undefined$/, '') : printedType).replace(/^NoInfer<(.*)>$/, '$1')
+          .replace(/^\(\((.*)\) => (.*)\)$/, '($1) => $2');
         const parent = declaration?.parent;
         const declarationName = declaration ? parent && (ts.isInterfaceDeclaration(parent) || ts.isTypeAliasDeclaration(parent)) ? parent.name.text : path.basename(declaration.getSourceFile().fileName) : undefined;
         const inheritedComponent = declaration ? baseContracts.find((base) =>
@@ -662,6 +663,8 @@ export function createPropsCollector() {
           ? declarationName
           : undefined;
         const memberType = checker.getNonNullableType(propType);
+        const elementType = depth === 0 ? checker.getIndexTypeOfType(memberType, ts.IndexKind.Number) : undefined;
+        const elementMembers = elementType ? describeProps(elementType, location, depth + 1) : undefined;
         const nonCallableAlternatives = propType.isUnion() ? propType.types
           .filter((part) => Boolean(part.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) && (!optional || !(part.flags & ts.TypeFlags.Undefined)))
           .map((part) => checker.typeToString(part, undefined, typeFlags)) : [];
@@ -705,6 +708,7 @@ export function createPropsCollector() {
           defaultElement: slotDefault?.defaultElement,
           part: depth === 0 ? undefined : partToken(symbol.getName()),
           signatures: signatures.length ? signatures : undefined,
+          element: elementMembers?.length ? { type: checker.typeToString(elementType as ts.Type, undefined, typeFlags), members: elementMembers } : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
           // A slot map is this component's contract even when the owner adopts it from a shared
           // seam, so both `slots` and `slotProps` expand wherever they are declared.
@@ -717,13 +721,41 @@ export function createPropsCollector() {
       }).sort(compareProps);
 
     const visitComponent = (type: ts.Type, label: string, location: ts.Node, symbol: ts.Symbol, depth = 0) => {
-      const signature = type.getCallSignatures()[0];
-      if (signature) {
-        const parameter = signature.getParameters()[0];
-        if (parameter) {
+      const typeFlags = ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope;
+      const callSignatures = type.getCallSignatures();
+      if (callSignatures.length > 0) {
+        const rows = new Map<string, { prop: PropDoc; signature: number }>();
+        const exclusions = new Map<string, number[]>();
+        const propsTypes: ts.Type[] = [];
+        let defaultsDeclaration: ts.SignatureDeclaration | undefined;
+        for (const [index, signature] of callSignatures.entries()) {
+          const parameter = signature.getParameters()[0];
+          if (!parameter) continue;
           const declaration = signature.getDeclaration();
           const propsType = checker.getTypeOfSymbolAtLocation(parameter, declaration ?? location);
-          const props = describeProps(propsType, declaration ?? location);
+          propsTypes.push(propsType);
+          for (const row of describeProps(propsType, declaration ?? location)) {
+            const excluded = row.type === 'never' || row.type === 'undefined';
+            if (excluded) exclusions.set(row.name, [...(exclusions.get(row.name) ?? []), index]);
+            const previous = rows.get(row.name);
+            if (!previous) rows.set(row.name, { prop: row, signature: index });
+            else if ((previous.prop.type === 'never' || previous.prop.type === 'undefined') && !excluded) {
+              rows.set(row.name, { prop: row, signature: index });
+            }
+          }
+          const binding = declaration?.parameters[0]?.name;
+          if (!defaultsDeclaration && binding && ts.isObjectBindingPattern(binding)) defaultsDeclaration = declaration;
+        }
+        const props = [...rows.values()].map(({ prop, signature }) => {
+          const excluded = exclusions.get(prop.name) ?? [];
+          // Only mark a prop when the other overload excludes it; shared props stay unmarked.
+          return callSignatures.length > 1 && excluded.length > 0 && !excluded.includes(signature)
+            ? { ...prop, signature }
+            : prop;
+        }).sort(compareProps);
+        const propsType = propsTypes[0];
+        if (propsType) {
+          const declaration = defaultsDeclaration ?? callSignatures[0]?.getDeclaration();
           const binding = declaration?.parameters[0]?.name;
           const readDefaults = (elements: readonly ts.BindingElement[]) => {
             for (const element of elements) {
@@ -754,14 +786,43 @@ export function createPropsCollector() {
             }
             ts.forEachChild(node, readBodyDefaults);
           };
-          if (declaration) {
-            ts.forEachChild(declaration, readBodyDefaults);
+          if (declaration) ts.forEachChild(declaration, readBodyDefaults);
+          // Family defaults: a root forwards props to the part that owns the initializer. Read the
+          // component folder's own binding defaults so the table does not print `—` for a real one.
+          const sourceDefaults = new Map<string, string>();
+          for (const file of sources) {
+            const source = program.getSourceFile(file);
+            if (!source) continue;
+            const visit = (node: ts.Node) => {
+              if (ts.isBindingElement(node) && node.initializer && node.initializer.getText() !== 'undefined') {
+                const name = (node.propertyName ?? node.name).getText();
+                if (!sourceDefaults.has(name)) {
+                  const value = literalValue(node.initializer);
+                  sourceDefaults.set(name, value === unresolved ? node.initializer.getText() : JSON.stringify(value) ?? null);
+                }
+              }
+              ts.forEachChild(node, visit);
+            };
+            visit(source);
+          }
+          for (const prop of props) {
+            if (prop.defaultValue === null && sourceDefaults.has(prop.name)) prop.defaultValue = sourceDefaults.get(prop.name)!;
           }
           const componentSymbol = type.getSymbol();
+          const typeParameters = (callSignatures[0]?.typeParameters ?? []).map((parameter) => {
+            const constraint = parameter.getConstraint();
+            const fallback = parameter.getDefault();
+            return {
+              name: parameter.symbol?.getName() ?? '?',
+              constraint: constraint ? checker.typeToString(constraint, undefined, typeFlags) : undefined,
+              default: fallback ? checker.typeToString(fallback, undefined, typeFlags) : undefined,
+            };
+          });
           tables.push({
             name: label,
             description: describeComponent(symbol) || (componentSymbol ? describeComponent(componentSymbol) : '') || undefined,
             native: nativeFromProps(propsType, declaration ?? location, declaration?.parameters[0]?.type),
+            typeParameters: typeParameters.length ? typeParameters : undefined,
             props,
           });
         }
@@ -812,7 +873,7 @@ export function mergePropsTables(tables: ComponentPropsDoc[]): ComponentPropsDoc
         const previous = props.get(prop.name);
         props.set(prop.name, { ...previous, ...prop, defaultValue: prop.defaultValue ?? previous?.defaultValue ?? null });
       }
-      byName.set(table.name, { ...existing, ...table, props: [...props.values()].sort(compareProps) });
+      byName.set(table.name, { ...existing, ...table, typeParameters: table.typeParameters ?? existing.typeParameters, props: [...props.values()].sort(compareProps) });
     }
   }
   return [...byName.values()].sort((a, b) => a.name.split('.').length - b.name.split('.').length || a.name.localeCompare(b.name));
