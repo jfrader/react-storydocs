@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1
+
+- First published version of `@jfrader/react-storydocs`; `0.15.0` could not be reused after npm staged and unpublished it.
+
 ## 0.15.0
 
 - Renamed the package and public API to `@jfrader/react-storydocs`: import `reactStorydocs` from `@jfrader/react-storydocs/vite`, use `ReactStorydocsConfig`, `window.__REACT_STORYDOCS_BASE__`, and `virtual:react-storydocs/*`. The published `0.14.x` package is deprecated in favour of this name.
