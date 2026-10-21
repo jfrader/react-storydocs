@@ -149,7 +149,9 @@ export function createPropsCollector() {
       cache = { host };
       programCaches.set(compilerOptions, cache);
     }
-    cache.program = ts.createProgram(sources, compilerOptions, cache.host, cache.program);
+    // Do not thread the previous program through: its type caches accumulate across every
+    // component and dominate the docs build's heap. The host still reuses parsed source text.
+    cache.program = ts.createProgram(sources, compilerOptions, cache.host);
     return cache.program;
   };
 
@@ -663,7 +665,11 @@ export function createPropsCollector() {
           ? declarationName
           : undefined;
         const memberType = checker.getNonNullableType(propType);
-        const elementType = depth === 0 ? checker.getIndexTypeOfType(memberType, ts.IndexKind.Number) : undefined;
+        // Element-field expansion is for the collections readers choose from, not every array.
+        // Expanding arbitrary array element shapes (and their nested members) dominates the docs
+        // build heap on a full catalog.
+        const expandsElement = ['options', 'items', 'rows', 'columns', 'tabs', 'steps', 'links', 'series', 'photos'].includes(symbol.getName());
+        const elementType = depth === 0 && expandsElement ? checker.getIndexTypeOfType(memberType, ts.IndexKind.Number) : undefined;
         const elementMembers = elementType ? describeProps(elementType, location, depth + 1) : undefined;
         const nonCallableAlternatives = propType.isUnion() ? propType.types
           .filter((part) => Boolean(part.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) && (!optional || !(part.flags & ts.TypeFlags.Undefined)))

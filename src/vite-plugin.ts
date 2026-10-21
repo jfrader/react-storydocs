@@ -42,6 +42,7 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
   const propsCache = new Map<string, { components: ComponentPropsDoc[]; uses: CatalogRef[] }>();
   const storySourcesCache = new Map<string, Record<string, string>>();
   const propsCollector = createPropsCollector();
+  let buildMode = false;
   let guidanceFiles = new Map<string, string>();
 
   const loadProps = (slug: string) => {
@@ -54,7 +55,11 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
       }), catalog.components.get(slug));
       propsCache.set(slug, collected);
     }
-    return propsCode(collected.components, collected.uses);
+    const code = propsCode(collected.components, collected.uses);
+    // Each slug is requested once per build. Keeping its prop rows alive duplicates the virtual
+    // module and grows the heap across the whole catalog.
+    if (buildMode) propsCache.delete(slug);
+    return code;
   };
 
   const modules: Record<string, () => string> = {
@@ -95,7 +100,8 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
       };
     },
     configResolved(resolved: ResolvedConfig) {
-      propsCollector.setBuildMode(resolved.command === 'build');
+      buildMode = resolved.command === 'build';
+      propsCollector.setBuildMode(buildMode);
       projectRoot = options.root ?? resolved.root;
       catalog = buildCatalog(scanStories(config.stories, projectRoot), config.groups);
       guidanceFiles = indexGuidance(config.guidance, projectRoot);
