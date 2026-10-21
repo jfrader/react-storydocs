@@ -29,6 +29,12 @@ test('packed public entries point to included dist files, never consumer-unbuild
     }
     const plugin = execFileSync('tar', ['-xOf', archive, 'package/dist/vite-plugin.js'], { encoding: 'utf8' });
     assert.doesNotMatch(plugin, /from ['"]\.\.?\/[^'"]+\.ts['"]/);
+    // The app and the public `./theme` entry must share one context module. If esbuild inlines
+    // docs-theme into index.js, a consumer's `useDocsTheme` reads a different context and throws.
+    const index = execFileSync('tar', ['-xOf', archive, 'package/dist/index.js'], { encoding: 'utf8' });
+    assert.match(index, /from\s+["']\.\/docs-theme\.js["']/);
+    const theme = execFileSync('tar', ['-xOf', archive, 'package/dist/docs-theme.js'], { encoding: 'utf8' });
+    assert.match(theme, /useDocsTheme/);
   } finally {
     rmSync(destination, { recursive: true, force: true });
   }

@@ -241,7 +241,7 @@ function groupInherited(props: PropDoc[]): Array<[string, PropDoc[]]> {
     groups.set(name, [...(groups.get(name) ?? []), prop]);
   }
   return Array.from(groups).sort(([a], [b]) => {
-    const rank = (name: string) => (name === 'Other' ? 2 : DOM_INHERITED.test(name) ? 1 : 0);
+    const rank = (name: string) => (DOM_INHERITED.test(name) ? 2 : name === 'Other' ? 1 : 0);
     return rank(a) - rank(b) || a.localeCompare(b);
   });
 }
