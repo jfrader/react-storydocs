@@ -681,7 +681,12 @@ export function createPropsCollector() {
             parameters: signature.getParameters().map((parameter) => {
               const parameterType = checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? location);
               const nonNullParameter = checker.getNonNullableType(parameterType);
-              const parameterShape = Boolean(nonNullParameter.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection))
+              const parameterSymbol = nonNullParameter.aliasSymbol ?? nonNullParameter.getSymbol();
+              const parameterLocal = parameterSymbol?.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)) ?? false;
+              const parameterProperties = checker.getPropertiesOfType(nonNullParameter);
+              const parameterShape = parameterLocal
+                && parameterProperties.length <= 5
+                && Boolean(nonNullParameter.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection))
                 && !checker.isArrayType(nonNullParameter)
                 && !checker.isTupleType(nonNullParameter)
                 && nonNullParameter.getCallSignatures().length === 0;
@@ -732,7 +737,7 @@ export function createPropsCollector() {
             ? (isSlotMap || (!inheritedFrom && hasLocalMembers)
               ? describeProps(memberType, location, depth + 1, partComments(declaration), isSlotMap ? valueSlotDefaults(ts.isFunctionLike(location) ? location : undefined, type) : undefined, isSlotMap ? slotCatalogs(type, location) : undefined, true)
               : undefined)
-            : depth === 1 && ((slotMember && !inheritedComponent && hasLocalMembers) || (!inheritedFrom && ownedMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
+            : depth === 1 && ((slotMember && !inheritedComponent && hasLocalMembers && properties.length <= 8) || (!inheritedFrom && ownedMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
         };
       }).sort(compareProps);
 
