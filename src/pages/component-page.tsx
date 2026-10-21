@@ -448,7 +448,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
 
       {module ? (
         <>
-          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[example]} decorators={globalDecorators} /> : null}
+          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentSlug={entry.slug} componentDefaults={componentDefaults} renderSource={sources[example]} decorators={globalDecorators} /> : null}
           {usage ? (
             <>
               <h2>Usage</h2>
@@ -463,7 +463,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             <section key={section.title}>
               <h2>{section.title}</h2>
               {section.stories.map((story) => (
-                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[story]} decorators={globalDecorators} />
+                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentSlug={entry.slug} componentDefaults={componentDefaults} renderSource={sources[story]} decorators={globalDecorators} />
               ))}
             </section>
           ))}

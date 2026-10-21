@@ -1,9 +1,9 @@
 /** @jsxImportSource react */
 import { useState } from 'react';
-import { ComponentDemo } from './component-demo';
-export { hasHorizontalOverflow } from './component-demo';
+import { StoryFrame } from './story-frame';
+export { hasHorizontalOverflow } from './story-frame';
 import { mergeAnnotations, buildUsageSnippet, frameSource, storyDefinition, storyName as getStoryName, type DocsParameters } from './sections';
-import { StoryView } from './story-view';
+import { StoryView, storyLayout as getStoryLayout } from './story-view';
 import { storySource } from 'virtual:react-storydocs/catalog';
 
 interface StoryShape {
@@ -103,10 +103,11 @@ export function skippedNotice(meta: StoryShape, definition: StoryShape): string 
   return null;
 }
 
-export function ControlledStoryFrame({ module, story, componentName, componentDefaults, renderSource, decorators }: {
+export function ControlledStoryFrame({ module, story, componentName, componentSlug, componentDefaults, renderSource, decorators }: {
   module: Record<string, unknown>;
   story: string;
   componentName: string;
+  componentSlug?: string;
   /** Defaults read from the component source, shown until the reader changes them. */
   componentDefaults?: Record<string, unknown>;
   renderSource?: string;
@@ -120,8 +121,7 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
   const changed = Object.entries(edits).some(([name, value]) => !Object.is(value, defaults[name]));
   // Storybook semantics: the story's own `layout` decides whether the lane is padded (block)
   // or centred. Components that measure their own width need the padded, full-width lane.
-  const requestedLayout = definition.parameters?.layout ?? meta.parameters?.layout;
-  const storyLayout = requestedLayout === 'centered' || requestedLayout === 'fullscreen' ? requestedLayout : 'padded';
+  const storyLayout = getStoryLayout(module, story);
   // A stories-only meta (foundations pages) has no component to instantiate, so there is no
   // honest usage snippet to show: skip it rather than inventing a tag from the page name.
   // Storybook's own precedence: an authored `docs.source.code` wins over a generated snippet, and
@@ -146,12 +146,12 @@ export function ControlledStoryFrame({ module, story, componentName, componentDe
     component: (meta as { component?: unknown }).component,
   });
   return (
-    <ComponentDemo story={story} storyName={storyName} authoredStory={authoredStory}
+    <StoryFrame componentSlug={componentSlug} story={story} storyName={storyName} authoredStory={authoredStory}
       notice={notice} controls={controls} args={args} changed={changed}
       storyLayout={storyLayout} snippet={snippet} codeLanguage={codeLanguage}
       onControlChange={(name, value) => setEdits((current) => ({ ...current, [name]: value }))}
       onReset={() => setEdits({})}>
       <StoryView module={module} story={story} overrides={edits} decorators={decorators} />
-    </ComponentDemo>
+    </StoryFrame>
   );
 }

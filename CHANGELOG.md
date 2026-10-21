@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0
+
+- Replace example blocks with StoryFrame: compact accessible actions for inline code, copy link and a standalone story view. The code panel keeps the library's CodeBlock header and copy action, and story descriptions render inline code.
+- Add standalone hash-routed stories without docs chrome, with width presets and the shared theme toggle. Existing component story links remain supported.
+- Export `StoryFrame` and `StoryFrameProps` in place of `ComponentDemo` and `ComponentDemoProps`.
+
 ## 0.16.6
 
 - Expand local record fields for any array prop, not only a hardcoded collection allowlist. `ThreadComment[]`, `FilterToolbarDefinition[]`, `DialogStackPageRecord[]` and similar contracts now expose their fields; external/native and large element shapes stay collapsed.

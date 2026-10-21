@@ -7,6 +7,23 @@ import { Children, createElement, isValidElement, type ComponentType, type React
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 
+test('featured frames outside sections remain component story deep-link targets', () => {
+  const require = createRequire(import.meta.url);
+  const compiled = ts.transpileModule(readFileSync(new URL('../src/toc.tsx', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports: { scanPage?: (root: unknown, pageKey: string) => { frames: Array<{ story: string; id: string }>; sections: unknown[] } } = {};
+  runInNewContext(`(function(require, exports) { ${compiled}\nexports.scanPage = scanPage; })`)(
+    (name: string) => name.startsWith('./') ? {} : require(name), exports,
+  );
+  const featured = { id: '', dataset: { story: 'Default' }, querySelector: () => ({ textContent: 'Default' }) };
+  const scan = exports.scanPage!({ querySelectorAll: (selector: string) => selector === '.frame' ? [featured] : [] }, 'components/widget');
+  assert.equal(scan.frames.length, 1);
+  assert.equal(scan.frames[0]?.story, 'Default');
+  assert.equal(scan.frames[0]?.id, 'story-default');
+  assert.equal(scan.sections.length, 0);
+});
+
 test('TOC labels truncate within their rail without losing their full name', () => {
   const require = createRequire(import.meta.url);
   const labels = ['Interaction & keyboard', 'Long authored subheading', 'TriggerDefaultPrevented'];
@@ -70,6 +87,7 @@ test('route changes replace document targets but preserve navigation group ident
     'virtual:react-storydocs/releases': { releases: {} },
     './base': { REACT_STORYDOCS_BASE: '', hrefFor: (path: string) => path },
     './toc': { hashPath: (hash: string) => hash.split('?')[0], PageRail: () => null },
+    './story-route': { parseStoryRoute: () => null },
     './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
   };
   runInNewContext(`(function(require, exports) { ${compiled}\n})`, {

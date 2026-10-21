@@ -89,6 +89,14 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
   };
   const sections: SectionItem[] = [];
   const frames: StoryItem[] = [];
+  root.querySelectorAll<HTMLElement>('.frame').forEach((frame) => {
+    const name = frame.querySelector<HTMLElement>(':scope > header > span')?.textContent;
+    if (!name) return;
+    const story = frame.dataset.story ?? name;
+    frame.id ||= unique('story', story);
+    frame.dataset.toc = '';
+    frames.push({ id: frame.id, name, story, element: frame });
+  });
   /** Authored `###` headings belong in the rail, nested under the `h2` they follow. */
   // Only the page's own headings: a story may render its own `h3` (several render "Filters"), and
   // the rail is a map of the documentation, not of the examples.
@@ -103,15 +111,8 @@ function scanPage(root: HTMLElement, pageKey: string): Scan {
     const section = heading.parentElement?.tagName === 'SECTION' ? heading.parentElement : null;
     const stories: StoryItem[] = [];
     section?.querySelectorAll<HTMLElement>(':scope > .frame').forEach((frame) => {
-      const header = frame.querySelector<HTMLElement>(':scope > header');
-      const name = header?.querySelector('span')?.textContent;
-      if (!header || !name) return;
-      const story = frame.dataset.story ?? name;
-      frame.id ||= unique('story', story);
-      frame.dataset.toc = '';
-      const item = { id: frame.id, name, story, element: frame };
-      stories.push(item);
-      frames.push(item);
+      const item = frames.find((item) => item.element === frame);
+      if (item) stories.push(item);
     });
     // Everything between this h2 and the next belongs to this section.
     const following = [...root.querySelectorAll<HTMLElement>('h2, h3')];

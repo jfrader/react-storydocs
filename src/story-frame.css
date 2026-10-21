@@ -15,16 +15,41 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 20px;
+  padding: 8px 12px 8px 20px;
   background: var(--sd-surface);
   border-radius: var(--sd-radius) var(--sd-radius) 0 0;
   font-size: 13px;
   color: var(--sd-text);
 }
+.frame > header > span { min-width: 0; overflow-wrap: anywhere; }
+.sd-frame-actions { display: flex; align-items: center; gap: 4px; margin-inline-start: auto; flex-shrink: 0; }
+.sd-frame-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sd-text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.sd-frame-action:hover, .sd-frame-action[aria-expanded='true'] { background: var(--sd-surface-hover); color: var(--sd-text); }
+.sd-frame-action:focus-visible { outline: 2px solid var(--sd-focus-ring); outline-offset: 2px; }
+.sd-frame-copy { width: auto; min-width: 32px; gap: 6px; padding-inline: 8px; font: inherit; font-size: 12px; }
+@media (max-width: 479px) {
+  .sd-frame-copy-link { width: 32px; padding: 0; }
+  .sd-frame-copy-link > span { display: none; }
+}
 /* The example lane: a block container, like Storybook's canvas, so components that measure
    their lane or grow inline get a real width. Stories that ask for `layout: 'centered'` get
    the shrink-to-fit treatment on purpose (same trade-off Storybook documents). */
-.frame .shot {
+:is(.frame, .sd-story-stage) > .shot {
   padding: 36px 24px;
   display: block;
   /* Storybook's canvas scrolls when an example is wider than the viewport, instead of pushing the
@@ -33,29 +58,20 @@
   overflow-x: auto;
   min-inline-size: 0;
 }
-.frame .shot[data-layout='fullscreen'] { padding: 0; }
-.frame .story-lane[data-layout='centered'] {
+:is(.frame, .sd-story-stage) > .shot[data-layout='fullscreen'] { padding: 0; }
+:is(.frame, .sd-story-stage) > .shot > .story-lane[data-layout='centered'] {
   display: grid;
   place-items: center;
   min-block-size: 96px;
 }
 /* Inline-level components stay visually centred; the lane itself is still full width. */
-.frame .story-lane[data-layout='inline'] {
+:is(.frame, .sd-story-stage) > .shot > .story-lane[data-layout='inline'] {
   text-align: center;
 }
-.frame > details.code-toggle {
+.sd-frame-code {
   border-top: 1px solid var(--sd-border-subtle);
   background: var(--sd-surface);
   border-radius: 0 0 var(--sd-radius) var(--sd-radius);
-}
-.frame > details.code-toggle summary {
-  cursor: pointer;
-  padding: 8px 20px;
-  font-size: 12px;
-  color: var(--sd-text-muted);
-  min-block-size: 24px;
-  display: flex;
-  align-items: center;
 }
 .sd-demo-code { overflow: hidden; border-radius: 0 0 var(--sd-radius) var(--sd-radius); }
 .frame .sd-demo-code > *,
@@ -68,4 +84,3 @@
   background: transparent;
 }
 .sd-demo-code > p { padding: 16px 20px; font-size: 13px; color: var(--sd-text-muted); }
-.sd-demo-code-actions { display: flex; align-items: center; gap: 12px; }

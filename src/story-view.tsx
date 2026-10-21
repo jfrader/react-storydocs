@@ -18,6 +18,13 @@ interface MetaDefinition extends StoryDefinition {
   component?: ComponentType<Record<string, unknown>>;
 }
 
+export function storyLayout(module: Record<string, unknown>, story: string): 'centered' | 'fullscreen' | 'padded' {
+  const meta = (module.default ?? {}) as MetaDefinition;
+  const definition = storyDefinition(module[story]) as StoryDefinition;
+  const layout = definition.parameters?.layout ?? meta.parameters?.layout;
+  return layout === 'centered' || layout === 'fullscreen' ? layout : 'padded';
+}
+
 interface StoryBoundaryProps {
   children: ReactNode;
   story: string;

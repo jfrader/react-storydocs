@@ -395,8 +395,8 @@ show up as stories that render wrong rather than as errors:
   Loader-dependent examples may not render correctly. Project globals/initialGlobals and
   Storybook-specific context APIs (hooks, canvas, mount, step) are not recreated.
   Addon parameters such as viewport and backgrounds are not applied; viewport frames show
-  a notice. Layout supports centered, padded and fullscreen (an unpadded docs frame,
-  not a separate viewport-sized canvas).
+  a notice. Layout supports centered, padded, and fullscreen. Fullscreen removes stage padding;
+  the toolbar's full-screen action opens a standalone story page.
 - Search scans the in-memory catalog's component, group and story names. There is
   no generated full-text search index for guidance, props or rendered content.
 

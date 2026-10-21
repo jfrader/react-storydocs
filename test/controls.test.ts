@@ -15,7 +15,13 @@ const compile = (source: string) => ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const compiled = compile(source);
-const demoCompiled = compile(readFileSync(new URL('../src/component-demo.tsx', import.meta.url), 'utf8'));
+const demoCompiled = compile(readFileSync(new URL('../src/story-frame.tsx', import.meta.url), 'utf8'));
+const viewExports: Record<string, unknown> = {};
+const laneExports: Record<string, unknown> = {};
+runInThisContext(`(function(require, exports) { ${compile(readFileSync(new URL('../src/story-lane.tsx', import.meta.url), 'utf8'))} })`)(require, laneExports);
+runInThisContext(`(function(require, exports) { ${compile(readFileSync(new URL('../src/story-view.tsx', import.meta.url), 'utf8'))} })`)(
+  (id: string) => id === './sections' ? sections : require(id), viewExports,
+);
 const storyOverrides: unknown[] = [];
 const snippetArgs: unknown[] = [];
 const snippets: (string | null)[] = [];
@@ -34,9 +40,12 @@ function loadControls(observeStories = false) {
   const demoExports = {};
   const resolve = (name: string): unknown =>
     name === './sections' ? sectionsModule
-      : name === './component-demo' ? demoExports
+      : name === './story-frame' ? demoExports
+      : name === './story-lane' ? laneExports
+      : name === './story-route' ? { standaloneStoryHref: () => '#/stories/widget/Default' }
         : name === './toc' ? { storyLink: () => '' }
       : name === './story-view' ? {
+        storyLayout: viewExports.storyLayout,
         LazySection: observeStories ? ({ children }: { children: ReactNode }) => children : () => null,
         StoryView: ({ overrides }: { overrides: unknown }) => { storyOverrides.push(overrides); return null; },
       }
@@ -79,7 +88,7 @@ test('stories without snippets retain a deferred Code panel and no initial canva
   const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
     componentName: 'Flex', story: 'Default', module: { default: {}, Default: { render: () => null } },
   }));
-  assert.match(html, /<summary><span class="sd-demo-code-actions">Code<\/span><\/summary><\/details>/);
+  assert.match(html, /aria-label="View code"[^>]*aria-expanded="false"[^>]*aria-controls="[^"]+"/);
   assert.ok(!html.includes('No usage code'), 'fallback is deferred until the panel opens');
   assert.ok(!html.includes('tabindex'), 'unmeasured canvases do not enter the tab order');
 });
@@ -150,7 +159,7 @@ test('frame with viewport parameter shows width notice without hook names or the
 });
 
 test('demo code surface resets are scoped to the slot, not the story canvas or consumer classes', () => {
-  const css = readFileSync(new URL('../src/component-demo.css', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/story-frame.css', import.meta.url), 'utf8');
   assert.match(css, /\.frame \.sd-demo-code > \*,\s*\.frame \.sd-demo-code > \* > \*,\s*\.frame \.sd-demo-code pre/);
   assert.match(css, /box-shadow: none;\s*background: transparent;/);
   assert.ok(!css.includes('data-ui'), 'consumer selectors are not part of the demo contract');
@@ -201,7 +210,7 @@ test('custom renders accept controls and retain story defaults', () => {
   assert.match(html, /Controls for Authored example/);
   assert.match(html, /data-story="Example"/);
   assert.match(html, /data-layout="fullscreen"/);
-  assert.match(html, /<summary><span class="sd-demo-code-actions">Code<\/span><\/summary><\/details>/);
+  assert.match(html, /aria-label="View code"[^>]*aria-expanded="false"/);
   assert.ok(!html.includes('&lt;Button'), 'closed Code panels do not render their source');
 });
 
