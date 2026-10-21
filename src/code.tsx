@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { Component, Suspense, useMemo, type ComponentType, type ReactNode } from 'react';
 // Present only when the consumer names one: see `code.module` in docs.config.
-import { Code as ProvidedCode, provided as hasProvidedCode } from 'virtual:storybook-docs/code';
+import { Code as ProvidedCode, provided as hasProvidedCode } from 'virtual:react-storydocs/code';
 
 export type CodeBlockProps = {
   code: string;

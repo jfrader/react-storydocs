@@ -1,4 +1,4 @@
-# Publishing @jfrader/storybook-docs
+# Publishing @jfrader/react-storydocs
 
 ## Check a release
 
@@ -26,7 +26,7 @@ consumers must rebuild the engine after edits. The browser entry imports its CSS
 automatically and its declaration references `virtual.d.ts`; consumers importing
 the root entry need no extra CSS import or triple-slash reference. A consumer
 importing virtual modules alone must also import a type from the root entry to load
-those ambient declarations. The Node-only plugin remains at `@jfrader/storybook-docs/vite`.
+those ambient declarations. The Node-only plugin remains at `@jfrader/react-storydocs/vite`.
 
 ## First publish: the owner's interactive login
 
@@ -34,13 +34,13 @@ Trusted publishing is configured in an existing npm package's settings. If the
 package does not exist yet, the owner must create it by publishing locally first.
 
 1. Confirm the checkout is the reviewed release commit on `master` and clean.
-   Check `npm view @jfrader/storybook-docs versions --json --registry=https://registry.npmjs.org`.
+   Check `npm view @jfrader/react-storydocs versions --json --registry=https://registry.npmjs.org`.
    An `E404` can mean the public package does not exist yet. If `0.2.1` already
    exists, do not retry that version: npm versions are immutable.
 2. Run the checks above. Pack the release outside the checkout:
 
    ```bash
-   release_dir=$(mktemp -d /tmp/opencode/storybook-docs-release-XXXXXX)
+   release_dir=$(mktemp -d /tmp/opencode/react-storydocs-release-XXXXXX)
    pnpm pack --pack-destination "$release_dir"
    tar -tzf "$release_dir"/*.tgz
    npm login --registry=https://registry.npmjs.org
@@ -55,7 +55,7 @@ package does not exist yet, the owner must create it by publishing locally first
    `--otp` option accepts a fresh code, but keep it out of shared shell history.
    Do not request `--provenance` from a local shell: local publishing has no
    supported CI OIDC identity. This initial version will lack CI provenance.
-3. Verify `npm view @jfrader/storybook-docs@0.2.1 version dist.integrity --registry=https://registry.npmjs.org`.
+3. Verify `npm view @jfrader/react-storydocs@0.2.1 version dist.integrity --registry=https://registry.npmjs.org`.
    Delete the temporary release directory when finished.
 4. Do not push a `v0.2.1` tag after publishing it manually: the tag workflow would
    try to publish the same immutable version again. Configure trust before the next
@@ -69,7 +69,7 @@ Actions with these exact, case-sensitive values:
 | Field | Value |
 | --- | --- |
 | Organization or user | `jfrader` |
-| Repository | `storybook-docs` |
+| Repository | `react-storydocs` |
 | Workflow filename | `publish.yml` (not `.github/workflows/publish.yml`) |
 | Environment name | Leave empty; this workflow has no environment |
 | Allowed actions, if shown | Allow direct `npm publish` |

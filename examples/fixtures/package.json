@@ -1,5 +1,5 @@
 {
-  "name": "storybook-docs-fixtures",
+  "name": "react-storydocs-fixtures",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@jfrader/storybook-docs": "link:../..",
+    "@jfrader/react-storydocs": "link:../..",
     "@mui/material": "^9.5.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

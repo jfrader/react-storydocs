@@ -72,8 +72,8 @@ Run the browser check against a running docs site from a directory that resolves
 Playwright, like the reference consumer's Storybook app:
 
 ```sh
-node /path/to/storybook-docs/scripts/check-navigation.mjs http://localhost:4346
-node /path/to/storybook-docs/scripts/check-navigation.mjs http://localhost:4346 --widths 1440 --height 600
+node /path/to/react-storydocs/scripts/check-navigation.mjs http://localhost:4346
+node /path/to/react-storydocs/scripts/check-navigation.mjs http://localhost:4346 --widths 1440 --height 600
 ```
 
 The check enables native scrollbar painting, verifies themed and forced-color

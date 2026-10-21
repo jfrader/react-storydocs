@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
 import { Component, Suspense, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
-import { storySource } from 'virtual:storybook-docs/catalog';
-import { decorators as globalDecorators } from 'virtual:storybook-docs/decorators';
+import { storySource } from 'virtual:react-storydocs/catalog';
+import { decorators as globalDecorators } from 'virtual:react-storydocs/decorators';
 import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
 import { CodeBlock } from '../code';
@@ -12,9 +12,9 @@ import { resolveSections, selectExample, type DocsParameters } from '../sections
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
 import { useProps, type CatalogRef, type ComponentPropsDoc, type PropDoc } from '../props';
-import { Composition as ProvidedComposition, provided as hasComposition } from 'virtual:storybook-docs/composition';
+import { Composition as ProvidedComposition, provided as hasComposition } from 'virtual:react-storydocs/composition';
 import { Skeleton } from '../skeleton';
-import { loadStorySources } from 'virtual:storybook-docs/story-sources';
+import { loadStorySources } from 'virtual:react-storydocs/story-sources';
 import { scrollToElement } from '../scroll';
 
 function formatValue(value: unknown): string {

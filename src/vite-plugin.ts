@@ -8,7 +8,7 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
-import type { StorybookDocsConfig } from './config.js';
+import type { ReactStorydocsConfig } from './config.js';
 import type { CatalogRef, ComponentPropsDoc } from './prop-docs.js';
 import { buildCatalog, catalogCode, resolveStoryRoot, scanStories, storyImportSpecifier } from './build/catalog.ts';
 import { siteCode } from './build/site.ts';
@@ -26,13 +26,13 @@ import { extractStorySources, storySourcesCode, storySourcesIndexCode } from './
 
 export type { ComponentPropsDoc, PropDoc } from './prop-docs.js';
 
-export interface StorybookDocsPluginOptions {
-  config: StorybookDocsConfig;
+export interface ReactStorydocsPluginOptions {
+  config: ReactStorydocsConfig;
   /** Overrides the Vite root (defaults to the resolved Vite project root). */
   root?: string;
 }
 
-export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
+export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
   const { config } = options;
   let projectRoot = options.root ?? process.cwd();
   let catalog = buildCatalog(scanStories(config.stories, projectRoot), config.groups);
@@ -72,7 +72,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
   };
 
   return {
-    name: 'storybook-docs',
+    name: 'react-storydocs',
     enforce: 'pre',
     config() {
       // The engine is usually consumed through a link, so React would otherwise resolve
@@ -98,7 +98,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
       catalog = buildCatalog(scanStories(config.stories, projectRoot), config.groups);
       guidanceFiles = indexGuidance(config.guidance, projectRoot);
       this.info?.(
-        `storybook-docs: ${catalog.stats.components} components, ${catalog.stats.stories} stories, ${catalog.stats.groups} groups from ${config.stories.from}`,
+        `react-storydocs: ${catalog.stats.components} components, ${catalog.stats.stories} stories, ${catalog.stats.groups} groups from ${config.stories.from}`,
       );
     },
     buildStart() {
@@ -149,4 +149,4 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
   };
 }
 
-export default storybookDocs;
+export default reactStorydocs;

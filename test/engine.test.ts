@@ -19,10 +19,10 @@ test('shell brand links to the base-aware overview and follows the skip link', (
   }).outputText;
   const exports: { DocsApp?: ComponentType } = {};
   const modules: Record<string, unknown> = {
-    'virtual:storybook-docs/catalog': { catalog: [{ group: 'Foundations', slug: 'theme', name: 'Theme', load: () => {} }], groups: ['Foundations'], stats: { components: 1, stories: 1 } },
-    'virtual:storybook-docs/site': { pages: { color: true }, site: { title: 'Example UI', mark: 'E' }, theme: {} },
-    'virtual:storybook-docs/releases': { releases: {} },
-    './base': { STORYBOOK_DOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
+    'virtual:react-storydocs/catalog': { catalog: [{ group: 'Foundations', slug: 'theme', name: 'Theme', load: () => {} }], groups: ['Foundations'], stats: { components: 1, stories: 1 } },
+    'virtual:react-storydocs/site': { pages: { color: true }, site: { title: 'Example UI', mark: 'E' }, theme: {} },
+    'virtual:react-storydocs/releases': { releases: {} },
+    './base': { REACT_STORYDOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
     './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
     './toc': { hashPath: (hash: string) => hash.slice(1) },
     './search': { SearchBox: () => null },
@@ -145,7 +145,7 @@ test('storyIdentity: file slugs stay independent of dotted, nested and numbered 
 });
 
 test('storyImportSpecifier: package names pass through, checkout paths borrow package.json, importFrom wins', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-import-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-import-'));
   try {
     writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: '@acme/ui' }));
     assert.equal(storyImportSpecifier({ from: '@acme/ui', pattern: 'src/**/*.stories.tsx' }, root), '@acme/ui');

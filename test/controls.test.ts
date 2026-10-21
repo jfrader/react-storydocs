@@ -41,7 +41,7 @@ function loadControls(observeStories = false) {
         StoryView: ({ overrides }: { overrides: unknown }) => { storyOverrides.push(overrides); return null; },
       }
         : name === './code' ? { CodeBlock: () => { throw new Error('Closed Code panel rendered eagerly'); } }
-          : name === 'virtual:storybook-docs/catalog' ? { storySource: '@jfrader/ui' }
+          : name === 'virtual:react-storydocs/catalog' ? { storySource: '@jfrader/ui' }
           : name.startsWith('./') ? {} : require(name);
   runInThisContext(`(function(require, exports) { ${demoCompiled}\n})`)(resolve, demoExports);
   runInThisContext(`(function(require, exports) { ${compiled}\n})`)(resolve, exports);

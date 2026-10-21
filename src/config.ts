@@ -2,7 +2,7 @@
  * The consumer-facing configuration. Nothing in the engine is bound to a specific
  * design system: every path, package name, theme variable and label comes from here.
  */
-export interface StorybookDocsConfig {
+export interface ReactStorydocsConfig {
   /** Branding and header content. */
   site: {
     title: string;

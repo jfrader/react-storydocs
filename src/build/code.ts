@@ -5,7 +5,7 @@ export function resolveCodeModule(module: string | undefined, root: string): str
   if (!module) return undefined;
   const resolved = path.resolve(root, module);
   if (!existsSync(resolved)) {
-    throw new Error(`storybook-docs: code.module "${module}" does not exist (looked in ${resolved})`);
+    throw new Error(`react-storydocs: code.module "${module}" does not exist (looked in ${resolved})`);
   }
   return resolved;
 }

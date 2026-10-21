@@ -1,9 +1,9 @@
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import type { StorybookDocsConfig } from '../config.js';
+import type { ReactStorydocsConfig } from '../config.js';
 import { VIRTUAL_PREFIX } from './module-ids.ts';
 
-export function indexGuidance(guidance: StorybookDocsConfig['guidance'], root: string): Map<string, string> {
+export function indexGuidance(guidance: ReactStorydocsConfig['guidance'], root: string): Map<string, string> {
   const files = new Map<string, string>();
   for (const dir of [guidance?.dir ?? []].flat()) {
     const directory = path.resolve(root, dir);

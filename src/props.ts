@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { loadProps } from 'virtual:storybook-docs/props';
+import { loadProps } from 'virtual:react-storydocs/props';
 import type { CatalogRef, ComponentPropsDoc, PropDoc } from './prop-docs';
 
 export type { CatalogRef, ComponentPropsDoc, PropDoc };

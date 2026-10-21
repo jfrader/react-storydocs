@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { catalog } from 'virtual:storybook-docs/catalog';
+import { catalog } from 'virtual:react-storydocs/catalog';
 import { hrefFor } from './base';
 import {
   highlightSegments,
@@ -23,7 +23,7 @@ export function SearchBox() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const listId = 'storybook-docs-search-results';
+  const listId = 'react-storydocs-search-results';
   const optionId = (key: string) => `${listId}-${key}`;
 
   const results = useMemo<SearchRow[]>(() => {

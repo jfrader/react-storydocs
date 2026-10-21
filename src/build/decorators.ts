@@ -5,7 +5,7 @@ export function resolveDecoratorsModule(module: string | undefined, root: string
   if (!module) return undefined;
   const resolved = path.resolve(root, module);
   if (!existsSync(resolved)) {
-    throw new Error(`storybook-docs: decorators.module "${module}" does not exist (looked in ${resolved})`);
+    throw new Error(`react-storydocs: decorators.module "${module}" does not exist (looked in ${resolved})`);
   }
   return resolved;
 }

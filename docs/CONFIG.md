@@ -1,7 +1,7 @@
 # Configuration reference
 
-The consumer contract is `StorybookDocsConfig` in `src/config.ts`. Export a plain
-object from `docs.config.mjs` and pass it to `storybookDocs({ config })` in Vite.
+The consumer contract is `ReactStorydocsConfig` in `src/config.ts`. Export a plain
+object from `docs.config.mjs` and pass it to `reactStorydocs({ config })` in Vite.
 Only `site` and `stories` are required. Defaults below describe the current engine,
 not values copied from the reference consumer.
 
@@ -23,7 +23,7 @@ Package roots are resolved by walking up from the consumer root for
 `node_modules/<package>`. Relative paths resolve against the Vite project root
 (normally the directory containing the config), not the engine's directory.
 The plugin option `root?: string` overrides that consumer root; it is not a
-`StorybookDocsConfig` key. Keep the config and Vite root together, or set `root`
+`ReactStorydocsConfig` key. Keep the config and Vite root together, or set `root`
 explicitly. Published packages must include their story sources, or
 `stories.from` must point at a checkout. The scanner supports `*` within one path
 segment and `**` across directories.
@@ -221,7 +221,7 @@ that attribute and drive the design system's React provider, so the header toggl
 share one theme:
 
 ```tsx
-import { useDocsTheme } from '@jfrader/storybook-docs/theme';
+import { useDocsTheme } from '@jfrader/react-storydocs/theme';
 import { ThemeProvider } from '@mui/material';
 import { dark, light } from '@acme/ui';
 
@@ -231,7 +231,7 @@ export default function withTheme(Story) {
 }
 ```
 
-`useDocsTheme()` is exported from the `@jfrader/storybook-docs/theme` subpath. It returns the
+`useDocsTheme()` is exported from the `@jfrader/react-storydocs/theme` subpath. It returns the
 current value and is reactive, so no DOM observer or second theme switch is needed.
 
 ```js
@@ -292,10 +292,10 @@ consumer contract:
    ```ts
    import react from '@vitejs/plugin-react';
    import { defineConfig } from 'vite';
-   import { storybookDocs } from '@jfrader/storybook-docs/vite';
+   import { reactStorydocs } from '@jfrader/react-storydocs/vite';
    import config from './docs.config.mjs';
 
-   export default defineConfig({ plugins: [storybookDocs({ config }), react()] });
+   export default defineConfig({ plugins: [reactStorydocs({ config }), react()] });
    ```
 
 3. **`index.html`** — mount the app:
@@ -311,7 +311,7 @@ consumer contract:
 4. **`src/main.tsx`** — start the engine:
 
    ```ts
-   import { start } from '@jfrader/storybook-docs';
+   import { start } from '@jfrader/react-storydocs';
    start();
    ```
 

@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
-import { storybookDocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
+import { reactStorydocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
 import type { ResolvedConfig } from 'vite';
 import { createPropsCollector } from '../src/build/props.ts';
 
@@ -60,7 +60,7 @@ function readConst(code: string, name: string) {
 }
 
 function extract(source: string, files: Record<string, string> = {}): ComponentPropsDoc[] {
-  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-props-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-props-'));
   try {
     symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
     mkdirSync(path.join(root, 'widget'));
@@ -70,11 +70,11 @@ function extract(source: string, files: Record<string, string> = {}): ComponentP
       writeFileSync(path.join(root, file), content);
     }
     writeFileSync(path.join(root, 'widget/widget.stories.tsx'), "const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};");
-    const plugin = storybookDocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
+    const plugin = reactStorydocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
     const resolved = plugin.configResolved as (config: ResolvedConfig) => void;
     resolved.call({}, { root } as ResolvedConfig);
     const load = plugin.load as (id: string) => string;
-    const code = load.call({}, '\0virtual:storybook-docs/props/widget');
+    const code = load.call({}, '\0virtual:react-storydocs/props/widget');
     return readConst(code, 'components');
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -150,7 +150,7 @@ test('body destructuring keeps source defaults and ReactNode aliases without com
   assert.equal(props.find((prop) => prop.name === 'visible')?.defaultValue, 'true');
   assert.equal(props.find((prop) => prop.name === 'children')?.type, 'ReactNode');
   assert.equal(props.find((prop) => prop.name === 'labels')?.members?.find((prop) => prop.name === 'old')?.tags?.[0]?.name, 'deprecated');
-  assert.doesNotMatch(JSON.stringify(tables), /import\("|node_modules|storybook-docs-props-/);
+  assert.doesNotMatch(JSON.stringify(tables), /import\("|node_modules|react-storydocs-props-/);
 });
 
 test('mapped slot names and const literal defaults are resolved without evaluating expressions', () => {
@@ -242,7 +242,7 @@ test('a slot carries the props its own component declares, and links a foreign c
 });
 
 test('prop types and value imports link other catalog components, not type-only imports', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-props-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-props-'));
   try {
     symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
     const write = (file: string, content: string) => {
@@ -255,9 +255,9 @@ test('prop types and value imports link other catalog components, not type-only 
     write('drawer/drawer.stories.tsx', "const meta = { title: 'Components/Drawer', component: Drawer }; export default meta; export const Default = {};");
     write('widget/widget.tsx', `import { Button, type ButtonProps } from '../button/button';\nimport type { DrawerProps } from '../drawer/drawer';\nexport function Widget({ action, slotProps }: { action?: ButtonProps; hidden?: DrawerProps; slotProps?: { icon?: ButtonProps } }) { return <Button />; }\n`);
     write('widget/widget.stories.tsx', "const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};");
-    const plugin = storybookDocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
+    const plugin = reactStorydocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
     (plugin.configResolved as (config: ResolvedConfig) => void).call({}, { root } as ResolvedConfig);
-    const code = (plugin.load as (id: string) => string).call({}, '\0virtual:storybook-docs/props/widget');
+    const code = (plugin.load as (id: string) => string).call({}, '\0virtual:react-storydocs/props/widget');
     const components = readConst(code, 'components') as ComponentPropsDoc[];
     const uses = readConst(code, 'uses') as Array<{ name: string; slug: string }>;
     const widget = components.find((table) => table.name === 'Widget')!;
@@ -518,10 +518,10 @@ test('props presentation shows allowed values, JSDoc and compact inherited contr
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const exports: { PropsTable?: (props: { components: ComponentPropsDoc[]; argTypes: Record<string, Record<string, unknown>>; defaultArgs: Record<string, unknown> }) => ReturnType<typeof createElement> } = {};
   const dependencies: Record<string, unknown> = {
-    'virtual:storybook-docs/catalog': { storySource: '@acme/ui' },
-    'virtual:storybook-docs/decorators': { decorators: [] },
-    'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
-    'virtual:storybook-docs/composition': { provided: false, Composition: undefined },
+    'virtual:react-storydocs/catalog': { storySource: '@acme/ui' },
+    'virtual:react-storydocs/decorators': { decorators: [] },
+    'virtual:react-storydocs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
+    'virtual:react-storydocs/composition': { provided: false, Composition: undefined },
     '../base': { hrefFor: (path: string) => `/docs${path}` },
   };
   runInThisContext(`(function(require, exports) { ${compiled}; exports.PropsTable = PropsTable; })`)(

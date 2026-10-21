@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
-import { useDocsTheme } from '@jfrader/storybook-docs/theme';
+import { useDocsTheme } from '@jfrader/react-storydocs/theme';
 import { LegacyProvider } from '../packages/acme-ui/src/legacy-src/LegacyContext';
 
 const light = createTheme({ palette: { mode: 'light' } });

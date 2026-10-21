@@ -1,3 +1,3 @@
-import { start } from '@jfrader/storybook-docs';
+import { start } from '@jfrader/react-storydocs';
 
 start();

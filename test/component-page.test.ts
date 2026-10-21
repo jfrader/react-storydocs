@@ -17,11 +17,11 @@ function renderPage(module: Record<string, unknown>, name = 'Button', components
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const exports: { ComponentPage?: (props: { entry: CatalogEntry }) => ReturnType<typeof createElement> } = {};
   const dependencies: Record<string, unknown> = {
-    'virtual:storybook-docs/catalog': { storySource: '@fixture/ui' },
-    'virtual:storybook-docs/decorators': { decorators: [] },
+    'virtual:react-storydocs/catalog': { storySource: '@fixture/ui' },
+    'virtual:react-storydocs/decorators': { decorators: [] },
     '../base': { hrefFor: (path: string) => path },
-    'virtual:storybook-docs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
-    'virtual:storybook-docs/composition': { provided: false, Composition: undefined },
+    'virtual:react-storydocs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
+    'virtual:react-storydocs/composition': { provided: false, Composition: undefined },
     '../sections': sections,
     '../scroll': scroll,
     '../story-view': { useStoryModule: () => ({ module }) },

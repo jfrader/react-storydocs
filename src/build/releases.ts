@@ -1,13 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { StorybookDocsConfig } from '../config.js';
+import type { ReactStorydocsConfig } from '../config.js';
 
 export interface Releases {
   version: string | null;
   changelog: string | null;
 }
 
-export function readReleases(config: StorybookDocsConfig, root: string): Releases {
+export function readReleases(config: ReactStorydocsConfig, root: string): Releases {
   const readIfPresent = (candidate: string | undefined): string | null => {
     if (!candidate) return null;
     const resolved = path.resolve(root, candidate);

@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 
 import type { ReactNode } from 'react';
-import { releases } from 'virtual:storybook-docs/releases';
+import { releases } from 'virtual:react-storydocs/releases';
 import { MarkdownView } from '../guidance';
 
 export function ReleasesPage(): ReactNode {

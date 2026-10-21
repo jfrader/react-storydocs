@@ -6,7 +6,7 @@
  * the usage prose each story authors for itself.
  */
 import { createElement, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { loadGuidance } from 'virtual:storybook-docs/guidance';
+import { loadGuidance } from 'virtual:react-storydocs/guidance';
 import { CodeBlock } from './code';
 import { parseGuidance, type Block, type CalloutTone, type Inline } from './guidance-model';
 import { Skeleton } from './skeleton';
