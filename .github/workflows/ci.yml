@@ -40,10 +40,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: |
             storybook-docs/pnpm-lock.yaml
+            storybook-docs/examples/fixtures/pnpm-lock.yaml
             storybook-docs/examples/jfrader-ui/pnpm-lock.yaml
 
       - name: Install engine dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Install fixture consumer dependencies
+        run: pnpm --dir examples/fixtures install --frozen-lockfile --prefer-offline
 
       - name: Test engine, virtual modules, packed exports and fixtures graph
         run: pnpm test
@@ -64,9 +68,7 @@ jobs:
           fi
 
       - name: Build the self-contained fixtures consumer
-        run: |
-          pnpm --dir examples/fixtures install --frozen-lockfile --prefer-offline
-          pnpm --dir examples/fixtures build
+        run: pnpm --dir examples/fixtures build
 
       - name: Checkout reference design system
         if: ${{ steps.reference.outputs.present == '1' }}
