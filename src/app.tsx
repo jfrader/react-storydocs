@@ -14,6 +14,8 @@ import { releases } from 'virtual:react-storydocs/releases';
 import { REACT_STORYDOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath } from './toc';
 import { DocsThemeContext } from './docs-theme.js';
+import { parseStoryRoute } from './story-route';
+import { StandaloneStoryPage } from './pages/story-page';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
 function NavGroup({ id, title, active, children }: { id: string; title: string; active: boolean; children: ReactNode }) {
@@ -37,12 +39,15 @@ type Route =
   | { kind: 'overview' }
   | { kind: 'releases' }
   | { kind: 'component'; slug: string }
+  | { kind: 'story'; slug: string; story: string }
   | { kind: 'color' }
   | { kind: 'typography' }
   | { kind: 'spacing' }
   | { kind: 'effects' };
 
 function parseRoute(hash: string): Route {
+  const storyRoute = parseStoryRoute(hash);
+  if (storyRoute) return { kind: 'story', ...storyRoute };
   const path = hashPath(hash).replace(new RegExp(`^#?\\/?${REACT_STORYDOCS_BASE}`), '').replace(/^\/+/, '');
   if (path.startsWith('components/')) {
     const slug = path.slice('components/'.length);
@@ -62,7 +67,7 @@ export function DocsApp() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [mode, setMode] = useState(theme.values?.[0] ?? 'dark');
   const [navOpen, setNavOpen] = useState(false);
-  const pageKey = route.kind === 'component' ? `components/${route.slug}` : route.kind;
+  const pageKey = route.kind === 'component' ? `components/${route.slug}` : route.kind === 'story' ? `stories/${route.slug}/${route.story}` : route.kind;
   const headerRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
   const renderedPage = useRef(pageKey);
@@ -88,7 +93,7 @@ export function DocsApp() {
       if (previousHeight) root.style.setProperty('--sd-header-height', previousHeight);
       else root.style.removeProperty('--sd-header-height');
     };
-  }, []);
+  }, [route.kind]);
 
   useEffect(() => {
     const onHash = () => {
@@ -104,6 +109,8 @@ export function DocsApp() {
   }, [mode]);
 
   const [darkMode, lightMode] = theme.values ?? ['dark', 'light'];
+  const nextMode = mode === darkMode ? lightMode : darkMode;
+  const themeAction = <button type="button" className="tool" aria-label={`Switch to ${nextMode} theme`} onClick={() => setMode(nextMode)}>{nextMode}</button>;
   const activeSlug = route.kind === 'component' ? route.slug : null;
   const foundations = [
     ...(pages.color ? [{ href: routeHref(`/tokens/color`), label: 'Color', kind: 'color' }] : []),
@@ -114,6 +121,7 @@ export function DocsApp() {
 
   return (
     <DocsThemeContext.Provider value={{ theme: mode, values: [darkMode, lightMode], setTheme: setMode }}>
+    {route.kind === 'story' ? <StandaloneStoryPage slug={route.slug} story={route.story} themeAction={themeAction} /> :
     <div className={route.kind === 'overview' ? 'app' : 'app has-toc'}>
       <a
         className="skip"
@@ -142,14 +150,7 @@ export function DocsApp() {
         <span className="chip">docs{releases.version ? ` · v${releases.version}` : ''}</span>
         <SearchBox />
         <span className="spacer" />
-        <button
-          type="button"
-          className="tool"
-          aria-label={`Switch to ${mode === darkMode ? lightMode : darkMode} theme`}
-          onClick={() => setMode(mode === darkMode ? lightMode : darkMode)}
-        >
-          {mode === darkMode ? lightMode : darkMode}
-        </button>
+        {themeAction}
         {(site.links ?? []).map((link) => (
           <a className="tool" key={link.href} href={link.href}>
             {link.label} <span aria-hidden="true">↗</span>
@@ -237,6 +238,7 @@ export function DocsApp() {
       </main>
       {route.kind !== 'overview' ? <PageRail key={pageKey} pageKey={pageKey} /> : null}
     </div>
+    }
     </DocsThemeContext.Provider>
   );
 }

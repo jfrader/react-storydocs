@@ -3,12 +3,14 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { CodeBlock } from './code';
 import type { StoryControl } from './controls';
 import { storyLink } from './toc';
+import { standaloneStoryHref } from './story-route';
 import './controls.css';
-import './component-demo.css';
+import './story-frame.css';
 
 const COPIED_MS = 1800;
 
-export interface ComponentDemoProps {
+export interface StoryFrameProps {
+  componentSlug?: string;
   story: string;
   storyName: string;
   authoredStory?: string;
@@ -24,7 +26,7 @@ export interface ComponentDemoProps {
   children: ReactNode;
 }
 
-async function copyText(text: string): Promise<boolean> {
+export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -35,28 +37,54 @@ async function copyText(text: string): Promise<boolean> {
     area.className = 'toc-clipboard';
     document.body.append(area);
     area.select();
-    const copied = document.execCommand('copy');
-    area.remove();
-    return copied;
+    try {
+      return document.execCommand('copy');
+    } catch {
+      return false;
+    } finally {
+      area.remove();
+    }
   }
 }
 
-function CopyLink({ name, story }: { name: string; story: string }) {
-  const [copied, setCopied] = useState(false);
+const icons = {
+  code: <path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18" />,
+  link: <path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 3 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" />,
+  expand: <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M3 3l6 6m12-6-6 6M3 21l6-6m12 6-6-6" />,
+  copy: <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V3H3v13h5" /></>,
+  check: <path d="m4 12 5 5L20 6" />,
+};
+
+function ActionIcon({ icon }: { icon: keyof typeof icons }) {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[icon]}</svg>;
+}
+
+function CopyAction({ label, success, text, icon }: { label: string; success: string; text: () => string; icon: 'copy' | 'link' }) {
+  const [status, setStatus] = useState('');
+  const copied = status === success;
   useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), COPIED_MS);
+    if (!status) return;
+    const timer = window.setTimeout(() => setStatus(''), COPIED_MS);
     return () => window.clearTimeout(timer);
-  }, [copied]);
+  }, [status]);
   return (
     <>
-      <button type="button" className="toc-copy" aria-label={`Copy link to ${name}`}
-        onClick={async () => setCopied(await copyText(storyLink(window.location, story)))}>
-        {copied ? 'Copied' : 'Copy link'}
+      <button type="button" className="sd-frame-action" aria-label={label} title={copied ? 'Copied' : label}
+        onClick={async () => setStatus(await copyText(text()) ? success : 'Could not copy. Try again.')}>
+        <ActionIcon icon={copied ? 'check' : icon} />
       </button>
-      <span role="status" className="toc-sr">{copied ? `Link to ${name} copied` : ''}</span>
+      <span role="status" className="toc-sr">{status}</span>
     </>
   );
+}
+
+function StoryCodePanel({ id, open, snippet, language, name }: { id: string; open: boolean; snippet: string | null; language: string; name: string }) {
+  return <div id={id} hidden={!open} className="sd-frame-code" role="region" aria-label={`${name} code panel`}>
+    {open ? <>
+      <div className="sd-frame-code-bar"><span>{language}</span>{snippet ? <CopyAction label="Copy code" success="Code copied" text={() => snippet} icon="copy" /> : null}</div>
+      <div className="sd-demo-code">{snippet ? <CodeBlock code={snippet} language={language} label={`${name} code`} /> : <p>No usage code for this example.</p>}</div>
+    </> : null}
+  </div>;
 }
 
 function ControlInput({ control, value, onChange }: {
@@ -103,11 +131,12 @@ export function hasHorizontalOverflow({ scrollWidth, clientWidth }: Pick<HTMLEle
   return scrollWidth > clientWidth;
 }
 
-export function ComponentDemo({
-  story, storyName, authoredStory, notice, controls, args, changed,
+export function StoryFrame({
+  componentSlug, story, storyName, authoredStory, notice, controls, args, changed,
   onControlChange, onReset, storyLayout, snippet, codeLanguage, children,
-}: ComponentDemoProps) {
+}: StoryFrameProps) {
   const [codeOpen, setCodeOpen] = useState(false);
+  const codeId = useId();
   const controlsLabelId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [scrollable, setScrollable] = useState(false);
@@ -145,7 +174,11 @@ export function ComponentDemo({
   );
   return (
     <div className="frame" data-story={story}>
-      <header><span>{storyName}</span><span data-toc-slot=""><CopyLink name={storyName} story={story} /></span></header>
+      <header><span>{storyName}</span><div className="sd-frame-actions" role="group" aria-label={`${storyName} actions`}>
+        <button type="button" className="sd-frame-action" aria-label="View code" title="View code" aria-expanded={codeOpen} aria-controls={codeId} onClick={() => setCodeOpen(!codeOpen)}><ActionIcon icon="code" /></button>
+        <CopyAction label={`Copy link to ${storyName}`} success={`Link to ${storyName} copied`} text={() => storyLink(window.location, story)} icon="link" />
+        {componentSlug ? <a className="sd-frame-action" href={standaloneStoryHref(componentSlug, story)} target="_blank" rel="noreferrer" aria-label={`Open ${storyName} full screen`} title="Open full screen"><ActionIcon icon="expand" /></a> : null}
+      </div></header>
       {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
       {notice ? <p className="sd-controls-note">{notice}</p> : null}
       {controls.length ? (
@@ -165,13 +198,7 @@ export function ComponentDemo({
         aria-label={scrollable ? storyName : undefined}>
         <div className="story-lane" data-layout={laneLayout} ref={laneRef}>{children}</div>
       </div>
-      <details className="code-toggle" onToggle={(event) => setCodeOpen(event.currentTarget.open)}>
-        <summary><span className="sd-demo-code-actions">Code</span></summary>
-        {codeOpen ? <div className="sd-demo-code">{snippet
-          ? <CodeBlock code={snippet} language={codeLanguage} label={`${storyName} code`} />
-          : <p>No usage code for this example.</p>
-        }</div> : null}
-      </details>
+      <StoryCodePanel id={codeId} open={codeOpen} snippet={snippet} language={codeLanguage} name={storyName} />
     </div>
   );
 }

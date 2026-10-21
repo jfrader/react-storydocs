@@ -29,7 +29,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button', components
     '../props': { useProps: () => ({ components, uses }) },
     '../controls': {
       defaultsFromProps: () => ({}),
-      ControlledStoryFrame: ({ story }: { story: string }) => createElement('div', { 'data-story': story }, story),
+      ControlledStoryFrame: ({ story, componentSlug }: { story: string; componentSlug: string }) => createElement('div', { className: 'frame', 'data-story': story, 'data-component': componentSlug }, story),
     },
     '../code': { CodeBlock: ({ code, label }: { code: string; label?: string }) => createElement('pre', { 'aria-label': label }, code) },
     '../guidance': { Guidance: () => null, MarkdownView: ({ markdown }: { markdown: string }) => createElement('p', null, markdown) },
@@ -49,6 +49,7 @@ test('component page without an authored description omits the introduction and 
   assert.doesNotMatch(markup, /class="lede"|every story in/);
   assert.doesNotMatch(markup, /<h2>Notes<\/h2>|Everything above is generated|Editorial judgement/);
   assert.match(markup, /data-story="Default"/);
+  assert.match(markup, /class="frame" data-story="Default" data-component="fixture"/);
   assert.doesNotMatch(markup, /<h2>Usage<\/h2>|No usage code is authored/);
   assert.match(markup, /<h2>API<\/h2>/);
 });

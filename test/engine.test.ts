@@ -25,6 +25,7 @@ test('shell brand links to the base-aware overview and follows the skip link', (
     './base': { REACT_STORYDOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
     './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
     './toc': { hashPath: (hash: string) => hash.slice(1) },
+    './story-route': { parseStoryRoute: () => null },
     './search': { SearchBox: () => null },
     './pages/overview': { OverviewPage: () => null },
   };

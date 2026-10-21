@@ -1,6 +1,6 @@
 {
   "name": "@jfrader/react-storydocs",
-  "version": "0.16.5",
+  "version": "0.17.0",
   "type": "module",
   "description": "A documentation front for React design systems that use Storybook: navigation, live examples and API tables are generated from the story files themselves.",
   "exports": {

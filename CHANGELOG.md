@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0
+
+- Replace example blocks with StoryFrame: compact accessible actions for inline code, copy link and a standalone story view, with copy-code feedback and clipboard fallback.
+- Add standalone hash-routed stories without docs chrome, with width presets and the shared theme toggle. Existing component story links remain supported.
+- Export `StoryFrame` and `StoryFrameProps` in place of `ComponentDemo` and `ComponentDemoProps`.
+
 ## 0.16.5
 
 - Nested field expansion now drops external DOM/React members: `ButtonRenderProps` shows `ref`/`data-ui`, `ThreadPartProps` shows `className`/`sx`, instead of hundreds of native fields. This also keeps the full catalog at 1.5 GB and ~111s.
