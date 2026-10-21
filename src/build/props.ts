@@ -678,11 +678,21 @@ export function createPropsCollector() {
           const signatureType = checker.signatureToString(signature, location, typeFlags | ts.TypeFormatFlags.WriteArrowStyleSignature);
           return {
             type: nonCallableAlternatives.length ? `(${signatureType}) | ${nonCallableAlternatives.join(' | ')}` : signatureType,
-            parameters: signature.getParameters().map((parameter) => ({
-              name: parameter.getName(),
-              type: checker.typeToString(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? location), location, typeFlags),
-              description: ts.displayPartsToString(parameter.getDocumentationComment(checker)).trim(),
-            })),
+            parameters: signature.getParameters().map((parameter) => {
+              const parameterType = checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? location);
+              const nonNullParameter = checker.getNonNullableType(parameterType);
+              const parameterShape = Boolean(nonNullParameter.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection))
+                && !checker.isArrayType(nonNullParameter)
+                && !checker.isTupleType(nonNullParameter)
+                && nonNullParameter.getCallSignatures().length === 0;
+              const parameterMembers = parameterShape ? describeProps(parameterType, location, 2) : undefined;
+              return {
+                name: parameter.getName(),
+                type: checker.typeToString(parameterType, location, typeFlags),
+                description: ts.displayPartsToString(parameter.getDocumentationComment(checker)).trim(),
+                members: parameterMembers?.length ? parameterMembers : undefined,
+              };
+            }),
           };
         });
         const objectTypes = memberType.isUnion() ? memberType.types : [memberType];

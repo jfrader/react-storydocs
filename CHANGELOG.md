@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.3
+
+- Expand object parameter types in signatures (`details: MoneyInputDetails`, `ThreadPartProps`) and shared local prop contracts, so the API table can inspect named types instead of printing a bare alias.
+
 ## 0.16.2
 
 - Expand fields for slot members whose props type is shared inside the design system (for example `ThreadPartProps` on `CommentThread.slotProps.resolved`), without restating another catalog component's props.

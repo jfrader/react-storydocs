@@ -36,7 +36,7 @@ export interface PropDoc {
   members?: PropDoc[];
   signatures?: {
     type: string;
-    parameters: { name: string; type: string; description: string }[];
+    parameters: { name: string; type: string; description: string; members?: PropDoc[] }[];
   }[];
   /** Fields of an array element type, e.g. what each `options` entry accepts. */
   element?: PropElementDoc;
