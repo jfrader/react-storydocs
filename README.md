@@ -1,6 +1,6 @@
 # @jfrader/storybook-docs
 
-A documentation front for **any design system that has Storybook**. Point it at a set of
+A documentation front for **React design systems that use Storybook**. Point it at a set of
 story files; it generates the navigation, renders docs-visible stories in place, and builds API
 tables from the stories' own `argTypes`. There is no second component list anywhere.
 
@@ -146,5 +146,5 @@ start();
   point `stories.from` at a checkout (or publish the story sources) — the tool reads
   source modules by design, because that is what Storybook renders.
 - Mounting under a sub-path: set `window.__STORYBOOK_DOCS_BASE__ = '/docs'` before `start()`.
-- Not included yet: search, versioned docs, prose authoring, adoption analytics. All of
+- Not included yet: versioned docs, prose authoring, adoption analytics. All of
   them are free/OSS additions once the shape earns them.

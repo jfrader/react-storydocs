@@ -12,21 +12,25 @@ import { storybookDocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
 import type { ResolvedConfig } from 'vite';
 import { createPropsCollector } from '../src/build/props.ts';
 
-test('props follow meta.component through a barrel only when the story folder has no sources', () => {
+test('props follow the imported component even when the story folder has helper files', () => {
   const root = mkdtempSync(path.resolve('.props-test-'));
   try {
     for (const folder of ['stories', 'components', 'barrel']) mkdirSync(path.join(root, folder));
     writeFileSync(path.join(root, 'components/Widget.tsx'), 'export function Widget(props: { label: string; count?: number }) { return null; }');
     writeFileSync(path.join(root, 'components/Unrelated.tsx'), 'export function Unrelated(props: { wrong: string }) { return null; }');
     writeFileSync(path.join(root, 'barrel/index.ts'), "export { Widget } from '../components/Widget';");
+    writeFileSync(path.join(root, 'stories/helpers.ts'), 'export const helper = true;');
     const story = path.join(root, 'stories/widget.stories.tsx');
     writeFileSync(story, "import { Widget } from '../barrel'; const meta = { title: 'Forms/Fields/Widget', component: Widget }; export default meta; export const Default = {};");
     const collector = createPropsCollector();
     const separated = collector.collect(story, 'Fields/Widget', 'widget', [], 'Widget').components;
     assert.deepEqual(separated.map(({ name }) => name), ['Widget']);
     assert.deepEqual(separated[0]!.props.map(({ name }) => name).sort(), ['count', 'label']);
-    writeFileSync(path.join(root, 'stories/Widget.tsx'), 'export function Widget(props: { local: boolean }) { return null; }');
-    const colocated = collector.collect(story, 'Fields/Widget', 'widget', [], 'Widget').components;
+
+    writeFileSync(path.join(root, 'stories/LocalWidget.tsx'), 'export function LocalWidget(props: { local: boolean }) { return null; }');
+    const localStory = path.join(root, 'stories/local.stories.tsx');
+    writeFileSync(localStory, "import { LocalWidget } from './LocalWidget'; const meta = { title: 'Forms/Fields/LocalWidget', component: LocalWidget }; export default meta; export const Default = {};");
+    const colocated = collector.collect(localStory, 'Fields/LocalWidget', 'local-widget', [], 'LocalWidget').components;
     assert.deepEqual(colocated[0]!.props.map(({ name }) => name), ['local']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

@@ -130,33 +130,6 @@ export function referencedUses(
 export function createPropsCollector() {
   let isBuild = false;
   const componentDirectories = new Map<string, string | null>();
-  const resolveComponentDirectory = (storyFile: string, componentName: string): string | null => {
-    const key = `${storyFile}\0${componentName}`;
-    if (componentDirectories.has(key)) return componentDirectories.get(key)!;
-    let directory: string | null = null;
-    try {
-      const program = ts.createProgram([storyFile], TYPE_PROPS_COMPILER_OPTIONS);
-      const checker = program.getTypeChecker();
-      const source = program.getSourceFile(storyFile);
-      for (const statement of source?.statements ?? []) {
-        if (!ts.isImportDeclaration(statement) || !statement.importClause) continue;
-        const clause = statement.importClause;
-        const named = clause.namedBindings;
-        const binding = clause.name?.text === componentName ? clause.name
-          : named && ts.isNamedImports(named)
-            ? named.elements.find((element) => (element.propertyName ?? element.name).text === componentName || element.name.text === componentName)?.name
-            : undefined;
-        if (!binding) continue;
-        const symbol = checker.getSymbolAtLocation(binding);
-        const target = symbol && (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
-        const file = target?.declarations?.[0]?.getSourceFile().fileName;
-        if (file) directory = path.dirname(realpathSync(file));
-        break;
-      }
-    } catch { /* Unresolved components keep the story directory. */ }
-    componentDirectories.set(key, directory);
-    return directory;
-  };
   const programCaches = new Map<ts.CompilerOptions, { host: ts.CompilerHost; program?: ts.Program }>();
   const createPropsProgram = (sources: string[], compilerOptions: ts.CompilerOptions) => {
     if (!isBuild) return ts.createProgram(sources, compilerOptions);
@@ -180,17 +153,47 @@ export function createPropsCollector() {
     return cache.program;
   };
 
+  const resolveComponentDirectory = (storyFile: string, componentName: string): string | null => {
+    const key = `${storyFile}\0${componentName}`;
+    if (componentDirectories.has(key)) return componentDirectories.get(key)!;
+    let directory: string | null = null;
+    try {
+      const program = createPropsProgram([storyFile], TYPE_PROPS_COMPILER_OPTIONS);
+      const checker = program.getTypeChecker();
+      const source = program.getSourceFile(storyFile);
+      for (const statement of source?.statements ?? []) {
+        if (!ts.isImportDeclaration(statement) || !statement.importClause) continue;
+        const clause = statement.importClause;
+        const named = clause.namedBindings;
+        const binding = clause.name?.text === componentName ? clause.name
+          : named && ts.isNamedImports(named)
+            ? named.elements.find((element) => (element.propertyName ?? element.name).text === componentName || element.name.text === componentName)?.name
+            : undefined;
+        if (!binding) continue;
+        const symbol = checker.getSymbolAtLocation(binding);
+        const target = symbol && (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol);
+        const file = target?.declarations?.[0]?.getSourceFile().fileName;
+        if (file) directory = path.dirname(realpathSync(file));
+        break;
+      }
+    } catch { /* Unresolved components keep the story directory. */ }
+    componentDirectories.set(key, directory);
+    return directory;
+  };
   /** Parses every component declared in the folder — compound parts included. */
   const collect = (storyFile: string | undefined, entryName: string, slug: string, bases: { name: string; slug: string; storyFile: string }[] = [], componentName?: string | null): { components: ComponentPropsDoc[]; uses: CatalogRef[] } => {
     entryName = entryName.split('/').pop() ?? entryName;
     if (storyFile) {
-      let directory = path.dirname(storyFile);
+      const storyDirectory = path.dirname(storyFile);
       const readSources = (folder: string) => readdirSync(folder)
         .filter((file) => /\.tsx?$/.test(file) && !/\.stories\.tsx?$/.test(file))
         .map((file) => path.join(folder, file));
+      // Follow the imported component first. The story folder is only the fallback; a helper
+      // file beside the stories must not hide a component that lives elsewhere.
+      let directory = (componentName && resolveComponentDirectory(storyFile, componentName)) || storyDirectory;
       let sources = readSources(directory);
-      if (!sources.length && componentName) {
-        directory = resolveComponentDirectory(storyFile, componentName) ?? directory;
+      if (!sources.length && directory !== storyDirectory) {
+        directory = storyDirectory;
         sources = readSources(directory);
       }
       if (sources.length > 0) {

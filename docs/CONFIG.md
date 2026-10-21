@@ -92,10 +92,11 @@ there is no page-level story snippet. Each example retains its own Code panel.
 ### API section
 
 After the examples, API renders the component import from `stories.from` (when non-empty), then
-one named H3 per component table: root first, followed by compound parts. Tables list only own
-props, never inherited DOM attributes. Inherited catalog contracts get a short linked line
-("Also accepts the props of Surface"). Known native elements get an attributes line; otherwise
-external inherited contracts are summarized by name without a table. `ComponentPropsDoc.native`
+one named H3 per component table: root first, followed by compound parts. The own-props table
+comes first; inherited props are available in a nested disclosure, grouped by declaring contract
+(design-system contracts first, DOM/ARIA last). Inherited catalog contracts get a short linked
+line ("Also accepts the props of Surface"). Known native elements get an attributes line;
+otherwise external inherited contracts are summarized by name. `ComponentPropsDoc.native`
 is inferred from the props' ref element type or React `ComponentPropsWithRef<'tag'>` /
 `ComponentProps<'tag'>` aliases, and omitted when ambiguous. Pages without docgen use their
 `argTypes` table instead. Stories-only pages with no API data omit the API section entirely.
@@ -387,6 +388,7 @@ findings are real. Exit code is 1 when a component has a finding.
 ## Verification and CI
 
 From the engine root, run `pnpm test`, `pnpm typecheck` (engine and tests), and
+`pnpm --dir examples/fixtures install --frozen-lockfile --prefer-offline` then
 `pnpm build` (the reference consumer). The reference consumer's link dependencies
 expect a sibling `jfrader-ui` checkout, with UI dependencies installed and token
 CSS generated: run `pnpm --filter @jfrader/ui... install --frozen-lockfile --prefer-offline`
