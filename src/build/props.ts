@@ -672,12 +672,11 @@ export function createPropsCollector() {
           ? declarationName
           : undefined;
         const memberType = checker.getNonNullableType(propType);
-        // Element-field expansion is for the collections readers choose from, not every array.
-        // Expanding arbitrary array element shapes (and their nested members) dominates the docs
-        // build heap on a full catalog.
-        const expandsElement = ['options', 'items', 'rows', 'columns', 'tabs', 'steps', 'links', 'series', 'photos'].includes(symbol.getName());
-        const elementType = depth === 0 && expandsElement ? checker.getIndexTypeOfType(memberType, ts.IndexKind.Number) : undefined;
-        const elementMembers = elementType ? describeProps(elementType, location, depth + 1) : undefined;
+        // Any array of local records is a contract readers need to inspect. Native/external
+        // element shapes collapse to no members, and the size cap keeps the docs build bounded.
+        const elementType = depth === 0 ? checker.getIndexTypeOfType(memberType, ts.IndexKind.Number) : undefined;
+        const elementMembersRaw = elementType ? describeProps(elementType, location, depth + 1) : undefined;
+        const elementMembers = elementMembersRaw && elementMembersRaw.length <= 20 ? elementMembersRaw : undefined;
         const nonCallableAlternatives = propType.isUnion() ? propType.types
           .filter((part) => Boolean(part.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) && (!optional || !(part.flags & ts.TypeFlags.Undefined)))
           .map((part) => checker.typeToString(part, undefined, typeFlags)) : [];
