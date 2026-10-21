@@ -206,3 +206,21 @@ test('nested member fields drop external DOM and React props', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('local array element records expose their fields', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-array-members-'));
+  try {
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    writeFileSync(path.join(root, 'widget.tsx'), `
+      export interface WidgetRecord { id: string; label: string }
+      export interface WidgetProps { records?: readonly WidgetRecord[] }
+      export function Widget(props: WidgetProps) { return null; }
+    `);
+    writeFileSync(path.join(root, 'widget.stories.tsx'), `const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};`);
+    const widget = createPropsCollector().collect(path.join(root, 'widget.stories.tsx'), 'Widget', 'widget').components.find((component) => component.name === 'Widget');
+    assert.equal(widget?.props.find((prop) => prop.name === 'records')?.element?.type, 'WidgetRecord');
+    assert.deepEqual(widget?.props.find((prop) => prop.name === 'records')?.element?.members.map((member) => member.name).sort(), ['id', 'label']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
