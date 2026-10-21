@@ -13,6 +13,7 @@ import { SearchBox } from './search';
 import { releases } from 'virtual:storybook-docs/releases';
 import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath } from './toc';
+import { DocsThemeContext } from './docs-theme.js';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
 function NavGroup({ id, title, active, children }: { id: string; title: string; active: boolean; children: ReactNode }) {
@@ -112,6 +113,7 @@ export function DocsApp() {
   ];
 
   return (
+    <DocsThemeContext.Provider value={{ theme: mode, values: [darkMode, lightMode], setTheme: setMode }}>
     <div className={route.kind === 'overview' ? 'app' : 'app has-toc'}>
       <a
         className="skip"
@@ -235,5 +237,6 @@ export function DocsApp() {
       </main>
       {route.kind !== 'overview' ? <PageRail key={pageKey} pageKey={pageKey} /> : null}
     </div>
+    </DocsThemeContext.Provider>
   );
 }

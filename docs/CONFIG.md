@@ -106,7 +106,8 @@ the engine follows the imported `meta.component` identifier to the component's s
 including barrel re-exports. Unresolvable imports fall back to the story folder. Matching uses
 the last title segment (for example `Fields/InputField` matches `InputField`); displayed titles
 are unchanged. Inherited props are listed in a `details` disclosure under the own-props table,
-so wrapper components keep their MUI/DOM contract visible without overwhelming the page.
+grouped by the contract that declares them (design-system contracts first, DOM/ARIA last), so a
+wrapper keeps its MUI contract visible without a 300-row wall.
 
 `ComponentPropsDoc.description?: string` contains the component symbol's JSDoc, including each
 compound part symbol. The root description supplies the page introduction unless overridden by
@@ -219,26 +220,18 @@ that attribute and drive the design system's React provider, so the header toggl
 share one theme:
 
 ```tsx
-import { useEffect, useState } from 'react';
+import { useDocsTheme } from '@jfrader/storybook-docs/theme';
 import { ThemeProvider } from '@mui/material';
 import { dark, light } from '@acme/ui';
 
-function useDocsTheme(attribute = 'data-theme') {
-  const [mode, setMode] = useState(() => document.documentElement.getAttribute(attribute) ?? 'dark');
-  useEffect(() => {
-    const read = () => setMode(document.documentElement.getAttribute(attribute) ?? 'dark');
-    const observer = new MutationObserver(read);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: [attribute] });
-    return () => observer.disconnect();
-  }, [attribute]);
-  return mode;
-}
-
 export default function withTheme(Story) {
-  const mode = useDocsTheme();
-  return <ThemeProvider theme={mode === 'light' ? light : dark}><Story /></ThemeProvider>;
+  const { theme } = useDocsTheme();
+  return <ThemeProvider theme={theme === 'light' ? light : dark}><Story /></ThemeProvider>;
 }
 ```
+
+`useDocsTheme()` is exported from the `@jfrader/storybook-docs/theme` subpath. It returns the
+current value and is reactive, so no DOM observer or second theme switch is needed.
 
 ```js
 decorators: { module: './src/docs-decorators.tsx' },

@@ -23,6 +23,7 @@ test('shell brand links to the base-aware overview and follows the skip link', (
     'virtual:storybook-docs/site': { pages: { color: true }, site: { title: 'Example UI', mark: 'E' }, theme: {} },
     'virtual:storybook-docs/releases': { releases: {} },
     './base': { STORYBOOK_DOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
+    './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
     './toc': { hashPath: (hash: string) => hash.slice(1) },
     './search': { SearchBox: () => null },
     './pages/overview': { OverviewPage: () => null },

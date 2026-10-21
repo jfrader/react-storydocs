@@ -20,8 +20,17 @@ await build({
   target: 'es2022',
   jsx: 'automatic',
   packages: 'external',
-  external: ['virtual:storybook-docs/*'],
+  external: ['virtual:storybook-docs/*', './docs-theme.js'],
   footer: { js: "import './index.css';" },
+});
+await build({
+  entryPoints: ['src/docs-theme.ts'],
+  outfile: 'dist/docs-theme.js',
+  bundle: true,
+  format: 'esm',
+  platform: 'browser',
+  target: 'es2022',
+  packages: 'external',
 });
 await build({
   entryPoints: ['src/vite-plugin.ts'],

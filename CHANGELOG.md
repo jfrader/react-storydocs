@@ -10,6 +10,9 @@
 - Nested story titles use the last segment as the component name and the preceding segments as the group.
 - Import snippets use `stories.importFrom` or the design system's package.json name instead of a checkout path.
 - Inherited props stay available in a disclosure under each component's own-props table.
+- Inherited props are grouped by declaring contract, with DOM/ARIA groups last.
+- Export `useDocsTheme()` from the `./theme` subpath so a React provider can follow the docs theme.
+- Add a synthetic MUI fixture (wrapper component, separated story) to the fixture build.
 - Overview links prefetch their story module on hover or focus, matching the sidebar and search.
 - The docs chrome owns its background and text colour, so a story's global `CssBaseline` cannot repaint the page white in dark mode.
 - `start()` adds the viewport meta tag when the host page omits it, so the docs front is responsive on phones without extra host markup.

@@ -11,6 +11,10 @@
     "./vite": {
       "types": "./dist/vite-plugin.d.ts",
       "import": "./dist/vite-plugin.js"
+    },
+    "./theme": {
+      "types": "./dist/docs-theme.d.ts",
+      "import": "./dist/docs-theme.js"
     }
   },
   "peerDependencies": {
