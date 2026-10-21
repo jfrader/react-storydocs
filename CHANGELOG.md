@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.5
+
+- Nested field expansion now drops external DOM/React members: `ButtonRenderProps` shows `ref`/`data-ui`, `ThreadPartProps` shows `className`/`sx`, instead of hundreds of native fields. This also keeps the full catalog at 1.5 GB and ~111s.
+
 ## 0.16.4
 
 - Keep the new member extraction within the production build heap: expand slot contracts and signature parameter objects only when they are small local contracts (≤8 slot fields, ≤5 parameter fields). The full catalog builds under 1.5 GB again while `ThreadPartProps` and `MoneyInputDetails` stay inspectable.

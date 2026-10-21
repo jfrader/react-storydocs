@@ -187,3 +187,22 @@ test('signature object parameters expose their fields', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('nested member fields drop external DOM and React props', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-native-members-'));
+  try {
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    writeFileSync(path.join(root, 'widget.tsx'), `
+      import type { ButtonHTMLAttributes } from 'react';
+      export interface WidgetRenderProps extends ButtonHTMLAttributes<HTMLButtonElement> { ref?: string; 'data-ui'?: string }
+      export interface WidgetProps { render?: (props: WidgetRenderProps) => unknown }
+      export function Widget(props: WidgetProps) { return null; }
+    `);
+    writeFileSync(path.join(root, 'widget.stories.tsx'), `const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};`);
+    const widget = createPropsCollector().collect(path.join(root, 'widget.stories.tsx'), 'Widget', 'widget').components.find((component) => component.name === 'Widget');
+    const parameter = widget?.props.find((prop) => prop.name === 'render')?.signatures?.[0]?.parameters[0];
+    assert.deepEqual(parameter?.members?.map((member) => member.name).sort(), ['data-ui', 'ref']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

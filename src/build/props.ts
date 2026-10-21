@@ -644,7 +644,14 @@ export function createPropsCollector() {
     };
 
     const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, SlotDefault>, catalogs?: Map<string, SlotDefault>, slotMember = false): PropDoc[] =>
-      checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
+      checker.getPropertiesOfType(type).filter((symbol) => {
+        if (symbol.getName() === 'key') return false;
+        // Nested types describe the design system's own contract; native DOM/React fields belong
+        // to the element note ("Also accepts native <button> props"), not to every field list.
+        if (depth === 0) return true;
+        const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+        return !declaration || !isExternal(declaration.getSourceFile().fileName);
+      }).map((symbol) => {
         const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
         const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? location);
         const optional = (symbol.flags & ts.SymbolFlags.Optional) !== 0;
@@ -683,9 +690,12 @@ export function createPropsCollector() {
               const nonNullParameter = checker.getNonNullableType(parameterType);
               const parameterSymbol = nonNullParameter.aliasSymbol ?? nonNullParameter.getSymbol();
               const parameterLocal = parameterSymbol?.declarations?.some((node) => !isExternal(node.getSourceFile().fileName)) ?? false;
-              const parameterProperties = checker.getPropertiesOfType(nonNullParameter);
+              const parameterProperties = checker.getPropertiesOfType(nonNullParameter).filter((member) => {
+                const memberDeclaration = member.valueDeclaration ?? member.declarations?.[0];
+                return !memberDeclaration || !isExternal(memberDeclaration.getSourceFile().fileName);
+              });
               const parameterShape = parameterLocal
-                && parameterProperties.length <= 5
+                && parameterProperties.length <= 20
                 && Boolean(nonNullParameter.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection))
                 && !checker.isArrayType(nonNullParameter)
                 && !checker.isTupleType(nonNullParameter)
@@ -737,7 +747,7 @@ export function createPropsCollector() {
             ? (isSlotMap || (!inheritedFrom && hasLocalMembers)
               ? describeProps(memberType, location, depth + 1, partComments(declaration), isSlotMap ? valueSlotDefaults(ts.isFunctionLike(location) ? location : undefined, type) : undefined, isSlotMap ? slotCatalogs(type, location) : undefined, true)
               : undefined)
-            : depth === 1 && ((slotMember && !inheritedComponent && hasLocalMembers && properties.length <= 8) || (!inheritedFrom && ownedMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
+            : depth === 1 && ((slotMember && !inheritedComponent && hasLocalMembers && properties.length <= 20) || (!inheritedFrom && ownedMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
         };
       }).sort(compareProps);
 
