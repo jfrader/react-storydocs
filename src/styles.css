@@ -43,6 +43,10 @@ body {
   display: grid;
   grid-template-columns: 276px minmax(0, 1fr);
   min-height: 100vh;
+  /* Stories render inline, so a story's CssBaseline can repaint the shared body.
+     The chrome owns its surface; a consumer's global style must not show through. */
+  background: var(--sd-bg);
+  color: var(--sd-text);
 }
 
 .top {

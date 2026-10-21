@@ -11,6 +11,7 @@
 - Import snippets use `stories.importFrom` or the design system's package.json name instead of a checkout path.
 - Inherited props stay available in a disclosure under each component's own-props table.
 - Overview links prefetch their story module on hover or focus, matching the sidebar and search.
+- The docs chrome owns its background and text colour, so a story's global `CssBaseline` cannot repaint the page white in dark mode.
 
 ## 0.14.2
 
