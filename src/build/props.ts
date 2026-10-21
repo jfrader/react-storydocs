@@ -643,7 +643,7 @@ export function createPropsCollector() {
       return comments;
     };
 
-    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, SlotDefault>, catalogs?: Map<string, SlotDefault>): PropDoc[] =>
+    const describeProps = (type: ts.Type, location: ts.Node, depth = 0, partDocs: Map<string, string> = new Map(), slotDefaults?: Map<string, SlotDefault>, catalogs?: Map<string, SlotDefault>, slotMember = false): PropDoc[] =>
       checker.getPropertiesOfType(type).filter((symbol) => symbol.getName() !== 'key').map((symbol) => {
         const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
         const propType = checker.getTypeOfSymbolAtLocation(symbol, declaration ?? location);
@@ -720,9 +720,9 @@ export function createPropsCollector() {
           // seam, so both `slots` and `slotProps` expand wherever they are declared.
           members: depth === 0
             ? (isSlotMap || (!inheritedFrom && hasLocalMembers)
-              ? describeProps(memberType, location, depth + 1, partComments(declaration), isSlotMap ? valueSlotDefaults(ts.isFunctionLike(location) ? location : undefined, type) : undefined, isSlotMap ? slotCatalogs(type, location) : undefined)
+              ? describeProps(memberType, location, depth + 1, partComments(declaration), isSlotMap ? valueSlotDefaults(ts.isFunctionLike(location) ? location : undefined, type) : undefined, isSlotMap ? slotCatalogs(type, location) : undefined, true)
               : undefined)
-            : depth === 1 && !inheritedFrom && ownedMembers ? describeProps(memberType, location, depth + 1) : undefined,
+            : depth === 1 && ((slotMember && !inheritedComponent && hasLocalMembers) || (!inheritedFrom && ownedMembers)) ? describeProps(memberType, location, depth + 1) : undefined,
         };
       }).sort(compareProps);
 
