@@ -147,3 +147,24 @@ test('overloaded generic components expose type parameters, overload ownership, 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('slot props members expand when their contract lives beside the component', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-slot-members-'));
+  try {
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    writeFileSync(path.join(root, 'parts.tsx'), `export interface PartProps { className?: string; sx?: string }`);
+    writeFileSync(path.join(root, 'widget.tsx'), `
+      import type { ComponentType } from 'react';
+      import type { PartProps } from './parts';
+      export interface WidgetProps { slotProps?: { resolved?: PartProps }; slots?: { resolved?: ComponentType<PartProps> } }
+      export function Widget(props: WidgetProps) { return null; }
+    `);
+    writeFileSync(path.join(root, 'widget.stories.tsx'), `const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};`);
+    const widget = createPropsCollector().collect(path.join(root, 'widget.stories.tsx'), 'Widget', 'widget').components.find((component) => component.name === 'Widget');
+    const slot = widget?.props.find((prop) => prop.name === 'slotProps')?.members?.find((member) => member.name === 'resolved');
+    assert.equal(slot?.type, 'PartProps');
+    assert.deepEqual(slot?.members?.map((member) => member.name).sort(), ['className', 'sx']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
