@@ -23,10 +23,14 @@ example/            # a consumer you can copy
 | Props tables (one per component and part, with native-element notes and an inherited-props disclosure) | the component sources — `react-docgen-typescript` for components, the TypeScript compiler API for exported `*Props` types (where compound parts live) |
 | Usage | authored `parameters.docs.usage` Markdown only |
 | API | component import, root and part descriptions and props, merged slots and related components |
-| Per-example Code disclosures | the story's merged args (hidden when the story uses a custom render, so a snippet never lies) |
+| Per-example toolbar: inline code, Copy code, Copy link, and full-screen story | authored source or code derived from the story's render and merged args; links use the component slug and story export key |
 | Authored guidance per component | Markdown files in the configured guidance directories, with `> Do —` / `> Don't —` blockquotes rendered as do/don't cards — the part stories cannot generate |
 | Foundations: Color, Typography, Spacing & shape, Elevation & motion | your token module (optional) |
 | Docs chrome theme | your CSS custom properties (optional) |
+
+Standalone stories use `#/stories/<component-slug>/<story-export-key>`, with both segments URL-encoded.
+The full-screen action opens that route in a new tab, without docs navigation, with width presets and
+the theme toggle. `#/components/<slug>?story=<story>` links still open the component page at that story.
 
 Known limits: compound parts declared as property assignments (`Dialog.Content = …`) are picked up
 through their exported `*Props` types; parts with no exported props type stay invisible. Stories that
@@ -49,7 +53,7 @@ in a disclosure, grouped by contract instead of one 300-row table. `useDocsTheme
 | ![Overview: browse-by-area directory](docs/images/overview.png) | ![Search with highlighted matches and story-level results](docs/images/search.png) |
 | The overview: stat tiles, then a card per area with counts and links into every component. | ⌘K search: matches highlighted, story hits listed as `Component › Story`. |
 | ![A component page with examples and their controls](docs/images/component.png) | ![Authored guidance with Do and Don't callouts](docs/images/guidance.png) |
-| Every story renders in place, bucketed into sections, with live controls and a Code disclosure per frame. | Authored Markdown becomes typed React blocks: Do/Don't cards, tables, code with language. |
+| Every story renders in place, bucketed into sections, with live controls and toolbar actions for inline code, Copy code, Copy link, and a standalone story view. | Authored Markdown becomes typed React blocks: Do/Don't cards, tables, code with language. |
 | ![The releases page and version chip](docs/images/releases.png) | ![Foundations: spacing scale and radii from the token source](docs/images/foundations.png) |
 | Releases: the changelog rendered in place, with the current version read from the package. | Foundations: colour, type, spacing/shape and elevation/motion, all from the token module. |
 
