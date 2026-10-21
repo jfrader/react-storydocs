@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { collectMatches, readStoryFile, storyIdentity } from '../scan.ts';
-import type { CatalogEntry, StorybookDocsConfig } from '../config.js';
+import type { CatalogEntry, ReactStorydocsConfig } from '../config.js';
 import { FILE_PREFIX } from './module-ids.ts';
 
 const DEFAULT_GROUP_ORDER = [
@@ -26,7 +26,7 @@ export function resolveStoryRoot(from: string, root: string): string {
   if (from.startsWith('.') || path.isAbsolute(from)) {
     const resolved = path.resolve(root, from);
     if (!existsSync(resolved)) {
-      throw new Error(`storybook-docs: story root "${from}" does not exist (looked in ${resolved})`);
+      throw new Error(`react-storydocs: story root "${from}" does not exist (looked in ${resolved})`);
     }
     return resolved;
   }
@@ -36,7 +36,7 @@ export function resolveStoryRoot(from: string, root: string): string {
     if (existsSync(candidate)) return candidate;
     const parent = path.dirname(dir);
     if (parent === dir) {
-      throw new Error(`storybook-docs: package "${from}" is not installed from ${root}`);
+      throw new Error(`react-storydocs: package "${from}" is not installed from ${root}`);
     }
     dir = parent;
   }
@@ -44,7 +44,7 @@ export function resolveStoryRoot(from: string, root: string): string {
 
 /** The bare specifier a snippet imports the design system from. A package name is already one;
  * a checkout path borrows the package.json name at its root, so examples stay copyable. */
-export function storyImportSpecifier(stories: StorybookDocsConfig['stories'], root: string): string {
+export function storyImportSpecifier(stories: ReactStorydocsConfig['stories'], root: string): string {
   if (stories.importFrom) return stories.importFrom;
   const from = stories.from;
   if (!from.startsWith('.') && !path.isAbsolute(from)) return from;
@@ -67,7 +67,7 @@ export function storyImportSpecifier(stories: StorybookDocsConfig['stories'], ro
   return from;
 }
 
-export function scanStories(config: StorybookDocsConfig['stories'], root: string): StoryFile[] {
+export function scanStories(config: ReactStorydocsConfig['stories'], root: string): StoryFile[] {
   const stories: StoryFile[] = [];
   for (const file of collectMatches(resolveStoryRoot(config.from, root), config.pattern)) {
     const facts = readStoryFile(file);
@@ -76,7 +76,7 @@ export function scanStories(config: StorybookDocsConfig['stories'], root: string
   return stories;
 }
 
-export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsConfig['groups']): Catalog {
+export function buildCatalog(stories: StoryFile[], groupsConfig: ReactStorydocsConfig['groups']): Catalog {
   const rename = groupsConfig?.rename ?? {};
   const order = groupsConfig?.order ?? DEFAULT_GROUP_ORDER;
   const entries: CatalogEntry[] = [];
@@ -85,7 +85,7 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsCo
   for (const { file, facts } of stories) {
     const { group: authoredGroup, name, slug } = storyIdentity(file, facts.title);
     if (files.has(slug)) {
-      throw new Error(`storybook-docs: duplicate story slug "${slug}" in "${files.get(slug)}" and "${file}"`);
+      throw new Error(`react-storydocs: duplicate story slug "${slug}" in "${files.get(slug)}" and "${file}"`);
     }
     files.set(slug, file);
     components.set(slug, facts.component);
@@ -126,7 +126,7 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsCo
 export function catalogCode(catalog: Catalog): string {
   const resolveStoryFile = (entry: CatalogEntry): string => {
     const found = catalog.files.get(entry.slug);
-    if (!found) throw new Error(`storybook-docs: no file resolved for "${entry.slug}"`);
+    if (!found) throw new Error(`react-storydocs: no file resolved for "${entry.slug}"`);
     return found;
   };
   return `

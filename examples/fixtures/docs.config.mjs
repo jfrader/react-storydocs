@@ -7,7 +7,7 @@ export default {
   site: {
     title: 'Acme UI (fixtures)',
     mark: 'A',
-    tagline: 'Synthetic design system to prove the storybook-docs engine is generic across any Storybook-using library.',
+    tagline: 'Synthetic design system to prove the react-storydocs engine is generic across any Storybook-using library.',
     links: [{ label: 'Source', href: 'https://example.com/acme' }],
   },
   stories: {

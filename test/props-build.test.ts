@@ -4,11 +4,11 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { test } from 'node:test';
 import type { ResolvedConfig } from 'vite';
-import { storybookDocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
+import { reactStorydocs, type ComponentPropsDoc } from '../src/vite-plugin.ts';
 import { createPropsCollector } from '../src/build/props.ts';
 
 test('build collection retains indexed-interface slot maps after other families', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-build-props-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-build-props-'));
   try {
     symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
     const fixtures: [string, string, string][] = [
@@ -45,11 +45,11 @@ test('build collection retains indexed-interface slot maps after other families'
       writeFileSync(path.join(root, slug, `${slug}.stories.tsx`), `const meta = { title: 'Components/${name}', component: ${name === 'Widget' ? 'WidgetProvider' : name} }; export default meta; export const Default = {};`);
     }
     const collect = (slugs: string[]) => {
-      const plugin = storybookDocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
+      const plugin = reactStorydocs({ root, config: { site: { title: 'Fixture' }, stories: { from: '.', pattern: '**/*.stories.tsx' } } });
       (plugin.configResolved as (config: ResolvedConfig) => void).call({}, { root, command: 'build' } as ResolvedConfig);
       let components: ComponentPropsDoc[] = [];
       for (const slug of slugs) {
-        const code = (plugin.load as (id: string) => string).call({}, `\0virtual:storybook-docs/props/${slug}`);
+        const code = (plugin.load as (id: string) => string).call({}, `\0virtual:react-storydocs/props/${slug}`);
         components = JSON.parse(code.match(/export const components = (.*);/)![1]!);
       }
       assert.equal(components.find((component) => component.name === 'WidgetProvider')?.description, 'Provides the widget.');
@@ -72,7 +72,7 @@ test('build collection retains indexed-interface slot maps after other families'
 });
 
 test('Object.assign parts resolve function JSDoc through property initializers and import aliases, and infer native elements', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-compound-props-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-compound-props-'));
   try {
     symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
     writeFileSync(path.join(root, 'parts.tsx'), `

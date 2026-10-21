@@ -20,7 +20,7 @@ await build({
   target: 'es2022',
   jsx: 'automatic',
   packages: 'external',
-  external: ['virtual:storybook-docs/*', './docs-theme.js'],
+  external: ['virtual:react-storydocs/*', './docs-theme.js'],
   footer: { js: "import './index.css';" },
 });
 await build({

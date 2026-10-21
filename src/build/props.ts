@@ -226,7 +226,7 @@ export function createPropsCollector() {
             uses: referencedUses(sources, bases, selfDirectory),
           };
         } catch (cause) {
-          console.warn(`storybook-docs: could not read props for "${slug}" (${String(cause)})`);
+          console.warn(`react-storydocs: could not read props for "${slug}" (${String(cause)})`);
         }
       }
     }

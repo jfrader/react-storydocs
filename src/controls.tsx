@@ -4,7 +4,7 @@ import { ComponentDemo } from './component-demo';
 export { hasHorizontalOverflow } from './component-demo';
 import { mergeAnnotations, buildUsageSnippet, frameSource, storyDefinition, storyName as getStoryName, type DocsParameters } from './sections';
 import { StoryView } from './story-view';
-import { storySource } from 'virtual:storybook-docs/catalog';
+import { storySource } from 'virtual:react-storydocs/catalog';
 
 interface StoryShape {
   name?: string;

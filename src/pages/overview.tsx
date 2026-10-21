@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
 
 import type { ReactNode } from 'react';
-import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
-import { site } from 'virtual:storybook-docs/site';
+import { catalog, groups, stats } from 'virtual:react-storydocs/catalog';
+import { site } from 'virtual:react-storydocs/site';
 import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
 

@@ -65,10 +65,10 @@ test('route changes replace document targets but preserve navigation group ident
   }).outputText;
   const exports: { DocsApp?: () => ReactElement<{ children: ReactNode }> } = {};
   const modules: Record<string, unknown> = {
-    'virtual:storybook-docs/catalog': { catalog, groups: ['Examples'], stats: {} },
-    'virtual:storybook-docs/site': { pages: { color: true }, site: { title: 'Example' }, theme: {} },
-    'virtual:storybook-docs/releases': { releases: {} },
-    './base': { STORYBOOK_DOCS_BASE: '', hrefFor: (path: string) => path },
+    'virtual:react-storydocs/catalog': { catalog, groups: ['Examples'], stats: {} },
+    'virtual:react-storydocs/site': { pages: { color: true }, site: { title: 'Example' }, theme: {} },
+    'virtual:react-storydocs/releases': { releases: {} },
+    './base': { REACT_STORYDOCS_BASE: '', hrefFor: (path: string) => path },
     './toc': { hashPath: (hash: string) => hash.split('?')[0], PageRail: () => null },
     './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
   };

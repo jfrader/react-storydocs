@@ -5,7 +5,7 @@ export function resolveCompositionModule(module: string | undefined, root: strin
   if (!module) return undefined;
   const resolved = path.resolve(root, module);
   if (!existsSync(resolved)) {
-    throw new Error(`storybook-docs: composition.module "${module}" does not exist (looked in ${resolved})`);
+    throw new Error(`react-storydocs: composition.module "${module}" does not exist (looked in ${resolved})`);
   }
   return resolved;
 }

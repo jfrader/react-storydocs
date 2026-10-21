@@ -1,6 +1,6 @@
-import { THEME_ROLES, type StorybookDocsConfig, type ThemeRole } from '../config.ts';
+import { THEME_ROLES, type ReactStorydocsConfig, type ThemeRole } from '../config.ts';
 
-export function siteCode(config: StorybookDocsConfig): string {
+export function siteCode(config: ReactStorydocsConfig): string {
   const hasTokens = Boolean(config.tokens?.varsModule);
   const pages = {
     overview: config.pages?.overview ?? true,

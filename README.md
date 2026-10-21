@@ -1,4 +1,4 @@
-# @jfrader/storybook-docs
+# @jfrader/react-storydocs
 
 A documentation front for **React design systems that use Storybook**. Point it at a set of
 story files; it generates the navigation, renders docs-visible stories in place, and builds API
@@ -40,7 +40,7 @@ its group (`Form/Fields/InputField` is `InputField` under `Form/Fields`). Props 
 component sources first; when the story folder has no sources, the engine follows the imported
 `meta.component` to its source folder, including barrel re-exports. Inherited props stay available
 in a disclosure, grouped by contract instead of one 300-row table. `useDocsTheme()` from
-`@jfrader/storybook-docs/theme` lets a React provider follow the docs toggle without a DOM observer.
+`@jfrader/react-storydocs/theme` lets a React provider follow the docs toggle without a DOM observer.
 
 ## What it looks like
 
@@ -86,7 +86,7 @@ are reported as notes: an empty group or a progress bar at zero is legitimate.
 
 ```bash
 pnpm add react@^19 react-dom@^19
-pnpm add -D @jfrader/storybook-docs vite @vitejs/plugin-react @types/node @types/react @types/react-dom
+pnpm add -D @jfrader/react-storydocs vite @vitejs/plugin-react @types/node @types/react @types/react-dom
 ```
 
 Use Node 22.12 or newer (maintainer tests need Node 22.18 or newer). React 19 and Vite 6, 7 or 8
@@ -120,10 +120,10 @@ export default {
 // vite.config.ts
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import { storybookDocs } from '@jfrader/storybook-docs/vite';
+import { reactStorydocs } from '@jfrader/react-storydocs/vite';
 import config from './docs.config.mjs';
 
-export default defineConfig({ plugins: [storybookDocs({ config }), react()] });
+export default defineConfig({ plugins: [reactStorydocs({ config }), react()] });
 ```
 
 ```html
@@ -133,7 +133,7 @@ export default defineConfig({ plugins: [storybookDocs({ config }), react()] });
 
 ```ts
 // src/main.tsx
-import { start } from '@jfrader/storybook-docs';
+import { start } from '@jfrader/react-storydocs';
 start();
 ```
 
@@ -145,6 +145,6 @@ start();
 - If the design system is consumed from a published tarball that only ships built files,
   point `stories.from` at a checkout (or publish the story sources) — the tool reads
   source modules by design, because that is what Storybook renders.
-- Mounting under a sub-path: set `window.__STORYBOOK_DOCS_BASE__ = '/docs'` before `start()`.
+- Mounting under a sub-path: set `window.__REACT_STORYDOCS_BASE__ = '/docs'` before `start()`.
 - Not included yet: versioned docs, prose authoring, adoption analytics. All of
   them are free/OSS additions once the shape earns them.

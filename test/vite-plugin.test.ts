@@ -4,14 +4,14 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { build, createServer } from 'vite';
-import type { StorybookDocsConfig, CatalogEntry } from '../src/config.ts';
-import { storybookDocs } from '../src/vite-plugin.ts';
+import type { ReactStorydocsConfig, CatalogEntry } from '../src/config.ts';
+import { reactStorydocs } from '../src/vite-plugin.ts';
 import type { ComponentPropsDoc } from '../src/vite-plugin.ts';
 
 const engineRoot = path.resolve(import.meta.dirname, '..');
-const prefix = 'virtual:storybook-docs/';
+const prefix = 'virtual:react-storydocs/';
 
-async function fixture(overrides: Partial<StorybookDocsConfig> = {}) {
+async function fixture(overrides: Partial<ReactStorydocsConfig> = {}) {
   const root = mkdtempSync(path.join(engineRoot, '.plugin-test-'));
   const write = (name: string, source: string) => {
     const file = path.join(root, name);
@@ -50,7 +50,7 @@ export const Rendered = { render: (args) => <Component {...args} /> };
   write('library/package.json', '{"version":"2.3.4"}');
   write('CHANGELOG.md', '# Changelog\n\n## 2.3.4\n\n- **Fixed** defaults.\n');
   write('code.ts', 'export default function Code() { return null; }');
-  const config: StorybookDocsConfig = {
+  const config: ReactStorydocsConfig = {
     site: { title: 'Test consumer' },
     stories: { from: '@fixture/ui', pattern: 'src/**/*.stories.tsx' },
     groups: { rename: { Primitives: 'Actions' }, order: ['Actions', 'Feedback'] },
@@ -61,7 +61,7 @@ export const Rendered = { render: (args) => <Component {...args} /> };
   try {
     const server = await createServer({
       configFile: false, root, logLevel: 'silent',
-      plugins: [storybookDocs({ config, root })],
+      plugins: [reactStorydocs({ config, root })],
       server: { middlewareMode: true, watch: null },
       optimizeDeps: { noDiscovery: true, entries: [] },
     });
@@ -111,7 +111,7 @@ test('virtual catalog preserves group order, slugs and tagged story exports insi
 test('virtual props retain real defaults and null for missing defaults', async () => {
   const consumer = await fixture();
   try {
-    assert.match(await consumer.source('props'), /virtual:storybook-docs\/props\/button/);
+    assert.match(await consumer.source('props'), /virtual:react-storydocs\/props\/button/);
     const { components }: { components: ComponentPropsDoc[] } = await consumer.evaluate('props/button');
     const button = components.find(({ name }) => name === 'Button');
     assert.ok(button);
@@ -131,7 +131,7 @@ test('virtual props retain real defaults and null for missing defaults', async (
 test('virtual story sources are per component, cached and invalidated when the story changes', async () => {
   const consumer = await fixture();
   try {
-    assert.match(await consumer.source('story-sources'), /virtual:storybook-docs\/story-sources\/button/);
+    assert.match(await consumer.source('story-sources'), /virtual:react-storydocs\/story-sources\/button/);
     const sources = { Rendered: '// JSX from Component, as authored.\n<button {...args}>Fixture</button>' };
     assert.deepEqual((await consumer.evaluate('story-sources/button')).sources, sources);
     assert.deepEqual((await consumer.evaluate('story-sources/alert')).sources, sources);
@@ -218,14 +218,14 @@ test('virtual composition re-exports the configured consumer panel', async () =>
 test('virtual composition fails loudly when the configured panel is missing', async () => {
   const consumer = await fixture({ composition: { module: './missing-composition.ts' } });
   try {
-    await assert.rejects(consumer.source('composition'), /storybook-docs: composition\.module "\.\/missing-composition\.ts" does not exist/);
+    await assert.rejects(consumer.source('composition'), /react-storydocs: composition\.module "\.\/missing-composition\.ts" does not exist/);
   } finally { await consumer.close(); }
 });
 
 test('virtual code fails loudly when the configured renderer is missing', async () => {
   const consumer = await fixture({ code: { module: './missing-code.ts' } });
   try {
-    await assert.rejects(consumer.source('code'), /storybook-docs: code\.module "\.\/missing-code\.ts" does not exist/);
+    await assert.rejects(consumer.source('code'), /react-storydocs: code\.module "\.\/missing-code\.ts" does not exist/);
   } finally { await consumer.close(); }
 });
 
@@ -256,15 +256,15 @@ test('virtual decorators eagerly normalize single, array and absent default expo
 test('virtual decorators fail loudly when the configured module is missing', async () => {
   const consumer = await fixture({ decorators: { module: './missing.ts' } });
   try {
-    await assert.rejects(consumer.source('decorators'), /storybook-docs: decorators\.module "\.\/missing\.ts" does not exist \(looked in /);
+    await assert.rejects(consumer.source('decorators'), /react-storydocs: decorators\.module "\.\/missing\.ts" does not exist \(looked in /);
   } finally { await consumer.close(); }
 });
 
 test('fixture Widget requires global decorators and resolves its separated props', async () => {
   const root = path.join(engineRoot, 'examples/fixtures');
-  const config: StorybookDocsConfig = (await import(path.join(root, 'docs.config.mjs'))).default;
+  const config: ReactStorydocsConfig = (await import(path.join(root, 'docs.config.mjs'))).default;
   const server = await createServer({
-    configFile: false, root, logLevel: 'silent', plugins: [storybookDocs({ config, root })],
+    configFile: false, root, logLevel: 'silent', plugins: [reactStorydocs({ config, root })],
     oxc: { jsx: { runtime: 'automatic' } },
     server: { middlewareMode: true, watch: null }, optimizeDeps: { noDiscovery: true, entries: [] },
   });
@@ -299,15 +299,15 @@ test('fixture Widget requires global decorators and resolves its separated props
 test('fixtures consumer builds the engine and every story through real virtual modules', async () => {
   const root = path.join(engineRoot, 'examples/fixtures');
   const configFile = path.join(root, 'docs.config.mjs');
-  const config: StorybookDocsConfig = (await import(configFile)).default;
+  const config: ReactStorydocsConfig = (await import(configFile)).default;
   const modules = new Set<string>();
   await build({
     configFile: false, root, logLevel: 'silent',
     resolve: { alias: [
-      { find: '@jfrader/storybook-docs/theme', replacement: path.join(engineRoot, 'src/docs-theme.ts') },
-      { find: '@jfrader/storybook-docs', replacement: path.join(engineRoot, 'src/index.ts') },
+      { find: '@jfrader/react-storydocs/theme', replacement: path.join(engineRoot, 'src/docs-theme.ts') },
+      { find: '@jfrader/react-storydocs', replacement: path.join(engineRoot, 'src/index.ts') },
     ] },
-    plugins: [storybookDocs({ config, root }), {
+    plugins: [reactStorydocs({ config, root }), {
       name: 'assert-consumer-graph',
       moduleParsed(module) { modules.add(module.id); },
     }],

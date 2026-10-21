@@ -1,8 +1,8 @@
 {
-  "name": "@jfrader/storybook-docs",
-  "version": "0.14.2",
+  "name": "@jfrader/react-storydocs",
+  "version": "0.15.0",
   "type": "module",
-  "description": "A documentation front for any design system that has Storybook: navigation, live examples and API tables are generated from the story files themselves.",
+  "description": "A documentation front for React design systems that use Storybook: navigation, live examples and API tables are generated from the story files themselves.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -45,11 +45,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jfrader/storybook-docs.git"
+    "url": "git+https://github.com/jfrader/react-storydocs.git"
   },
-  "homepage": "https://github.com/jfrader/storybook-docs",
+  "homepage": "https://github.com/jfrader/react-storydocs",
   "bugs": {
-    "url": "https://github.com/jfrader/storybook-docs/issues"
+    "url": "https://github.com/jfrader/react-storydocs/issues"
   },
   "publishConfig": {
     "access": "public",

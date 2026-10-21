@@ -15,6 +15,6 @@ export const DocsThemeContext = createContext<DocsTheme | null>(null);
 /** Read the docs theme inside a `decorators.module`, so a React provider can follow it. */
 export function useDocsTheme(): DocsTheme {
   const value = useContext(DocsThemeContext);
-  if (!value) throw new Error('useDocsTheme must be used inside a storybook-docs app');
+  if (!value) throw new Error('useDocsTheme must be used inside a react-storydocs app');
   return value;
 }

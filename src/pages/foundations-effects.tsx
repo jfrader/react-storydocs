@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 
 import type { ReactNode } from 'react';
-import { vars } from 'virtual:storybook-docs/tokens';
+import { vars } from 'virtual:react-storydocs/tokens';
 
 const token = vars as Record<string, unknown>;
 const shadow = Object.entries((token.shadow as Record<string, string>) ?? {});

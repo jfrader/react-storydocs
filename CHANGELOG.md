@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.15.0
+
+- Renamed the package and public API to `@jfrader/react-storydocs`: import `reactStorydocs` from `@jfrader/react-storydocs/vite`, use `ReactStorydocsConfig`, `window.__REACT_STORYDOCS_BASE__`, and `virtual:react-storydocs/*`. The published `0.14.x` package is deprecated in favour of this name.
 
 - Documentation scrollbars follow the current theme. Desktop navigation and page outlines use thin native bars, with normal native sizing for touch pointers and high-contrast mode.
 - Scrolling over a desktop sidebar continues on the page at its boundary, including when the page outline fits without scrolling.

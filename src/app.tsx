@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { catalog, groups, stats } from 'virtual:storybook-docs/catalog';
-import { pages, site, theme } from 'virtual:storybook-docs/site';
+import { catalog, groups, stats } from 'virtual:react-storydocs/catalog';
+import { pages, site, theme } from 'virtual:react-storydocs/site';
 import { ComponentPage } from './pages/component-page';
 import { ColorPage } from './pages/foundations-color';
 import { EffectsPage } from './pages/foundations-effects';
@@ -10,8 +10,8 @@ import { TypePage } from './pages/foundations-type';
 import { OverviewPage } from './pages/overview';
 import { ReleasesPage } from './pages/releases';
 import { SearchBox } from './search';
-import { releases } from 'virtual:storybook-docs/releases';
-import { STORYBOOK_DOCS_BASE, hrefFor } from './base';
+import { releases } from 'virtual:react-storydocs/releases';
+import { REACT_STORYDOCS_BASE, hrefFor } from './base';
 import { PageRail, hashPath } from './toc';
 import { DocsThemeContext } from './docs-theme.js';
 
@@ -43,7 +43,7 @@ type Route =
   | { kind: 'effects' };
 
 function parseRoute(hash: string): Route {
-  const path = hashPath(hash).replace(new RegExp(`^#?\\/?${STORYBOOK_DOCS_BASE}`), '').replace(/^\/+/, '');
+  const path = hashPath(hash).replace(new RegExp(`^#?\\/?${REACT_STORYDOCS_BASE}`), '').replace(/^\/+/, '');
   if (path.startsWith('components/')) {
     const slug = path.slice('components/'.length);
     if (catalog.some((entry) => entry.slug === slug)) return { kind: 'component', slug };

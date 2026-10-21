@@ -42,7 +42,7 @@ try {
 
   const dependencies = Object.fromEntries(['react', 'react-dom', 'vite', 'typescript', '@types/node', '@types/react', '@types/react-dom'].map(name => [name, require(`${name}/package.json`).version]));
   dependencies[manifest.name] = `file:${archive}`;
-  await write('package.json', JSON.stringify({ name: 'storybook-docs-package-smoke', private: true, type: 'module', dependencies }, null, 2));
+  await write('package.json', JSON.stringify({ name: 'react-storydocs-package-smoke', private: true, type: 'module', dependencies }, null, 2));
   run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund']);
   const installed = path.join(temporary, 'node_modules', manifest.name);
   assert.equal(await realpath(installed), installed, 'Consumer must install the tarball, not a link');
@@ -55,26 +55,26 @@ try {
     assert.ok(resolved.startsWith(`${temporary}${path.sep}node_modules${path.sep}`), `Consumer dependency leaked from parent checkout: ${name}`);
   }
   await write('index.html', '<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Package smoke</title></head><body><div id="root"></div><script type="module" src="/main.tsx"></script></body></html>');
-  await write('main.tsx', "import { start } from '@jfrader/storybook-docs';\nstart();\n");
+  await write('main.tsx', "import { start } from '@jfrader/react-storydocs';\nstart();\n");
   await write('Button.stories.tsx', "function Button({ label = 'Hello' }: { label?: string }) { return <button>{label}</button>; }\nexport default { title: 'Actions/Button', component: Button };\nexport const Default = { args: { label: 'Tarball story' } };\n");
-  await write('vite.config.mjs', "import { defineConfig } from 'vite';\nimport { storybookDocs } from '@jfrader/storybook-docs/vite';\nexport default defineConfig({ plugins: [storybookDocs({ config: { site: { title: 'Smoke' }, stories: { from: '.', pattern: '*.stories.tsx' } } })], esbuild: { jsx: 'automatic' } });\n");
-  await write('types.ts', `import type { StorybookDocsConfig, CatalogEntry } from '@jfrader/storybook-docs';
-import { storybookDocs } from '@jfrader/storybook-docs/vite';
-import { site } from 'virtual:storybook-docs/site';
-import { catalog } from 'virtual:storybook-docs/catalog';
-import { vars } from 'virtual:storybook-docs/tokens';
-import { loadProps } from 'virtual:storybook-docs/props';
-import { loadGuidance } from 'virtual:storybook-docs/guidance';
-import { releases } from 'virtual:storybook-docs/releases';
-import { Code, provided } from 'virtual:storybook-docs/code';
-import { Composition, provided as compositionProvided } from 'virtual:storybook-docs/composition';
-import 'virtual:storybook-docs/global-styles';
-const config: StorybookDocsConfig = { site, stories: { from: '.', pattern: '*.stories.tsx' } };
+  await write('vite.config.mjs', "import { defineConfig } from 'vite';\nimport { reactStorydocs } from '@jfrader/react-storydocs/vite';\nexport default defineConfig({ plugins: [reactStorydocs({ config: { site: { title: 'Smoke' }, stories: { from: '.', pattern: '*.stories.tsx' } } })], esbuild: { jsx: 'automatic' } });\n");
+  await write('types.ts', `import type { ReactStorydocsConfig, CatalogEntry } from '@jfrader/react-storydocs';
+import { reactStorydocs } from '@jfrader/react-storydocs/vite';
+import { site } from 'virtual:react-storydocs/site';
+import { catalog } from 'virtual:react-storydocs/catalog';
+import { vars } from 'virtual:react-storydocs/tokens';
+import { loadProps } from 'virtual:react-storydocs/props';
+import { loadGuidance } from 'virtual:react-storydocs/guidance';
+import { releases } from 'virtual:react-storydocs/releases';
+import { Code, provided } from 'virtual:react-storydocs/code';
+import { Composition, provided as compositionProvided } from 'virtual:react-storydocs/composition';
+import 'virtual:react-storydocs/global-styles';
+const config: ReactStorydocsConfig = { site, stories: { from: '.', pattern: '*.stories.tsx' } };
 const entries: CatalogEntry[] = catalog;
 // @ts-expect-error Virtual types must not silently resolve as any.
 const invalid: number = site.title;
 const panel: typeof Composition = compositionProvided ? Composition : undefined;
-void [storybookDocs({ config }), entries, vars, loadProps, loadGuidance, releases, Code, provided, panel, invalid];
+void [reactStorydocs({ config }), entries, vars, loadProps, loadGuidance, releases, Code, provided, panel, invalid];
 `);
   await write('tsconfig.json', JSON.stringify({ compilerOptions: { target: 'ES2022', module: 'ESNext', moduleResolution: 'bundler', strict: true, skipLibCheck: false, noEmit: true, jsx: 'react-jsx', types: ['node', 'react', 'react-dom'], noUncheckedSideEffectImports: true }, include: ['*.ts', '*.tsx'] }, null, 2));
   run(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit']);
@@ -87,7 +87,7 @@ void [storybookDocs({ config }), entries, vars, loadProps, loadGuidance, release
   const styles = (await Promise.all(css.map(name => readFile(path.join(assets, name), 'utf8')))).join('\n');
   assert.ok(styles.includes('--sd-bg'), 'Consumer CSS is missing engine styles');
   const javascript = (await Promise.all(outputs.filter(name => name.endsWith('.js')).map(name => readFile(path.join(assets, name), 'utf8')))).join('\n');
-  assert.ok(!javascript.includes('virtual:storybook-docs/'), 'Unresolved engine virtual modules in consumer output');
+  assert.ok(!javascript.includes('virtual:react-storydocs/'), 'Unresolved engine virtual modules in consumer output');
   assert.ok(javascript.includes('Tarball story'), 'Consumer did not bundle the scanned story');
   console.log(`PASS: ${manifest.name}@${manifest.version} tarball installed, types checked, plugin/virtual modules built, CSS retained`);
 } finally {

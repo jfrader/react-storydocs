@@ -19,5 +19,5 @@ test('useDocsTheme reads the value the docs app provides', () => {
 });
 
 test('useDocsTheme fails loudly outside the docs app', () => {
-  assert.throws(() => renderToStaticMarkup(createElement(Consumer)), /useDocsTheme must be used inside a storybook-docs app/);
+  assert.throws(() => renderToStaticMarkup(createElement(Consumer)), /useDocsTheme must be used inside a react-storydocs app/);
 });

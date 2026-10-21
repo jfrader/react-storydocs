@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 
 import type { ReactNode } from 'react';
-import { vars } from 'virtual:storybook-docs/tokens';
+import { vars } from 'virtual:react-storydocs/tokens';
 
 const token = vars as Record<string, unknown>;
 const space = Object.entries((token.space as Record<string, string>) ?? {});

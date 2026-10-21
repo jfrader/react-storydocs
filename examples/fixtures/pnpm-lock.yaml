@@ -14,7 +14,7 @@ importers:
       '@emotion/styled':
         specifier: ^11.14.1
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(react@19.3.0)
-      '@jfrader/storybook-docs':
+      '@jfrader/react-storydocs':
         specifier: link:../..
         version: link:../..
       '@mui/material':
