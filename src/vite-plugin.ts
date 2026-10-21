@@ -10,7 +10,7 @@ import path from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
 import type { StorybookDocsConfig } from './config.js';
 import type { CatalogRef, ComponentPropsDoc } from './prop-docs.js';
-import { buildCatalog, catalogCode, resolveStoryRoot, scanStories } from './build/catalog.ts';
+import { buildCatalog, catalogCode, resolveStoryRoot, scanStories, storyImportSpecifier } from './build/catalog.ts';
 import { siteCode } from './build/site.ts';
 import { tokensCode } from './build/tokens.ts';
 import { globalStylesCode } from './build/global-styles.ts';
@@ -57,7 +57,7 @@ export function storybookDocs(options: StorybookDocsPluginOptions): Plugin {
   };
 
   const modules: Record<string, () => string> = {
-    catalog: () => `${catalogCode(catalog)}\nexport const storySource = ${JSON.stringify(config.stories.from)};`,
+    catalog: () => `${catalogCode(catalog)}\nexport const storySource = ${JSON.stringify(storyImportSpecifier(config.stories, projectRoot))};`,
     site: () => siteCode(config),
     tokens: () => tokensCode(config.tokens),
     'global-styles': () => globalStylesCode(engineStyles, config.tokens?.css),

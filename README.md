@@ -20,7 +20,7 @@ example/            # a consumer you can copy
 | Search (⌘K) | the catalog, scored over component, group and story names |
 | Examples (inline, in sections) | the story module itself — meta `component` + merged `args`, or the story's `render` |
 | Example sections | authored `parameters.docs.sections`, or story-name buckets when absent |
-| Props tables (one per component and part, with native-element notes) | the component sources — `react-docgen-typescript` for components, the TypeScript compiler API for exported `*Props` types (where compound parts live) |
+| Props tables (one per component and part, with native-element notes and an inherited-props disclosure) | the component sources — `react-docgen-typescript` for components, the TypeScript compiler API for exported `*Props` types (where compound parts live) |
 | Usage | authored `parameters.docs.usage` Markdown only |
 | API | component import, root and part descriptions and props, merged slots and related components |
 | Per-example Code disclosures | the story's merged args (hidden when the story uses a custom render, so a snippet never lies) |
@@ -35,8 +35,11 @@ is not imported automatically. Unhandled render errors fail soft in each story f
 and a11y checks stay in Storybook — this front is for reading and browsing.
 
 CSF3 objects and CSF2 function stories are supported, including bound templates with args and
-decorators. Props use co-located component sources first; when the story folder has no sources,
-the engine follows the imported `meta.component` to its source folder, including barrel re-exports.
+decorators. Nested titles use the last segment as the component name and the preceding segments as
+its group (`Form/Fields/InputField` is `InputField` under `Form/Fields`). Props use co-located
+component sources first; when the story folder has no sources, the engine follows the imported
+`meta.component` to its source folder, including barrel re-exports. Inherited props stay available
+in a disclosure instead of disappearing with the own-props table.
 
 ## What it looks like
 
@@ -100,7 +103,7 @@ The consumer contract is four files:
 // docs.config.mjs
 export default {
   site: { title: 'acme/ui', mark: 'a', links: [{ label: 'GitHub', href: '…' }] },
-  stories: { from: '@acme/ui', pattern: 'src/components/*/*.stories.tsx' },
+  stories: { from: '@acme/ui', pattern: 'src/components/*/*.stories.tsx', importFrom: '@acme/ui' }, // importFrom is optional
   decorators: { module: './src/decorators.tsx' }, // optional default-export decorator or array
   groups: { rename: { Data: 'Data display' }, order: ['Foundations', 'Inputs', 'Components'] },
   theme: {

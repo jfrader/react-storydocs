@@ -52,6 +52,20 @@ test('component page without an authored description omits the introduction and 
   assert.match(markup, /<h2>API<\/h2>/);
 });
 
+test('API keeps inherited props available in a disclosure', () => {
+  const components = [{
+    name: 'Button',
+    props: [
+      { name: 'label', type: 'string', required: true, defaultValue: null, description: '' },
+      { name: 'disabled', type: 'boolean', required: false, defaultValue: null, description: '', inheritedFrom: 'BaseButtonProps' },
+    ],
+  }];
+  const markup = renderPage({ default: { component: {} }, Default: {} }, 'Button', components);
+  assert.match(markup, /Inherited props/);
+  assert.match(markup, /<code>disabled<\/code>/);
+  assert.match(markup, /BaseButtonProps/);
+});
+
 test('component page retains an authored description', () => {
   const markup = renderPage({
     default: { component: {}, parameters: { docs: { description: { component: 'Triggers an action.' } } } },
@@ -176,7 +190,8 @@ test('API renders named parts, descriptions, native notes, slots and relationshi
   assert.match(markup, /Also accepts the attributes of <code>&lt;section&gt;<\/code>/);
   assert.match(markup, /No component-specific props\./);
   assert.match(markup, /Also accepts inherited props from <span><code>HTMLAttributes<\/code>/);
-  assert.doesNotMatch(markup, /<summary>Inherited props|<code>id<\/code>/);
+  assert.match(markup, /<summary>Inherited props <span class="count">1<\/span>/);
+  assert.match(markup, /<code>id<\/code>/);
   assert.match(markup, /<pre aria-label="Import">import/);
   assert.match(markup, /<h3>Slots<\/h3>/);
   const slots = markup.slice(markup.indexOf('<h3>Slots</h3>'), markup.indexOf('<h3>Also uses</h3>'));
@@ -234,7 +249,7 @@ test('API does not expand native style members', () => {
   assert.doesNotMatch(markup, /Fields|accentColor|alignContent/);
 });
 
-test('inherited catalog and native props are summarized without inherited rows', () => {
+test('inherited catalog and native props are summarized and disclosed', () => {
   const prop = (name: string, extra = {}) => ({ name, type: 'string', description: '', required: false, defaultValue: null, ...extra });
   const markup = renderPage({ default: { component: {} }, Default: {} }, 'Widget', [{ name: 'Widget', native: 'dialog', props: [
     prop('own'), prop('id', { inheritedFrom: 'HTMLAttributes' }),
@@ -243,8 +258,12 @@ test('inherited catalog and native props are summarized without inherited rows',
   assert.match(markup, /Also accepts the props of <a href="#\/components\/surface">Surface<\/a>/);
   assert.match(markup, /Also accepts the attributes of <code>&lt;dialog&gt;<\/code>/);
   assert.match(markup, /<code>own<\/code>/);
-  assert.doesNotMatch(markup, /<code>id<\/code>|<code>surfaceProp<\/code>|HTMLAttributes|Inherited props/);
-  assert.equal(markup.match(/<tr>/g)?.length, 2);
+  const mainTable = markup.slice(0, markup.indexOf('<details class="api-inherited">'));
+  assert.doesNotMatch(mainTable, /<code>id<\/code>|<code>surfaceProp<\/code>/);
+  assert.match(markup, /Inherited props <span class="count">2<\/span>/);
+  assert.match(markup, /<code>id<\/code>/);
+  assert.match(markup, /<code>surfaceProp<\/code>/);
+  assert.match(markup, /HTMLAttributes/);
 });
 
 test('stories-only pages have no empty API but retain authored argTypes APIs', () => {

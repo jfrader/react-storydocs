@@ -127,7 +127,11 @@ export const toKebab = (value: string) =>
     .toLowerCase();
 
 export function storyIdentity(file: string, title: string) {
-  const [group = 'Components', ...leaf] = title.split('/');
+  const parts = title.split('/').filter(Boolean);
   const filename = path.basename(file).replace(/\.stories\.[^.]+$/, '');
-  return { group, name: leaf.join('/') || filename, slug: toKebab(filename) };
+  // Storybook allows arbitrary title depth. The leaf names the component; every preceding
+  // segment is its group path (so `Form/Fields/InputField` is `InputField` under `Form/Fields`).
+  const name = parts.at(-1) ?? filename;
+  const group = parts.length > 1 ? parts.slice(0, -1).join('/') : 'Components';
+  return { group, name, slug: toKebab(filename) };
 }

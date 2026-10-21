@@ -470,6 +470,16 @@ code.signature {
 }
 .api-part-link:hover { text-decoration: underline; }
 .api-part-link:focus-visible { outline: 2px solid var(--sd-focus-ring); }
+.api-inherited { margin: 16px 0 4px; }
+.api-inherited > summary {
+  cursor: pointer;
+  color: var(--sd-text-muted);
+  font-size: 13px;
+  padding: 4px 0;
+}
+.api-inherited > summary:focus-visible { outline: 2px solid var(--sd-focus-ring); }
+.api-inherited .count { color: var(--sd-text-subtle); }
+.api-inherited .table-scroll { margin-top: 8px; }
 .table-scroll tbody th small { display: block; }
 .props-table :is(th, td) {
   overflow-wrap: anywhere;

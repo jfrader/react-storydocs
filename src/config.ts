@@ -32,6 +32,9 @@ export interface StorybookDocsConfig {
   stories: {
     from: string;
     pattern: string;
+    /** Bare package specifier used by import snippets. Defaults to `from` when it is a package
+     * name, or to the package.json `name` found at the story root when `from` is a path. */
+    importFrom?: string;
   };
 
   /** Optional information architecture: explicit group order and renames. */

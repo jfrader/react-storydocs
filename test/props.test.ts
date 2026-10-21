@@ -537,7 +537,11 @@ test('props presentation shows allowed values, JSDoc and compact inherited contr
   assert.match(markup, /required/);
   assert.match(markup, /Deprecated/);
   assert.match(markup, /<code>null<\/code>/);
-  assert.doesNotMatch(markup, /Inherited props \(2\)|<code>aria-label<\/code>|<code>disabled<\/code>/);
+  const mainTable = markup.slice(0, markup.indexOf('<details class="api-inherited">'));
+  assert.doesNotMatch(mainTable, /<code>aria-label<\/code>|<code>disabled<\/code>/);
+  assert.match(markup, /<details class="api-inherited"><summary>Inherited props <span class="count">2<\/span>/);
+  assert.match(markup, /<code>aria-label<\/code>/);
+  assert.match(markup, /<code>disabled<\/code>/);
   assert.match(markup, /Also accepts the props of .*href="#\/docs\/components\/button".*Button/);
   assert.match(markup, /Also accepts inherited props from .*AriaAttributes/);
   assert.doesNotMatch(markup, /components\/aria/);

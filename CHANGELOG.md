@@ -7,6 +7,10 @@
 - Configure global example providers and CSS through `decorators.module`, outside meta/story decorators.
 - Render CSF2 function stories with their args and decorators, using export keys for labels.
 - Resolve props from imported `meta.component` sources when stories live in a separate folder, including barrel re-exports and nested titles.
+- Nested story titles use the last segment as the component name and the preceding segments as the group.
+- Import snippets use `stories.importFrom` or the design system's package.json name instead of a checkout path.
+- Inherited props stay available in a disclosure under each component's own-props table.
+- Overview links prefetch their story module on hover or focus, matching the sidebar and search.
 
 ## 0.14.2
 

@@ -13,6 +13,7 @@ export default {
   stories: {
     from: './packages/acme-ui',
     pattern: 'src/components/*/*.stories.tsx',
+    importFrom: '@acme/ui',
   },
   groups: {
     rename: { Primitives: 'Core primitives', Feedback: 'Alerts & feedback' },

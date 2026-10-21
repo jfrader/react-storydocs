@@ -17,6 +17,7 @@ not values copied from the reference consumer.
 | `stories` | object | Required | Story discovery source. |
 | `stories.from` | `string` | Required | Installed package name, absolute directory, or relative directory holding story sources. |
 | `stories.pattern` | `string` | Required | Glob relative to the story root, for example `src/components/*/*.stories.tsx`. Matches determine navigation, examples and API tables. |
+| `stories.importFrom` | `string` | `stories.from` when it is a package name, else the package.json `name` at the story root | Bare specifier used by generated import snippets. Set it when a checkout has no package.json name or the public package differs. |
 
 Package roots are resolved by walking up from the consumer root for
 `node_modules/<package>`. Relative paths resolve against the Vite project root
@@ -30,6 +31,10 @@ segment and `**` across directories.
 CSF3 object stories and CSF2 function stories are supported. Function stories render with
 their attached args, argTypes, decorators and parameters; their export key supplies the label,
 not the function's JavaScript name (such as `bound Template`).
+
+Titles may have any depth. The last segment is the component name; every preceding segment is
+its group path, so `Form/Fields/InputField` becomes `InputField` under `Form/Fields`. A one-level
+title lands under `Components`. The file name still determines the slug.
 
 ### Global decorators
 
@@ -100,7 +105,8 @@ Props use non-story `.tsx`/`.ts` sources in the story folder first. If that fold
 the engine follows the imported `meta.component` identifier to the component's source folder,
 including barrel re-exports. Unresolvable imports fall back to the story folder. Matching uses
 the last title segment (for example `Fields/InputField` matches `InputField`); displayed titles
-are unchanged.
+are unchanged. Inherited props are listed in a `details` disclosure under the own-props table,
+so wrapper components keep their MUI/DOM contract visible without overwhelming the page.
 
 `ComponentPropsDoc.description?: string` contains the component symbol's JSDoc, including each
 compound part symbol. The root description supplies the page introduction unless overridden by
@@ -205,6 +211,38 @@ property name. These are all supported `ThemeRole` keys (each is an optional
 | `theme.vars.danger` | `--sd-danger` | Error boundaries and tinted callouts. |
 | `theme.vars.dangerText` | `--sd-danger-text` | Danger **text**; use a tone that passes 4.5:1 on your surface (axe checks it). |
 | `theme.vars.focusRing` | `--sd-focus-ring` | Keyboard focus outlines. |
+
+### Context-based themes
+
+The toggle sets `theme.attribute` on `document.documentElement`. A `decorators.module` can observe
+that attribute and drive the design system's React provider, so the header toggle and the examples
+share one theme:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { ThemeProvider } from '@mui/material';
+import { dark, light } from '@acme/ui';
+
+function useDocsTheme(attribute = 'data-theme') {
+  const [mode, setMode] = useState(() => document.documentElement.getAttribute(attribute) ?? 'dark');
+  useEffect(() => {
+    const read = () => setMode(document.documentElement.getAttribute(attribute) ?? 'dark');
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: [attribute] });
+    return () => observer.disconnect();
+  }, [attribute]);
+  return mode;
+}
+
+export default function withTheme(Story) {
+  const mode = useDocsTheme();
+  return <ThemeProvider theme={mode === 'light' ? light : dark}><Story /></ThemeProvider>;
+}
+```
+
+```js
+decorators: { module: './src/docs-decorators.tsx' },
+```
 
 ## Tokens and guidance
 
