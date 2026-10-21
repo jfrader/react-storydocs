@@ -168,3 +168,22 @@ test('slot props members expand when their contract lives beside the component',
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('signature object parameters expose their fields', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-signature-members-'));
+  try {
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    writeFileSync(path.join(root, 'widget.tsx'), `
+      export interface WidgetDetails { currency: string; formatted: string }
+      export interface WidgetProps { onValueChange?: (value: number, details: WidgetDetails) => void }
+      export function Widget(props: WidgetProps) { return null; }
+    `);
+    writeFileSync(path.join(root, 'widget.stories.tsx'), `const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};`);
+    const widget = createPropsCollector().collect(path.join(root, 'widget.stories.tsx'), 'Widget', 'widget').components.find((component) => component.name === 'Widget');
+    const parameter = widget?.props.find((prop) => prop.name === 'onValueChange')?.signatures?.[0]?.parameters.find((item) => item.name === 'details');
+    assert.equal(parameter?.type, 'WidgetDetails');
+    assert.deepEqual(parameter?.members?.map((member) => member.name).sort(), ['currency', 'formatted']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
