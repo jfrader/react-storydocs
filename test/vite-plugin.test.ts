@@ -215,6 +215,33 @@ test('virtual composition re-exports the configured consumer panel', async () =>
   } finally { await consumer.close(); }
 });
 
+test('virtual api without a renderer exports an explicit fallback', async () => {
+  const consumer = await fixture();
+  try {
+    const api = await consumer.evaluate('api');
+    assert.equal(api.provided, false);
+    assert.equal(api.Api, undefined);
+  } finally { await consumer.close(); }
+});
+
+test('virtual api re-exports the configured consumer renderer', async () => {
+  const consumer = await fixture({ api: { module: './api.ts' } });
+  try {
+    writeFileSync(path.join(consumer.root, 'api.ts'), 'export default function Api() { return null; }\n');
+    const source = await consumer.source('api');
+    assert.match(source, /export const provided = true;/);
+    assert.match(source, /lazy\(/);
+    assert.ok(source.includes(JSON.stringify(path.join(consumer.root, 'api.ts'))));
+  } finally { await consumer.close(); }
+});
+
+test('virtual api fails loudly when the configured renderer is missing', async () => {
+  const consumer = await fixture({ api: { module: './missing-api.ts' } });
+  try {
+    await assert.rejects(consumer.source('api'), /react-storydocs: api\.module "\.\/missing-api\.ts" does not exist/);
+  } finally { await consumer.close(); }
+});
+
 test('virtual composition fails loudly when the configured panel is missing', async () => {
   const consumer = await fixture({ composition: { module: './missing-composition.ts' } });
   try {

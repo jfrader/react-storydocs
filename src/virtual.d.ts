@@ -50,6 +50,13 @@ declare module 'virtual:react-storydocs/code' {
   export const Code: ComponentType<{ code: string; language?: string }> | undefined;
 }
 
+declare module 'virtual:react-storydocs/api' {
+  import type { ComponentType } from 'react';
+  type ApiRendererProps = import('./prop-docs.js').ApiRendererProps;
+  export const provided: boolean;
+  export const Api: ComponentType<ApiRendererProps> | undefined;
+}
+
 declare module 'virtual:react-storydocs/composition' {
   import type { ComponentType } from 'react';
   type CatalogRef = import('./prop-docs.js').CatalogRef;

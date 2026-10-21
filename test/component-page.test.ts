@@ -22,6 +22,7 @@ function renderPage(module: Record<string, unknown>, name = 'Button', components
     '../base': { hrefFor: (path: string) => path },
     'virtual:react-storydocs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
     'virtual:react-storydocs/composition': { provided: false, Composition: undefined },
+    'virtual:react-storydocs/api': { provided: false, Api: undefined },
     '../sections': sections,
     '../scroll': scroll,
     '../story-view': { useStoryModule: () => ({ module }) },

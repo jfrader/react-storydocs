@@ -19,6 +19,7 @@ import { guidanceCode, guidanceIndexCode, indexGuidance } from './build/guidance
 import { readReleases, releasesCode } from './build/releases.ts';
 import { codeModuleCode, resolveCodeModule } from './build/code.ts';
 import { compositionModuleCode, resolveCompositionModule } from './build/composition.ts';
+import { apiModuleCode, resolveApiModule } from './build/api.ts';
 import { decoratorsModuleCode, resolveDecoratorsModule } from './build/decorators.ts';
 import { STORYBOOK_TEST_STUB } from './build/storybook-test.ts';
 import { FILE_PREFIX, VIRTUAL_PREFIX } from './build/module-ids.ts';
@@ -68,6 +69,7 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
     releases: () => releasesCode(readReleases(config, projectRoot)),
     code: () => codeModuleCode(resolveCodeModule(config.code?.module, projectRoot)),
     composition: () => compositionModuleCode(resolveCompositionModule(config.composition?.module, projectRoot)),
+    api: () => apiModuleCode(resolveApiModule(config.api?.module, projectRoot)),
     decorators: () => decoratorsModuleCode(resolveDecoratorsModule(config.decorators?.module, projectRoot)),
   };
 

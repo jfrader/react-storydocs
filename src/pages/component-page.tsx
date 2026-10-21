@@ -11,8 +11,9 @@ import { MarkdownView } from '../guidance';
 import { resolveSections, selectExample, type DocsParameters } from '../sections';
 import { useStoryModule } from '../story-view';
 import { ControlledStoryFrame } from '../controls';
-import { useProps, type CatalogRef, type ComponentPropsDoc, type PropDoc } from '../props';
+import { useProps, type ApiRendererProps, type CatalogRef, type ComponentPropsDoc, type PropDoc } from '../props';
 import { Composition as ProvidedComposition, provided as hasComposition } from 'virtual:react-storydocs/composition';
+import { Api as ProvidedApi, provided as hasApi } from 'virtual:react-storydocs/api';
 import { Skeleton } from '../skeleton';
 import { loadStorySources } from 'virtual:react-storydocs/story-sources';
 import { scrollToElement } from '../scroll';
@@ -169,6 +170,27 @@ function TypeText({ prop, signature }: { prop: PropDoc; signature?: string }) {
   return prop.component
     ? <a href={`#${hrefFor(`/components/${prop.component.slug}`)}`}>{code}</a>
     : code;
+}
+
+class ApiBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function ApiPanel(props: ApiRendererProps) {
+  if (!hasApi || !ProvidedApi) return null;
+  return (
+    <ApiBoundary>
+      <Suspense fallback={<div className="skeleton-page" aria-busy="true"><Skeleton lines={4} height={14} /></div>}>
+        <ProvidedApi {...props} />
+      </Suspense>
+    </ApiBoundary>
+  );
 }
 
 class CompositionBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -451,8 +473,14 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
       {entry.hasComponent || props?.length || Object.keys(argTypes).length || uses.length ? <>
         <h2>API</h2>
         {entry.hasComponent && storySource ? <CodeBlock code={`import { ${props?.[0]?.name ?? entry.name} } from '${storySource}';`} language="tsx" label="Import" /> : null}
-        <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
-        <SlotsTable components={props ?? []} />
+        {hasApi ? (
+          <ApiPanel components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
+        ) : (
+          <>
+            <PropsTable components={props} argTypes={argTypes} defaultArgs={defaultArgs} />
+            <SlotsTable components={props ?? []} />
+          </>
+        )}
         {uses.length ? <><h3>Also uses</h3><ul>{uses.map((component) => <li key={component.slug}><a href={`#${hrefFor(`/components/${component.slug}`)}`}>{component.name}</a></li>)}</ul></> : null}
       </> : null}
     </>

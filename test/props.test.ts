@@ -522,6 +522,7 @@ test('props presentation shows allowed values, JSDoc and compact inherited contr
     'virtual:react-storydocs/decorators': { decorators: [] },
     'virtual:react-storydocs/story-sources': { loadStorySources: async () => ({ sources: {} }) },
     'virtual:react-storydocs/composition': { provided: false, Composition: undefined },
+    'virtual:react-storydocs/api': { provided: false, Api: undefined },
     '../base': { hrefFor: (path: string) => `/docs${path}` },
   };
   runInThisContext(`(function(require, exports) { ${compiled}; exports.PropsTable = PropsTable; })`)(

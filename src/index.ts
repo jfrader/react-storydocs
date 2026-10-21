@@ -3,3 +3,4 @@
 export { start } from './start.js';
 export { ComponentDemo, type ComponentDemoProps } from './component-demo.js';
 export type { ReactStorydocsConfig, CatalogEntry, ThemeRole } from './config.js';
+export type { ApiRendererProps, ComponentPropsDoc, PropDoc, TypeParameterDoc } from './prop-docs.js';
