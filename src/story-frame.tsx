@@ -80,6 +80,14 @@ function CopyAction({ label, success, text, icon }: { label: string; success: st
   );
 }
 
+/** Story blurbs are one paragraph of Markdown in practice: inline code is the part that matters. */
+function StoryBlurb({ text }: { text: string }) {
+  return <p className="story-blurb">{text.split(/(`[^`]+`)/g).map((part, index) =>
+    part.length > 2 && part.startsWith('`') && part.endsWith('`')
+      ? <code key={index}>{part.slice(1, -1)}</code>
+      : part)}</p>;
+}
+
 function StoryCodePanel({ id, open, snippet, language, name }: { id: string; open: boolean; snippet: string | null; language: string; name: string }) {
   return <div id={id} hidden={!open} className="sd-frame-code" role="region" aria-label={`${name} code panel`}>
     {open ? <>
@@ -171,7 +179,7 @@ export function StoryFrame({
         <CopyAction label={`Copy link to ${storyName}`} success={`Link to ${storyName} copied`} text={() => storyLink(window.location, story)} icon="link" />
         {componentSlug ? <a className="sd-frame-action" href={standaloneStoryHref(componentSlug, story)} target="_blank" rel="noreferrer" aria-label={`Open ${storyName} full screen`} title="Open full screen"><ActionIcon icon="expand" /></a> : null}
       </div></header>
-      {authoredStory ? <p className="story-blurb">{authoredStory}</p> : null}
+      {authoredStory ? <StoryBlurb text={authoredStory} /> : null}
       {notice ? <p className="sd-controls-note">{notice}</p> : null}
       {controls.length ? (
         <div className="sd-controls" role="group" aria-labelledby={controlsLabelId}>

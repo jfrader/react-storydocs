@@ -80,6 +80,11 @@ test('toolbar exposes a controlled code panel, copy link and safe new-tab fullsc
   assert.doesNotMatch(html, /<details|&lt;Widget/);
 });
 
+test('story blurb renders inline code instead of loose backticks', () => {
+  const html = renderToStaticMarkup(createElement(frame.StoryFrame, { ...props, authoredStory: 'Pass `seatSlots` to keep open places.' }));
+  assert.match(html, /<p class="story-blurb">Pass <code>seatSlots<\/code> to keep open places\.<\/p>/);
+});
+
 test('copy code writes the snippet and announces success', async () => {
   const react = require('react');
   const runtime = require('react/jsx-runtime');
