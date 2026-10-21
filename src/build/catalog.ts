@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { collectMatches, readStoryFile, storyIdentity } from '../scan.ts';
 import type { CatalogEntry, StorybookDocsConfig } from '../config.js';
@@ -19,6 +19,7 @@ export interface Catalog {
   groups: string[];
   stats: { components: number; stories: number; groups: number };
   files: Map<string, string>;
+  components: Map<string, string | null>;
 }
 
 export function resolveStoryRoot(from: string, root: string): string {
@@ -41,6 +42,31 @@ export function resolveStoryRoot(from: string, root: string): string {
   }
 }
 
+/** The bare specifier a snippet imports the design system from. A package name is already one;
+ * a checkout path borrows the package.json name at its root, so examples stay copyable. */
+export function storyImportSpecifier(stories: StorybookDocsConfig['stories'], root: string): string {
+  if (stories.importFrom) return stories.importFrom;
+  const from = stories.from;
+  if (!from.startsWith('.') && !path.isAbsolute(from)) return from;
+  let dir = resolveStoryRoot(from, root);
+  for (;;) {
+    const manifest = path.join(dir, 'package.json');
+    if (existsSync(manifest)) {
+      try {
+        const name = JSON.parse(readFileSync(manifest, 'utf8')).name;
+        if (typeof name === 'string' && name.trim()) return name;
+      } catch {
+        // A malformed package.json is not a reason to fail the docs build.
+      }
+      break;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return from;
+}
+
 export function scanStories(config: StorybookDocsConfig['stories'], root: string): StoryFile[] {
   const stories: StoryFile[] = [];
   for (const file of collectMatches(resolveStoryRoot(config.from, root), config.pattern)) {
@@ -55,12 +81,14 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsCo
   const order = groupsConfig?.order ?? DEFAULT_GROUP_ORDER;
   const entries: CatalogEntry[] = [];
   const files = new Map<string, string>();
+  const components = new Map<string, string | null>();
   for (const { file, facts } of stories) {
     const { group: authoredGroup, name, slug } = storyIdentity(file, facts.title);
     if (files.has(slug)) {
       throw new Error(`storybook-docs: duplicate story slug "${slug}" in "${files.get(slug)}" and "${file}"`);
     }
     files.set(slug, file);
+    components.set(slug, facts.component);
     entries.push({
       slug,
       name,
@@ -86,6 +114,7 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: StorybookDocsCo
     entries,
     groups,
     files,
+    components,
     stats: {
       components: entries.length,
       stories: entries.reduce((total, entry) => total + entry.stories.length, 0),

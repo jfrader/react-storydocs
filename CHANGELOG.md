@@ -4,6 +4,15 @@
 
 - Documentation scrollbars follow the current theme. Desktop navigation and page outlines use thin native bars, with normal native sizing for touch pointers and high-contrast mode.
 - Scrolling over a desktop sidebar continues on the page at its boundary, including when the page outline fits without scrolling.
+- Configure global example providers and CSS through `decorators.module`, outside meta/story decorators.
+- Render CSF2 function stories with their args and decorators, using export keys for labels.
+- Resolve props from imported `meta.component` sources when stories live in a separate folder, including barrel re-exports and nested titles.
+- Nested story titles use the last segment as the component name and the preceding segments as the group.
+- Import snippets use `stories.importFrom` or the design system's package.json name instead of a checkout path.
+- Inherited props stay available in a disclosure under each component's own-props table.
+- Overview links prefetch their story module on hover or focus, matching the sidebar and search.
+- The docs chrome owns its background and text colour, so a story's global `CssBaseline` cannot repaint the page white in dark mode.
+- `start()` adds the viewport meta tag when the host page omits it, so the docs front is responsive on phones without extra host markup.
 
 ## 0.14.2
 

@@ -32,6 +32,9 @@ export interface StorybookDocsConfig {
   stories: {
     from: string;
     pattern: string;
+    /** Bare package specifier used by import snippets. Defaults to `from` when it is a package
+     * name, or to the package.json `name` found at the story root when `from` is a path. */
+    importFrom?: string;
   };
 
   /** Optional information architecture: explicit group order and renames. */
@@ -89,6 +92,11 @@ export interface StorybookDocsConfig {
   composition?: {
     module: string;
   };
+
+  /** A module relative to the consumer root whose default export is one Storybook decorator or
+   * an array of them. Applied around every example, outside meta/story decorators. The module
+   * can import its own CSS. */
+  decorators?: { module: string };
 
   /** Optional page switches. Foundations pages require `tokens`. */
   pages?: {

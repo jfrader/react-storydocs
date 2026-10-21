@@ -39,6 +39,10 @@ declare module 'virtual:storybook-docs/releases' {
 
 declare module 'virtual:storybook-docs/global-styles';
 
+declare module 'virtual:storybook-docs/decorators' {
+  export const decorators: unknown[];
+}
+
 declare module 'virtual:storybook-docs/code' {
   import type { ComponentType } from 'react';
   export const provided: boolean;

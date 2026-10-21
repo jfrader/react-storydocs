@@ -17,6 +17,7 @@ not values copied from the reference consumer.
 | `stories` | object | Required | Story discovery source. |
 | `stories.from` | `string` | Required | Installed package name, absolute directory, or relative directory holding story sources. |
 | `stories.pattern` | `string` | Required | Glob relative to the story root, for example `src/components/*/*.stories.tsx`. Matches determine navigation, examples and API tables. |
+| `stories.importFrom` | `string` | `stories.from` when it is a package name, else the package.json `name` at the story root | Bare specifier used by generated import snippets. Set it when a checkout has no package.json name or the public package differs. |
 
 Package roots are resolved by walking up from the consumer root for
 `node_modules/<package>`. Relative paths resolve against the Vite project root
@@ -26,6 +27,29 @@ The plugin option `root?: string` overrides that consumer root; it is not a
 explicitly. Published packages must include their story sources, or
 `stories.from` must point at a checkout. The scanner supports `*` within one path
 segment and `**` across directories.
+
+CSF3 object stories and CSF2 function stories are supported. Function stories render with
+their attached args, argTypes, decorators and parameters; their export key supplies the label,
+not the function's JavaScript name (such as `bound Template`).
+
+Titles may have any depth. The last segment is the component name; every preceding segment is
+its group path, so `Form/Fields/InputField` becomes `InputField` under `Form/Fields`. A one-level
+title lands under `Components`. The file name still determines the slug.
+
+### Global decorators
+
+| Key | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `decorators.module` | `string` | Omitted | Consumer-root-relative module whose default export is one Storybook decorator or an array. |
+
+```js
+decorators: { module: './src/decorators.tsx' },
+```
+
+The module is imported eagerly and may import its own CSS. Its decorators wrap every example,
+outside meta and story decorators: story decorators are reduced first, then meta decorators,
+then configured global decorators. Within each array, the last decorator is outermost.
+`.storybook/preview` is not imported automatically; export shared providers from this module.
 
 ### Authored documentation already in the stories
 
@@ -76,6 +100,13 @@ is inferred from the props' ref element type or React `ComponentPropsWithRef<'ta
 `ComponentProps<'tag'>` aliases, and omitted when ambiguous. Pages without docgen use their
 `argTypes` table instead. Stories-only pages with no API data omit the API section entirely.
 The import code block is labelled Import, separately from example source code.
+
+Props use non-story `.tsx`/`.ts` sources in the story folder first. If that folder has none,
+the engine follows the imported `meta.component` identifier to the component's source folder,
+including barrel re-exports. Unresolvable imports fall back to the story folder. Matching uses
+the last title segment (for example `Fields/InputField` matches `InputField`); displayed titles
+are unchanged. Inherited props are listed in a `details` disclosure under the own-props table,
+so wrapper components keep their MUI/DOM contract visible without overwhelming the page.
 
 `ComponentPropsDoc.description?: string` contains the component symbol's JSDoc, including each
 compound part symbol. The root description supplies the page introduction unless overridden by
@@ -181,6 +212,38 @@ property name. These are all supported `ThemeRole` keys (each is an optional
 | `theme.vars.dangerText` | `--sd-danger-text` | Danger **text**; use a tone that passes 4.5:1 on your surface (axe checks it). |
 | `theme.vars.focusRing` | `--sd-focus-ring` | Keyboard focus outlines. |
 
+### Context-based themes
+
+The toggle sets `theme.attribute` on `document.documentElement`. A `decorators.module` can observe
+that attribute and drive the design system's React provider, so the header toggle and the examples
+share one theme:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { ThemeProvider } from '@mui/material';
+import { dark, light } from '@acme/ui';
+
+function useDocsTheme(attribute = 'data-theme') {
+  const [mode, setMode] = useState(() => document.documentElement.getAttribute(attribute) ?? 'dark');
+  useEffect(() => {
+    const read = () => setMode(document.documentElement.getAttribute(attribute) ?? 'dark');
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: [attribute] });
+    return () => observer.disconnect();
+  }, [attribute]);
+  return mode;
+}
+
+export default function withTheme(Story) {
+  const mode = useDocsTheme();
+  return <ThemeProvider theme={mode === 'light' ? light : dark}><Story /></ThemeProvider>;
+}
+```
+
+```js
+decorators: { module: './src/docs-decorators.tsx' },
+```
+
 ## Tokens and guidance
 
 | Key | Type | Default | Effect |
@@ -246,7 +309,7 @@ consumer contract:
    ```html
    <!doctype html>
    <html lang="en">
-     <head><meta charset="UTF-8"><title>acme/ui docs</title></head>
+     <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>acme/ui docs</title></head>
      <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
    </html>
    ```
@@ -298,9 +361,10 @@ show up as stories that render wrong rather than as errors:
 - Story `name` supplies the example heading; export names remain the stable identifiers.
   `!dev` and `!test` affect Storybook's sidebar/test runner, not this docs front.
   Custom tags have no filtering effect here. `!autodocs` hides docs examples.
-- Meta and story decorators are applied in Storybook's order. Project-level
-  decorators from `.storybook/preview` are not recreated: theme, global styles
-  and layout come from the docs config instead. A story that throws shows its
+- Meta, story and configured `decorators.module` decorators are applied in Storybook's order.
+  Project-level decorators from `.storybook/preview` are not imported automatically; share them
+  through `decorators.module`. Theme, global styles and layout come from the docs config.
+  A story that throws shows its
   error in place rather than disappearing.
 - Play functions and accessibility checks do not run here. Loaders and beforeEach hooks
   are not executed: test hooks can modify clocks, preferences and shared browser state,

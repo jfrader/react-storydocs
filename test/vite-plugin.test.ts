@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { build, createServer } from 'vite';
 import type { StorybookDocsConfig, CatalogEntry } from '../src/config.ts';
@@ -228,6 +229,67 @@ test('virtual code fails loudly when the configured renderer is missing', async 
   } finally { await consumer.close(); }
 });
 
+test('virtual decorators eagerly normalize single, array and absent default exports', async () => {
+  const consumer = await fixture({ decorators: { module: './decorators.ts' } });
+  try {
+    writeFileSync(path.join(consumer.root, 'decorators.ts'), 'export const named = true; export default function decorator(Story) { return Story(); }');
+    const source = await consumer.source('decorators');
+    assert.match(source, /import \* as mod from/);
+    assert.ok(!source.includes('lazy'));
+    const loaded = await consumer.server.ssrLoadModule(`${prefix}decorators`);
+    assert.equal(loaded.decorators.length, 1);
+    assert.equal(typeof loaded.decorators[0], 'function');
+  } finally { await consumer.close(); }
+  for (const code of ['export default [() => null, () => null];', 'export const named = true;']) {
+    const consumer = await fixture({ decorators: { module: './decorators.ts' } });
+    try {
+      writeFileSync(path.join(consumer.root, 'decorators.ts'), code);
+      const loaded = await consumer.server.ssrLoadModule(`${prefix}decorators`);
+      assert.equal(loaded.decorators.length, code.includes('default') ? 2 : 0);
+    } finally { await consumer.close(); }
+  }
+  const absent = await fixture();
+  try { assert.deepEqual((await absent.evaluate('decorators')).decorators, []); }
+  finally { await absent.close(); }
+});
+
+test('virtual decorators fail loudly when the configured module is missing', async () => {
+  const consumer = await fixture({ decorators: { module: './missing.ts' } });
+  try {
+    await assert.rejects(consumer.source('decorators'), /storybook-docs: decorators\.module "\.\/missing\.ts" does not exist \(looked in /);
+  } finally { await consumer.close(); }
+});
+
+test('fixture Widget requires global decorators and resolves its separated props', async () => {
+  const root = path.join(engineRoot, 'examples/fixtures');
+  const config: StorybookDocsConfig = (await import(path.join(root, 'docs.config.mjs'))).default;
+  const server = await createServer({
+    configFile: false, root, logLevel: 'silent', plugins: [storybookDocs({ config, root })],
+    oxc: { jsx: { runtime: 'automatic' } },
+    server: { middlewareMode: true, watch: null }, optimizeDeps: { noDiscovery: true, entries: [] },
+  });
+  try {
+    const require = createRequire(path.join(root, 'package.json'));
+    const { createElement } = require('react');
+    const { renderToStaticMarkup } = require('react-dom/server');
+    const { StoryView } = await server.ssrLoadModule(path.join(engineRoot, 'src/story-view.tsx'));
+    const module = await server.ssrLoadModule(path.join(root, 'packages/acme-ui/src/components/legacy/widget.stories.tsx'));
+    assert.throws(() => renderToStaticMarkup(createElement(StoryView, { module, story: 'Default' })), /useLegacy must be used inside LegacyProvider/);
+    const { decorators } = await server.ssrLoadModule(`${prefix}decorators`);
+    for (const story of ['Default', 'Disabled']) {
+      const html = renderToStaticMarkup(createElement(StoryView, { module, story, decorators }));
+      assert.match(html, /Records/);
+      assert.match(html, /3/);
+      assert.match(html, /Slot content/);
+      assert.equal(html.includes('disabled=""'), story === 'Disabled');
+    }
+    const { components } = await server.ssrLoadModule(`${prefix}props/widget`);
+    const widget = components.find((component: ComponentPropsDoc) => component.name === 'Widget');
+    assert.ok(widget);
+    assert.deepEqual(widget.props.map(({ name }: { name: string }) => name).sort(), ['children', 'count', 'disabled', 'label']);
+  } finally { await server.close(); }
+});
+
 test('fixtures consumer builds the engine and every story through real virtual modules', async () => {
   const root = path.join(engineRoot, 'examples/fixtures');
   const configFile = path.join(root, 'docs.config.mjs');
@@ -242,10 +304,10 @@ test('fixtures consumer builds the engine and every story through real virtual m
     }],
     build: { write: false, minify: false },
   });
-  for (const name of ['catalog', 'site', 'tokens', 'props', 'guidance', 'story-sources', 'releases', 'code', 'composition', 'global-styles']) {
+  for (const name of ['catalog', 'site', 'tokens', 'props', 'guidance', 'story-sources', 'releases', 'code', 'composition', 'decorators', 'global-styles']) {
     assert.ok(modules.has(`\0${prefix}${name}`), `${name} participates in the consumer build`);
   }
-  for (const slug of ['button', 'alert', 'select']) {
+  for (const slug of ['button', 'alert', 'select', 'widget']) {
     assert.ok([...modules].some((id) => id.endsWith(`/${slug}.stories.tsx`)), `${slug} story resolves`);
     assert.ok(modules.has(`\0${prefix}props/${slug}`), `${slug} props resolve`);
     assert.ok(modules.has(`\0${prefix}story-sources/${slug}`), `${slug} story sources resolve`);

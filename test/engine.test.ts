@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { runInThisContext } from 'node:vm';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Children, createElement, isValidElement, type ComponentType, type ReactElement, type ReactNode } from 'react';
 import ts from 'typescript';
 import { matchGlob, storyIdentity } from '../src/scan.ts';
-import { buildCatalog, catalogCode } from '../src/build/catalog.ts';
+import { buildCatalog, catalogCode, storyImportSpecifier } from '../src/build/catalog.ts';
 import { sectionStories, usageSnippet, buildUsageSnippet, selectExample } from '../src/sections.ts';
 
 test('shell brand links to the base-aware overview and follows the skip link', () => {
@@ -134,15 +136,25 @@ test('storyIdentity: file slugs stay independent of dotted, nested and numbered 
   assert.deepEqual(storyIdentity('/components/next/next.stories.tsx', 'Foundations/Next.js'),
     { group: 'Foundations', name: 'Next.js', slug: 'next' });
   assert.deepEqual(storyIdentity('/components/chart/chart.stories.ts', 'Data/Charts/Chart 2.0'),
-    { group: 'Data', name: 'Charts/Chart 2.0', slug: 'chart' });
+    { group: 'Data/Charts', name: 'Chart 2.0', slug: 'chart' });
   assert.deepEqual(storyIdentity('/components/chart2/chart2.stories.jsx', 'Data/Chart2'),
     { group: 'Data', name: 'Chart2', slug: 'chart2' });
   assert.deepEqual(storyIdentity('/components/button/button.stories.tsx', 'Button'),
-    { group: 'Button', name: 'button', slug: 'button' });
+    { group: 'Components', name: 'Button', slug: 'button' });
+});
+
+test('storyImportSpecifier: package names pass through, checkout paths borrow package.json, importFrom wins', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'storybook-docs-import-'));
+  try {
+    writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: '@acme/ui' }));
+    assert.equal(storyImportSpecifier({ from: '@acme/ui', pattern: 'src/**/*.stories.tsx' }, root), '@acme/ui');
+    assert.equal(storyImportSpecifier({ from: '.', pattern: 'src/**/*.stories.tsx' }, root), '@acme/ui');
+    assert.equal(storyImportSpecifier({ from: '.', pattern: 'src/**/*.stories.tsx', importFrom: '@override/ui' }, root), '@override/ui');
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('catalog: dotted titles resolve to their file slug and duplicate filenames fail rather than overwrite', () => {
-  const story = { file: '/components/next/next.stories.tsx', facts: { title: 'Foundations/Next.js', stories: ['Default'], hasComponent: false } };
+  const story = { file: '/components/next/next.stories.tsx', facts: { title: 'Foundations/Next.js', stories: ['Default'], hasComponent: false, component: null } };
   const catalog = buildCatalog([story], undefined);
   assert.equal(catalog.entries[0]?.slug, 'next');
   assert.equal(catalog.files.get('next'), story.file);

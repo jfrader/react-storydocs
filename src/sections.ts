@@ -18,6 +18,20 @@ export function frameSource(meta: { args?: Record<string, unknown>; parameters?:
   return story.parameters?.docs?.source?.code ?? (unchanged ? meta.parameters?.docs?.source?.code : undefined);
 }
 
+export function storyDefinition(exported: unknown): Record<string, unknown> {
+  if (typeof exported !== 'function') return (exported ?? {}) as Record<string, unknown>;
+  const annotations = exported as unknown as Record<string, unknown>;
+  return {
+    render: exported, args: annotations.args, argTypes: annotations.argTypes,
+    decorators: annotations.decorators, globals: annotations.globals, parameters: annotations.parameters,
+    loaders: annotations.loaders, beforeEach: annotations.beforeEach,
+  };
+}
+
+export function storyName(exported: unknown, story: string): string {
+  return typeof exported === 'function' ? story : (exported as { name?: string } | undefined)?.name ?? story;
+}
+
 export const STORY_EXCERPT = '// Excerpt from the story';
 
 export function mergeAnnotations(...values: Array<Record<string, unknown> | undefined>): Record<string, unknown> {

@@ -22,5 +22,12 @@ export function start() {
     document.head.append(style);
   }
   document.title = site.title;
+  // A docs front is responsive by default; the host page does not have to declare the viewport.
+  if (!document.head.querySelector('meta[name="viewport"]')) {
+    const viewport = document.createElement('meta');
+    viewport.name = 'viewport';
+    viewport.content = 'width=device-width, initial-scale=1';
+    document.head.append(viewport);
+  }
   createRoot(container).render(<StrictMode>{createElement(DocsApp)}</StrictMode>);
 }

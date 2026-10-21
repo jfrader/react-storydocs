@@ -2,6 +2,7 @@
 import { Component, Suspense, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import type { CatalogEntry } from '../config';
 import { storySource } from 'virtual:storybook-docs/catalog';
+import { decorators as globalDecorators } from 'virtual:storybook-docs/decorators';
 import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
 import { CodeBlock } from '../code';
@@ -202,11 +203,14 @@ function CompositionPanel({ entry, components, uses }: {
 
 function InheritedLinks({ component }: { component: ComponentPropsDoc }) {
   const bases = Array.from(new Map(component.props.flatMap((prop) => prop.inheritedComponent ? [[prop.inheritedComponent.slug, prop.inheritedComponent] as const] : [])).values());
-  const external = Array.from(new Set(component.props.filter((prop) => prop.inheritedFrom && !prop.inheritedComponent).map((prop) => prop.inheritedFrom)));
+  const external = Array.from(new Set(component.props
+    .filter((prop) => prop.inheritedFrom && !prop.inheritedComponent)
+    .map((prop) => prop.inheritedFrom!)
+    .filter((name) => !/\.d\.ts$/.test(name))));
   return <>
     {bases.map((entry) => <p key={entry.slug}>Also accepts the props of <a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a>.</p>)}
-    {component.native ? <p>Also accepts the attributes of <code>&lt;{component.native}&gt;</code>.</p>
-      : external.length ? <p>Also accepts inherited props from {external.map((name, index) => <span key={name}>{index ? ', ' : ''}<code>{name}</code></span>)}.</p> : null}
+    {component.native ? <p>Also accepts the attributes of <code>&lt;{component.native}&gt;</code>.</p> : null}
+    {external.length ? <p>Also accepts inherited props from {external.map((name, index) => <span key={name}>{index ? ', ' : ''}<code>{name}</code></span>)}.</p> : null}
   </>;
 }
 
@@ -245,26 +249,45 @@ function PropsTable({
   if (components && components.length > 0) {
     return (
       <>
-        {components.map((component, index) => (
-          <section className="api-part" key={component.name}>
-            <h3 id={`api-${apiSlug(component.name)}`}>{component.name}</h3>
-            {index > 0 && component.description ? <MarkdownView markdown={component.description} /> : null}
-            {component.props.some((prop) => !prop.inheritedFrom) ? <TableFrame label={`${component.name} props`}>
-              <thead>
-                <tr>
-                  <th scope="col">Prop</th>
-                  <th scope="col">Type</th>
-                  <th scope="col">Default</th>
-                  <th scope="col">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                <PropRows props={component.props.filter((prop) => !prop.inheritedFrom)} />
-              </tbody>
-            </TableFrame> : <p>No component-specific props.</p>}
-            <InheritedLinks component={component} />
-          </section>
-        ))}
+        {components.map((component, index) => {
+          const inherited = component.props.filter((prop) => prop.inheritedFrom);
+          return (
+            <section className="api-part" key={component.name}>
+              <h3 id={`api-${apiSlug(component.name)}`}>{component.name}</h3>
+              {index > 0 && component.description ? <MarkdownView markdown={component.description} /> : null}
+              {component.props.some((prop) => !prop.inheritedFrom) ? <TableFrame label={`${component.name} props`}>
+                <thead>
+                  <tr>
+                    <th scope="col">Prop</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Default</th>
+                    <th scope="col">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <PropRows props={component.props.filter((prop) => !prop.inheritedFrom)} />
+                </tbody>
+              </TableFrame> : <p>No component-specific props.</p>}
+              <InheritedLinks component={component} />
+              {inherited.length > 0 ? <details className="api-inherited">
+                <summary>Inherited props <span className="count">{inherited.length}</span></summary>
+                <TableFrame label={`${component.name} inherited props`}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Prop</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Default</th>
+                      <th scope="col">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <PropRows props={inherited} />
+                  </tbody>
+                </TableFrame>
+              </details> : null}
+            </section>
+          );
+        })}
       </>
     );
   }
@@ -361,7 +384,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
   return (
     <>
       <div className="crumb">
-        {entry.group} / {entry.name}
+        {[...entry.group.split('/'), entry.name].join(' / ')}
       </div>
       <h1>{entry.name}</h1>
       <div className="summary-row">
@@ -381,7 +404,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
 
       {module ? (
         <>
-          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[example]} /> : null}
+          {example ? <ControlledStoryFrame key={`${entry.slug}:${example}`} module={module} story={example} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[example]} decorators={globalDecorators} /> : null}
           {usage ? (
             <>
               <h2>Usage</h2>
@@ -396,7 +419,7 @@ export function ComponentPage({ entry }: { entry: CatalogEntry }) {
             <section key={section.title}>
               <h2>{section.title}</h2>
               {section.stories.map((story) => (
-                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[story]} />
+                <ControlledStoryFrame key={`${entry.slug}:${story}`} module={module} story={story} componentName={entry.name} componentDefaults={componentDefaults} renderSource={sources[story]} decorators={globalDecorators} />
               ))}
             </section>
           ))}

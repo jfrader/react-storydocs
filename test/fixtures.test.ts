@@ -11,6 +11,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const acmeRoot = path.resolve(__dirname, '../examples/fixtures/packages/acme-ui');
 const storyPattern = 'src/components/*/*.stories.tsx';
 
+test('scanner extracts only the meta component identifier, ignoring decoys', () => {
+  const root = mkdtempSync(path.resolve('.scan-test-'));
+  const file = path.join(root, 'widget.stories.tsx');
+  try {
+    writeFileSync(file, `const decoy = { component: Wrong }; const meta = { title: 'Fields/Widget', component: Widget }; export default meta; export const Default = {};`);
+    assert.equal(readStoryFile(file)!.component, 'Widget');
+    writeFileSync(file, `const decoy = { component: Wrong }; const meta = { title: 'Fields/Widget' }; export default meta; export const Default = {};`);
+    assert.equal(readStoryFile(file)!.component, null);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('fixtures: only files with autodocs-visible stories enter the catalog and resolver', () => {
   const root = mkdtempSync(path.resolve('.scan-test-'));
   try {
@@ -55,16 +66,17 @@ test('fixtures: only files with autodocs-visible stories enter the catalog and r
 
 test('fixtures: collectMatches discovers every story file', () => {
   const matches = collectMatches(acmeRoot, storyPattern);
-  assert.equal(matches.length, 3, 'exactly the three fixture stories');
+  assert.equal(matches.length, 4, 'exactly the four fixture stories');
   const basenames = matches.map((f) => path.basename(f)).sort();
-  assert.deepEqual(basenames, ['alert.stories.tsx', 'button.stories.tsx', 'select.stories.tsx']);
+  assert.deepEqual(basenames, ['alert.stories.tsx', 'button.stories.tsx', 'select.stories.tsx', 'widget.stories.tsx']);
 });
 
 test('fixtures: readStoryFile and extractTitle return the meta titles (decoy before meta is ignored)', () => {
   const matches = collectMatches(acmeRoot, storyPattern);
   const facts = matches.map((file) => readStoryFile(file)).filter(Boolean);
   const titles = facts.map((f) => f!.title).sort();
-  assert.deepEqual(titles, ['Feedback/Alert', 'Primitives/Button', 'Primitives/Select']);
+  assert.deepEqual(titles, ['Feedback/Alert', 'Primitives/Button', 'Primitives/Select', 'Primitives/Widget']);
+  assert.equal(facts.find((f) => f!.title === 'Primitives/Widget')!.component, 'Widget');
 
   // explicit decoy test on the button story which contains a title: string before const meta
   const buttonFile = matches.find((f) => f.includes('button.stories.tsx'))!;
@@ -79,6 +91,7 @@ test('fixtures: readStoryFile and extractTitle return the meta titles (decoy bef
   assert.ok(buttonFacts.stories.includes('Large'));
   assert.ok(buttonFacts.stories.includes('Disabled'));
   assert.equal(buttonFacts.hasComponent, true);
+  assert.equal(buttonFacts.component, 'Button');
 });
 
 test('fixtures: section bucketing from sections.ts works on fixture stories', () => {
@@ -100,7 +113,7 @@ test('fixtures: group rename/order is applied by the plugin (raw titles from pur
   const facts = matches.map((file) => readStoryFile(file)!);
   // raw authored titles use Primitives/ and Feedback/
   const groups = facts.map((f) => f.title.split('/')[0]).sort();
-  assert.deepEqual(groups, ['Feedback', 'Primitives', 'Primitives']);
+  assert.deepEqual(groups, ['Feedback', 'Primitives', 'Primitives', 'Primitives']);
   // the config declares rename + order; that mapping lives only inside src/vite-plugin.ts buildCatalog
   // (collectMatches/readStoryFile/extractTitle are pure and see authored titles only)
   // so we assert the input titles here; the honouring is visible in runtime catalog served by dev server

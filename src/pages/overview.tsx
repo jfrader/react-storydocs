@@ -40,7 +40,11 @@ export function OverviewPage(): ReactNode {
               <ul>
                 {shown.map((entry) => (
                   <li key={entry.slug}>
-                    <a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a>
+                    <a
+                      href={`#${hrefFor(`/components/${entry.slug}`)}`}
+                      onMouseEnter={() => void entry.load()}
+                      onFocus={() => void entry.load()}
+                    >{entry.name}</a>
                   </li>
                 ))}
               </ul>
@@ -93,7 +97,11 @@ export function OverviewPage(): ReactNode {
       <ul>
         {startHere.map((entry) => (
           <li key={entry.slug}>
-            <a href={`#${hrefFor(`/components/${entry.slug}`)}`}>{entry.name}</a> — {entry.stories.length} stories
+            <a
+              href={`#${hrefFor(`/components/${entry.slug}`)}`}
+              onMouseEnter={() => void entry.load()}
+              onFocus={() => void entry.load()}
+            >{entry.name}</a> — {entry.stories.length} stories
           </li>
         ))}
       </ul>
