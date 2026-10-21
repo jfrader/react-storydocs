@@ -73,14 +73,6 @@
   background: var(--sd-surface);
   border-radius: 0 0 var(--sd-radius) var(--sd-radius);
 }
-.sd-frame-code-bar {
-  padding: 8px 12px 8px 20px;
-  font-size: 12px;
-  color: var(--sd-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
 .sd-demo-code { overflow: hidden; border-radius: 0 0 var(--sd-radius) var(--sd-radius); }
 .frame .sd-demo-code > *,
 .frame .sd-demo-code > * > *,
@@ -92,4 +84,3 @@
   background: transparent;
 }
 .sd-demo-code > p { padding: 16px 20px; font-size: 13px; color: var(--sd-text-muted); }
-.sd-demo-code-actions { display: flex; align-items: center; gap: 12px; }

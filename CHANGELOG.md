@@ -2,7 +2,7 @@
 
 ## 0.17.0
 
-- Replace example blocks with StoryFrame: compact accessible actions for inline code, copy link and a standalone story view, with copy-code feedback and clipboard fallback.
+- Replace example blocks with StoryFrame: compact accessible actions for inline code, copy link and a standalone story view. The code panel keeps the library's CodeBlock header and copy action, and story descriptions render inline code.
 - Add standalone hash-routed stories without docs chrome, with width presets and the shared theme toggle. Existing component story links remain supported.
 - Export `StoryFrame` and `StoryFrameProps` in place of `ComponentDemo` and `ComponentDemoProps`.
 

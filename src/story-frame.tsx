@@ -52,7 +52,6 @@ const icons = {
   code: <path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18" />,
   link: <path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 3 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" />,
   expand: <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M3 3l6 6m12-6-6 6M3 21l6-6m12 6-6-6" />,
-  copy: <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V3H3v13h5" /></>,
   check: <path d="m4 12 5 5L20 6" />,
 };
 
@@ -60,7 +59,7 @@ function ActionIcon({ icon }: { icon: keyof typeof icons }) {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[icon]}</svg>;
 }
 
-function CopyAction({ label, success, text, icon }: { label: string; success: string; text: () => string; icon: 'copy' | 'link' }) {
+function CopyAction({ label, success, text }: { label: string; success: string; text: () => string }) {
   const [status, setStatus] = useState('');
   const copied = status === success;
   useEffect(() => {
@@ -70,10 +69,10 @@ function CopyAction({ label, success, text, icon }: { label: string; success: st
   }, [status]);
   return (
     <>
-      <button type="button" className={`sd-frame-action sd-frame-copy sd-frame-copy-${icon}`} aria-label={label} title={copied ? 'Copied' : label}
+      <button type="button" className="sd-frame-action sd-frame-copy sd-frame-copy-link" aria-label={label} title={copied ? 'Copied' : label}
         onClick={async () => setStatus(await copyText(text()) ? success : 'Could not copy. Try again.')}>
-        <ActionIcon icon={copied ? 'check' : icon} />
-        <span>{copied ? 'Copied' : icon === 'link' ? 'Copy link' : 'Copy code'}</span>
+        <ActionIcon icon={copied ? 'check' : 'link'} />
+        <span>{copied ? 'Copied' : 'Copy link'}</span>
       </button>
       <span role="status" className="toc-sr">{status}</span>
     </>
@@ -90,10 +89,10 @@ function StoryBlurb({ text }: { text: string }) {
 
 function StoryCodePanel({ id, open, snippet, language, name }: { id: string; open: boolean; snippet: string | null; language: string; name: string }) {
   return <div id={id} hidden={!open} className="sd-frame-code" role="region" aria-label={`${name} code panel`}>
-    {open ? <>
-      <div className="sd-frame-code-bar"><span>{language}</span>{snippet ? <CopyAction label="Copy code" success="Code copied" text={() => snippet} icon="copy" /> : null}</div>
-      <div className="sd-demo-code">{snippet ? <CodeBlock code={snippet} language={language} label={`${name} code`} /> : <p>No usage code for this example.</p>}</div>
-    </> : null}
+    {open ? <div className="sd-demo-code">{snippet
+      ? <CodeBlock code={snippet} language={language} label={`${name} code`} />
+      : <p>No usage code for this example.</p>}
+    </div> : null}
   </div>;
 }
 
@@ -176,7 +175,7 @@ export function StoryFrame({
     <div className="frame" data-story={story}>
       <header><span>{storyName}</span><div className="sd-frame-actions" role="group" aria-label={`${storyName} actions`}>
         <button type="button" className="sd-frame-action" aria-label="View code" title="View code" aria-expanded={codeOpen} aria-controls={codeId} onClick={() => setCodeOpen(!codeOpen)}><ActionIcon icon="code" /></button>
-        <CopyAction label={`Copy link to ${storyName}`} success={`Link to ${storyName} copied`} text={() => storyLink(window.location, story)} icon="link" />
+        <CopyAction label={`Copy link to ${storyName}`} success={`Link to ${storyName} copied`} text={() => storyLink(window.location, story)} />
         {componentSlug ? <a className="sd-frame-action" href={standaloneStoryHref(componentSlug, story)} target="_blank" rel="noreferrer" aria-label={`Open ${storyName} full screen`} title="Open full screen"><ActionIcon icon="expand" /></a> : null}
       </div></header>
       {authoredStory ? <StoryBlurb text={authoredStory} /> : null}

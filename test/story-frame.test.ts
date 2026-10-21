@@ -85,36 +85,16 @@ test('story blurb renders inline code instead of loose backticks', () => {
   assert.match(html, /<p class="story-blurb">Pass <code>seatSlots<\/code> to keep open places\.<\/p>/);
 });
 
-test('copy code writes the snippet and announces success', async () => {
+test('the open code panel renders the snippet once, through CodeBlock', () => {
   const react = require('react');
   const runtime = require('react/jsx-runtime');
-  const actions: Record<string, () => Promise<void>> = {};
-  const statuses: unknown[] = [];
-  let written = '';
-  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async (text: string) => { written = text; } } } });
-  try {
-    const capture = (type: unknown, props: any, key?: string) => {
-      if (type === 'button' && props.onClick) actions[props['aria-label']] = props.onClick;
-      return type === runtime.Fragment || Array.isArray(props.children) ? runtime.jsxs(type, props, key) : runtime.jsx(type, props, key);
-    };
-    const openFrame = load('../src/story-frame.tsx', {
-      ...frameDependencies,
-      react: { ...react, useState: (value: unknown) => [value === false ? true : value, (value: unknown) => statuses.push(value)], useEffect: () => undefined },
-      'react/jsx-runtime': { ...runtime, jsx: capture, jsxs: capture },
-    });
-    const html = renderToStaticMarkup(createElement(openFrame.StoryFrame, props));
-    assert.match(html, /&lt;Widget \/&gt;/);
-    assert.match(html, /<span>tsx<\/span>/);
-    assert.match(html, /<span>Copy code<\/span>/);
-    await actions['Copy code']!();
-    assert.equal(written, '<Widget />');
-    assert.ok(statuses.includes('Code copied'));
-    assert.match(html, /role="status"/);
-  } finally {
-    if (original) Object.defineProperty(globalThis, 'navigator', original);
-    else Reflect.deleteProperty(globalThis, 'navigator');
-  }
+  const openFrame = load('../src/story-frame.tsx', {
+    ...frameDependencies,
+    react: { ...react, useState: (value: unknown) => [value === false ? true : value, () => undefined], useEffect: () => undefined },
+  });
+  const html = renderToStaticMarkup(createElement(openFrame.StoryFrame, props));
+  assert.match(html, /&lt;Widget \/&gt;/);
+  assert.doesNotMatch(html, /sd-frame-code-bar|<span>Copy code<\/span>/);
 });
 
 test('denied clipboard falls back, removes its textarea and handles fallback failure', async () => {
