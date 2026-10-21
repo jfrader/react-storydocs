@@ -809,7 +809,8 @@ export function createPropsCollector() {
             if (prop.defaultValue === null && sourceDefaults.has(prop.name)) prop.defaultValue = sourceDefaults.get(prop.name)!;
           }
           const componentSymbol = type.getSymbol();
-          const typeParameters = (callSignatures[0]?.typeParameters ?? []).map((parameter) => {
+          const genericSignature = callSignatures.find((signature) => signature.typeParameters?.length);
+          const typeParameters = (genericSignature?.typeParameters ?? []).map((parameter) => {
             const constraint = parameter.getConstraint();
             const fallback = parameter.getDefault();
             return {
