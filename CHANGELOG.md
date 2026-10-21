@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.6
+
+- Expand local record fields for any array prop, not only a hardcoded collection allowlist. `ThreadComment[]`, `FilterToolbarDefinition[]`, `DialogStackPageRecord[]` and similar contracts now expose their fields; external/native and large element shapes stay collapsed.
+
 ## 0.16.5
 
 - Nested field expansion now drops external DOM/React members: `ButtonRenderProps` shows `ref`/`data-ui`, `ThreadPartProps` shows `className`/`sx`, instead of hundreds of native fields. This also keeps the full catalog at 1.5 GB and ~111s.
