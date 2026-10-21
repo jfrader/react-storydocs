@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.1
+
+- Keep the docs build heap bounded on a 2 GB build instance: clear each component's cached prop rows after its virtual module is serialized, build a fresh TypeScript program per component instead of threading the previous one through, and expand array element fields only for selectable collections (`options`, `items`, `rows`, `columns`, tabs, steps, links, series, photos). The full jfrader-ui catalog now builds under a 1.5 GB heap.
+
 ## 0.16.0
 
 - Add `api.module`: a consumer component replaces the built-in props and slots tables, receiving `{ components, argTypes, defaultArgs }`. The API heading, Import block and Also uses stay in the engine.
