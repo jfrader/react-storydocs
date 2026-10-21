@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.4
+
+- Keep the new member extraction within the production build heap: expand slot contracts and signature parameter objects only when they are small local contracts (≤8 slot fields, ≤5 parameter fields). The full catalog builds under 1.5 GB again while `ThreadPartProps` and `MoneyInputDetails` stay inspectable.
+
 ## 0.16.3
 
 - Expand object parameter types in signatures (`details: MoneyInputDetails`, `ThreadPartProps`) and shared local prop contracts, so the API table can inspect named types instead of printing a bare alias.
