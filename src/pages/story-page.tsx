@@ -7,6 +7,7 @@ import { hrefFor } from '../base';
 import { storyName } from '../sections';
 import { componentStoryHref } from '../story-route';
 import { StoryView, useStoryModule, storyLayout } from '../story-view';
+import { StoryLane } from '../story-lane';
 import '../story-frame.css';
 import './story-page.css';
 
@@ -38,9 +39,9 @@ function LoadedStoryPage({ entry, story, themeAction }: { entry: CatalogEntry; s
     <main className="sd-story-workspace" aria-label={`${entry.name}: ${name}`}>
       <div className="sd-story-stage" style={{ width: width === 'Fill' ? '100%' : `${width}px` }}>
         <div className="shot" data-layout={layout}>
-          <div className="story-lane" data-layout={layout}>
+          <StoryLane layout={layout}>
             {module ? <StoryView module={module} story={story} decorators={decorators} /> : <p role="status">Loading story…</p>}
-          </div>
+          </StoryLane>
         </div>
       </div>
     </main>

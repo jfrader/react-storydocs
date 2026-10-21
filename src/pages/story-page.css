@@ -25,7 +25,8 @@
 .sd-story-workspace { flex: 1; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; }
 .sd-story-stage { height: 100%; min-height: 100%; margin-inline: auto; background: var(--sd-bg); }
 .sd-story-stage > .shot { box-sizing: border-box; min-height: 100%; }
-.sd-story-stage > .shot[data-layout='centered'] { display: grid; align-items: center; }
+.sd-story-stage > .shot[data-layout='centered'] { display: grid; }
+.sd-story-stage > .shot[data-layout='centered'] > .story-lane { align-self: stretch; min-block-size: 0; }
 .sd-story-message { padding: 24px; }
 .sd-story-message h1 { font-size: 20px; margin: 0 0 20px; }
 @media (max-width: 480px) {

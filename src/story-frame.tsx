@@ -1,9 +1,10 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { CodeBlock } from './code';
 import type { StoryControl } from './controls';
 import { storyLink } from './toc';
 import { standaloneStoryHref } from './story-route';
+import { StoryLane } from './story-lane';
 import './controls.css';
 import './story-frame.css';
 
@@ -69,9 +70,10 @@ function CopyAction({ label, success, text, icon }: { label: string; success: st
   }, [status]);
   return (
     <>
-      <button type="button" className="sd-frame-action" aria-label={label} title={copied ? 'Copied' : label}
+      <button type="button" className={`sd-frame-action sd-frame-copy sd-frame-copy-${icon}`} aria-label={label} title={copied ? 'Copied' : label}
         onClick={async () => setStatus(await copyText(text()) ? success : 'Could not copy. Try again.')}>
         <ActionIcon icon={copied ? 'check' : icon} />
+        <span>{copied ? 'Copied' : icon === 'link' ? 'Copy link' : 'Copy code'}</span>
       </button>
       <span role="status" className="toc-sr">{status}</span>
     </>
@@ -162,16 +164,6 @@ export function StoryFrame({
       cancelAnimationFrame(frame);
     };
   }, [children, story]);
-  const [laneLayout, setLaneLayout] = useState<string>(storyLayout);
-  const laneRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (!node) return;
-      const content = node.firstElementChild;
-      if (!(content instanceof HTMLElement)) return;
-      setLaneLayout(storyLayout !== 'fullscreen' && /^inline/.test(getComputedStyle(content).display) ? 'inline' : storyLayout);
-    },
-    [storyLayout],
-  );
   return (
     <div className="frame" data-story={story}>
       <header><span>{storyName}</span><div className="sd-frame-actions" role="group" aria-label={`${storyName} actions`}>
@@ -196,7 +188,7 @@ export function StoryFrame({
       <div className="shot" data-layout={storyLayout} ref={canvasRef}
         tabIndex={scrollable ? 0 : undefined} role={scrollable ? 'region' : undefined}
         aria-label={scrollable ? storyName : undefined}>
-        <div className="story-lane" data-layout={laneLayout} ref={laneRef}>{children}</div>
+        <StoryLane layout={storyLayout}>{children}</StoryLane>
       </div>
       <StoryCodePanel id={codeId} open={codeOpen} snippet={snippet} language={codeLanguage} name={storyName} />
     </div>

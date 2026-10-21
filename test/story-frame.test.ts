@@ -24,6 +24,15 @@ function load(file: string, dependencies: Record<string, unknown>) {
 const base = { REACT_STORYDOCS_BASE: '/docs', hrefFor: (path: string) => `/docs${path}` };
 const toc = load('../src/toc.tsx', { './scroll': {} });
 const routes = load('../src/story-route.ts', { './base': base, './toc': toc });
+const lane = load('../src/story-lane.tsx', {});
+
+test('shared lane resolves padded inline content without overriding centered or fullscreen layouts', () => {
+  assert.equal(lane.resolveLaneLayout('padded', 'inline-flex'), 'inline');
+  assert.equal(lane.resolveLaneLayout('padded', 'inline-block'), 'inline');
+  assert.equal(lane.resolveLaneLayout('padded', 'block'), 'padded');
+  assert.equal(lane.resolveLaneLayout('centered', 'inline-flex'), 'centered');
+  assert.equal(lane.resolveLaneLayout('fullscreen', 'inline-flex'), 'fullscreen');
+});
 
 test('standalone links encode export keys and preserve the published site hash base', () => {
   const hash = routes.standaloneStoryHref('nested/widget', 'With space/#?');
@@ -37,6 +46,7 @@ test('standalone links encode export keys and preserve the published site hash b
 });
 
 const frameDependencies = {
+  './story-lane': lane,
   './story-route': routes,
   './toc': { storyLink: () => 'https://ui.jfrader.com/#/components/widget?story=Default' },
   './code': { CodeBlock: ({ code }: { code: string }) => createElement('pre', null, code) },
@@ -65,6 +75,7 @@ test('toolbar exposes a controlled code panel, copy link and safe new-tab fullsc
   assert.ok(html.includes(`id="${controls[1]}" hidden="" class="sd-frame-code"`));
   assert.match(html, /aria-label="View code"[^>]+aria-expanded="false"/);
   assert.match(html, /aria-label="Copy link to Default"/);
+  assert.match(html, /<span>Copy link<\/span>/);
   assert.match(html, /href="#\/docs\/stories\/widget\/Default" target="_blank" rel="noreferrer" aria-label="Open Default full screen"/);
   assert.doesNotMatch(html, /<details|&lt;Widget/);
 });
@@ -90,6 +101,7 @@ test('copy code writes the snippet and announces success', async () => {
     const html = renderToStaticMarkup(createElement(openFrame.StoryFrame, props));
     assert.match(html, /&lt;Widget \/&gt;/);
     assert.match(html, /<span>tsx<\/span>/);
+    assert.match(html, /<span>Copy code<\/span>/);
     await actions['Copy code']!();
     assert.equal(written, '<Widget />');
     assert.ok(statuses.includes('Code copied'));
@@ -127,6 +139,7 @@ test('invalid standalone routes explain the failure and link back without render
     'virtual:react-storydocs/catalog': { catalog: [{ slug: 'widget', name: 'Widget', stories: ['Default'] }] },
     'virtual:react-storydocs/decorators': { decorators: [] }, '../base': base,
     '../docs-theme.js': {}, '../sections': sections, '../story-route': routes,
+    '../story-lane': lane,
     '../story-view': { StoryView: () => { throw new Error('Invalid story rendered'); } },
   });
   const missingComponent = renderToStaticMarkup(createElement(page.StandaloneStoryPage, { slug: 'missing', story: 'Default' }));
@@ -147,6 +160,7 @@ test('standalone page composes story args and decorators and uses the app-owned 
     'virtual:react-storydocs/catalog': { catalog: [{ slug: 'widget', name: 'Widget', stories: ['Default'] }] },
     'virtual:react-storydocs/decorators': { decorators: [(Story: () => ReactNode) => createElement('div', { 'data-provider': 'global' }, Story())] },
     '../base': base, '../sections': sections, '../story-route': routes,
+    '../story-lane': lane,
     '../story-view': { ...view, useStoryModule: () => ({ module, error: null }) },
   });
   const html = renderToStaticMarkup(createElement(page.StandaloneStoryPage, {

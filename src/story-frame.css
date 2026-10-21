@@ -41,6 +41,11 @@
 }
 .sd-frame-action:hover, .sd-frame-action[aria-expanded='true'] { background: var(--sd-surface-hover); color: var(--sd-text); }
 .sd-frame-action:focus-visible { outline: 2px solid var(--sd-focus-ring); outline-offset: 2px; }
+.sd-frame-copy { width: auto; min-width: 32px; gap: 6px; padding-inline: 8px; font: inherit; font-size: 12px; }
+@media (max-width: 479px) {
+  .sd-frame-copy-link { width: 32px; padding: 0; }
+  .sd-frame-copy-link > span { display: none; }
+}
 /* The example lane: a block container, like Storybook's canvas, so components that measure
    their lane or grow inline get a real width. Stories that ask for `layout: 'centered'` get
    the shrink-to-fit treatment on purpose (same trade-off Storybook documents). */
@@ -60,7 +65,7 @@
   min-block-size: 96px;
 }
 /* Inline-level components stay visually centred; the lane itself is still full width. */
-.frame .story-lane[data-layout='inline'] {
+:is(.frame, .sd-story-stage) > .shot > .story-lane[data-layout='inline'] {
   text-align: center;
 }
 .sd-frame-code {

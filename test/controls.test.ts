@@ -17,6 +17,8 @@ const compile = (source: string) => ts.transpileModule(source, {
 const compiled = compile(source);
 const demoCompiled = compile(readFileSync(new URL('../src/story-frame.tsx', import.meta.url), 'utf8'));
 const viewExports: Record<string, unknown> = {};
+const laneExports: Record<string, unknown> = {};
+runInThisContext(`(function(require, exports) { ${compile(readFileSync(new URL('../src/story-lane.tsx', import.meta.url), 'utf8'))} })`)(require, laneExports);
 runInThisContext(`(function(require, exports) { ${compile(readFileSync(new URL('../src/story-view.tsx', import.meta.url), 'utf8'))} })`)(
   (id: string) => id === './sections' ? sections : require(id), viewExports,
 );
@@ -39,6 +41,7 @@ function loadControls(observeStories = false) {
   const resolve = (name: string): unknown =>
     name === './sections' ? sectionsModule
       : name === './story-frame' ? demoExports
+      : name === './story-lane' ? laneExports
       : name === './story-route' ? { standaloneStoryHref: () => '#/stories/widget/Default' }
         : name === './toc' ? { storyLink: () => '' }
       : name === './story-view' ? {
