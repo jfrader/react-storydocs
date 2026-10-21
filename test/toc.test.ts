@@ -70,6 +70,7 @@ test('route changes replace document targets but preserve navigation group ident
     'virtual:storybook-docs/releases': { releases: {} },
     './base': { STORYBOOK_DOCS_BASE: '', hrefFor: (path: string) => path },
     './toc': { hashPath: (hash: string) => hash.split('?')[0], PageRail: () => null },
+    './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
   };
   runInNewContext(`(function(require, exports) { ${compiled}\n})`, {
     window, document: {},
@@ -92,7 +93,8 @@ test('route changes replace document targets but preserve navigation group ident
   for (const { path, pageKey } of destinations) {
     window.location.hash = `#/${path}`;
     refHook = 0;
-    const shell = exports.DocsApp!();
+    const themed = exports.DocsApp!() as ReactElement<{ children?: ReactNode }>;
+    const shell = Children.toArray(themed.props.children)[0] as ReactElement<{ children: ReactNode }>;
     const main = Children.toArray(shell.props.children).find((child) => isValidElement(child) && child.type === 'main');
     assert.ok(isValidElement<{ children: ReactNode; ref: { current: unknown } }>(main));
     main.props.ref.current = { focus: (options: FocusOptions) => focuses.push({ ...options }) };

@@ -484,6 +484,18 @@ code.signature {
 .api-inherited > summary:focus-visible { outline: 2px solid var(--sd-focus-ring); }
 .api-inherited .count { color: var(--sd-text-subtle); }
 .api-inherited .table-scroll { margin-top: 8px; }
+.api-inherited-group {
+  margin-top: 8px;
+  border-top: 1px solid var(--sd-border-subtle);
+  padding-top: 4px;
+}
+.api-inherited-group > summary {
+  cursor: pointer;
+  color: var(--sd-text);
+  font-size: 13px;
+  padding: 4px 0;
+}
+.api-inherited-group > summary:focus-visible { outline: 2px solid var(--sd-focus-ring); }
 .table-scroll tbody th small { display: block; }
 .props-table :is(th, td) {
   overflow-wrap: anywhere;

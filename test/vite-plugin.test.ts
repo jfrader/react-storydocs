@@ -275,9 +275,10 @@ test('fixture Widget requires global decorators and resolves its separated props
     const { StoryView } = await server.ssrLoadModule(path.join(engineRoot, 'src/story-view.tsx'));
     const module = await server.ssrLoadModule(path.join(root, 'packages/acme-ui/src/components/legacy/widget.stories.tsx'));
     assert.throws(() => renderToStaticMarkup(createElement(StoryView, { module, story: 'Default' })), /useLegacy must be used inside LegacyProvider/);
-    const { decorators } = await server.ssrLoadModule(`${prefix}decorators`);
+    const { LegacyProvider } = await server.ssrLoadModule(path.join(root, 'packages/acme-ui/src/legacy-src/LegacyContext.tsx'));
+    const legacyDecorator = (Story: () => unknown) => createElement(LegacyProvider, null, Story());
     for (const story of ['Default', 'Disabled']) {
-      const html = renderToStaticMarkup(createElement(StoryView, { module, story, decorators }));
+      const html = renderToStaticMarkup(createElement(StoryView, { module, story, decorators: [legacyDecorator] }));
       assert.match(html, /Records/);
       assert.match(html, /3/);
       assert.match(html, /Slot content/);
@@ -287,6 +288,11 @@ test('fixture Widget requires global decorators and resolves its separated props
     const widget = components.find((component: ComponentPropsDoc) => component.name === 'Widget');
     assert.ok(widget);
     assert.deepEqual(widget.props.map(({ name }: { name: string }) => name).sort(), ['children', 'count', 'disabled', 'label']);
+    const mui = (await server.ssrLoadModule(`${prefix}props/mui-field`)).components.find((component: ComponentPropsDoc) => component.name === 'MuiField');
+    assert.ok(mui);
+    assert.ok(mui.props.some(({ name }: { name: string }) => name === 'hint'));
+    assert.ok(mui.props.some(({ name, inheritedFrom }: { name: string; inheritedFrom?: string }) => name === 'label' && inheritedFrom));
+    assert.ok(mui.props.some(({ name }: { name: string }) => name === 'variant'));
   } finally { await server.close(); }
 });
 
@@ -297,7 +303,10 @@ test('fixtures consumer builds the engine and every story through real virtual m
   const modules = new Set<string>();
   await build({
     configFile: false, root, logLevel: 'silent',
-    resolve: { alias: { '@jfrader/storybook-docs': path.join(engineRoot, 'src/index.ts') } },
+    resolve: { alias: [
+      { find: '@jfrader/storybook-docs/theme', replacement: path.join(engineRoot, 'src/docs-theme.ts') },
+      { find: '@jfrader/storybook-docs', replacement: path.join(engineRoot, 'src/index.ts') },
+    ] },
     plugins: [storybookDocs({ config, root }), {
       name: 'assert-consumer-graph',
       moduleParsed(module) { modules.add(module.id); },
@@ -307,7 +316,7 @@ test('fixtures consumer builds the engine and every story through real virtual m
   for (const name of ['catalog', 'site', 'tokens', 'props', 'guidance', 'story-sources', 'releases', 'code', 'composition', 'decorators', 'global-styles']) {
     assert.ok(modules.has(`\0${prefix}${name}`), `${name} participates in the consumer build`);
   }
-  for (const slug of ['button', 'alert', 'select', 'widget']) {
+  for (const slug of ['button', 'alert', 'select', 'widget', 'mui-field']) {
     assert.ok([...modules].some((id) => id.endsWith(`/${slug}.stories.tsx`)), `${slug} story resolves`);
     assert.ok(modules.has(`\0${prefix}props/${slug}`), `${slug} props resolve`);
     assert.ok(modules.has(`\0${prefix}story-sources/${slug}`), `${slug} story sources resolve`);

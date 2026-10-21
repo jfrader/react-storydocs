@@ -66,16 +66,16 @@ test('fixtures: only files with autodocs-visible stories enter the catalog and r
 
 test('fixtures: collectMatches discovers every story file', () => {
   const matches = collectMatches(acmeRoot, storyPattern);
-  assert.equal(matches.length, 4, 'exactly the four fixture stories');
+  assert.equal(matches.length, 5, 'exactly the five fixture stories');
   const basenames = matches.map((f) => path.basename(f)).sort();
-  assert.deepEqual(basenames, ['alert.stories.tsx', 'button.stories.tsx', 'select.stories.tsx', 'widget.stories.tsx']);
+  assert.deepEqual(basenames, ['alert.stories.tsx', 'button.stories.tsx', 'mui-field.stories.tsx', 'select.stories.tsx', 'widget.stories.tsx']);
 });
 
 test('fixtures: readStoryFile and extractTitle return the meta titles (decoy before meta is ignored)', () => {
   const matches = collectMatches(acmeRoot, storyPattern);
   const facts = matches.map((file) => readStoryFile(file)).filter(Boolean);
   const titles = facts.map((f) => f!.title).sort();
-  assert.deepEqual(titles, ['Feedback/Alert', 'Primitives/Button', 'Primitives/Select', 'Primitives/Widget']);
+  assert.deepEqual(titles, ['Feedback/Alert', 'Primitives/Button', 'Primitives/MuiField', 'Primitives/Select', 'Primitives/Widget']);
   assert.equal(facts.find((f) => f!.title === 'Primitives/Widget')!.component, 'Widget');
 
   // explicit decoy test on the button story which contains a title: string before const meta
@@ -113,7 +113,7 @@ test('fixtures: group rename/order is applied by the plugin (raw titles from pur
   const facts = matches.map((file) => readStoryFile(file)!);
   // raw authored titles use Primitives/ and Feedback/
   const groups = facts.map((f) => f.title.split('/')[0]).sort();
-  assert.deepEqual(groups, ['Feedback', 'Primitives', 'Primitives', 'Primitives']);
+  assert.deepEqual(groups, ['Feedback', 'Primitives', 'Primitives', 'Primitives', 'Primitives']);
   // the config declares rename + order; that mapping lives only inside src/vite-plugin.ts buildCatalog
   // (collectMatches/readStoryFile/extractTitle are pure and see authored titles only)
   // so we assert the input titles here; the honouring is visible in runtime catalog served by dev server

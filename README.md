@@ -39,7 +39,8 @@ decorators. Nested titles use the last segment as the component name and the pre
 its group (`Form/Fields/InputField` is `InputField` under `Form/Fields`). Props use co-located
 component sources first; when the story folder has no sources, the engine follows the imported
 `meta.component` to its source folder, including barrel re-exports. Inherited props stay available
-in a disclosure instead of disappearing with the own-props table.
+in a disclosure, grouped by contract instead of one 300-row table. `useDocsTheme()` from
+`@jfrader/storybook-docs/theme` lets a React provider follow the docs toggle without a DOM observer.
 
 ## What it looks like
 

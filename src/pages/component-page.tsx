@@ -230,6 +230,22 @@ function PropRows({ props }: { props: PropDoc[] }) {
   ));
 }
 
+const DOM_INHERITED = /^(?:HTML|Aria|DOM|Ref)Attributes$/;
+
+/** Group inherited props by the contract that declares them. DOM/ARIA groups last; they are the
+ * least useful part of a wrapper library's API and make a 300-row table unreadable. */
+function groupInherited(props: PropDoc[]): Array<[string, PropDoc[]]> {
+  const groups = new Map<string, PropDoc[]>();
+  for (const prop of props) {
+    const name = prop.inheritedFrom && !/\.d\.[cm]?ts$/.test(prop.inheritedFrom) ? prop.inheritedFrom : 'Other';
+    groups.set(name, [...(groups.get(name) ?? []), prop]);
+  }
+  return Array.from(groups).sort(([a], [b]) => {
+    const rank = (name: string) => (name === 'Other' ? 2 : DOM_INHERITED.test(name) ? 1 : 0);
+    return rank(a) - rank(b) || a.localeCompare(b);
+  });
+}
+
 function PropsTable({
   components,
   argTypes,
@@ -251,6 +267,7 @@ function PropsTable({
       <>
         {components.map((component, index) => {
           const inherited = component.props.filter((prop) => prop.inheritedFrom);
+          const inheritedGroups = groupInherited(inherited);
           return (
             <section className="api-part" key={component.name}>
               <h3 id={`api-${apiSlug(component.name)}`}>{component.name}</h3>
@@ -271,19 +288,24 @@ function PropsTable({
               <InheritedLinks component={component} />
               {inherited.length > 0 ? <details className="api-inherited">
                 <summary>Inherited props <span className="count">{inherited.length}</span></summary>
-                <TableFrame label={`${component.name} inherited props`}>
-                  <thead>
-                    <tr>
-                      <th scope="col">Prop</th>
-                      <th scope="col">Type</th>
-                      <th scope="col">Default</th>
-                      <th scope="col">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <PropRows props={inherited} />
-                  </tbody>
-                </TableFrame>
+                {inheritedGroups.map(([name, props]) => (
+                  <details className="api-inherited-group" key={name}>
+                    <summary>{name} <span className="count">{props.length}</span></summary>
+                    <TableFrame label={`${component.name} ${name} props`}>
+                      <thead>
+                        <tr>
+                          <th scope="col">Prop</th>
+                          <th scope="col">Type</th>
+                          <th scope="col">Default</th>
+                          <th scope="col">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <PropRows props={props} />
+                      </tbody>
+                    </TableFrame>
+                  </details>
+                ))}
               </details> : null}
             </section>
           );

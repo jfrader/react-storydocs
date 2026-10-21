@@ -16,7 +16,7 @@ test('packed public entries point to included dist files, never consumer-unbuild
     const entries = new Set(execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' }).trim().split('\n'));
     const manifest = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }));
     const local = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
-    assert.deepEqual(Object.keys(manifest.exports).sort(), ['.', './vite']);
+    assert.deepEqual(Object.keys(manifest.exports).sort(), ['.', './theme', './vite']);
     assert.deepEqual(manifest.exports, local.exports);
     for (const conditions of Object.values(manifest.exports)) {
       for (const target of Object.values(conditions as Record<string, string>)) {
