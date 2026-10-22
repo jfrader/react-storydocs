@@ -84,3 +84,33 @@
   background: transparent;
 }
 .sd-demo-code > p { padding: 16px 20px; font-size: 13px; color: var(--sd-text-muted); }
+/* Footer under the example: the code control sits next to the panel it opens. */
+.sd-frame-footbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 20px;
+  border-top: 1px solid var(--sd-border-subtle);
+  background: var(--sd-surface);
+}
+.frame:not([data-code-open='true']) > .sd-frame-footbar { border-radius: 0 0 var(--sd-radius) var(--sd-radius); }
+.frame > .sd-frame-footbar-end { border-radius: 0 0 var(--sd-radius) var(--sd-radius); }
+.frame[data-code-open='true'] > .sd-frame-code { border-radius: 0; }
+.sd-frame-code-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-block-size: 32px;
+  padding: 0 8px;
+  margin-inline-start: -8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sd-text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.sd-frame-code-toggle:hover, .sd-frame-code-toggle[aria-expanded='true'] { background: var(--sd-surface-hover); color: var(--sd-text); }
+.sd-frame-code-toggle:focus-visible { outline: 2px solid var(--sd-focus-ring); outline-offset: 2px; }
