@@ -67,17 +67,19 @@ test('layout follows story annotations, then meta, with padded as the default', 
   }
 });
 
-test('toolbar exposes a controlled code panel, copy link and safe new-tab fullscreen link', () => {
+test('footer controls the code panel while the header keeps copy link and fullscreen', () => {
   const html = renderToStaticMarkup(createElement(frame.StoryFrame, props));
   assert.match(html, /class="frame" data-story="Default"/);
   const controls = html.match(/aria-controls="([^"]+)"/)!;
   assert.ok(controls);
   assert.ok(html.includes(`id="${controls[1]}" hidden="" class="sd-frame-code"`));
-  assert.match(html, /aria-label="View code"[^>]+aria-expanded="false"/);
+  const header = html.match(/<header>[\s\S]*?<\/header>/)![0];
+  assert.doesNotMatch(header, /View code|aria-controls=/, 'the code control left the header');
+  assert.match(html, /class="sd-frame-footbar"><button[^>]*aria-expanded="false"[^>]*aria-controls="[^"]+"[^>]*>.*?<span>View code<\/span>/);
   assert.match(html, /aria-label="Copy link to Default"/);
   assert.match(html, /<span>Copy link<\/span>/);
   assert.match(html, /href="#\/docs\/stories\/widget\/Default" target="_blank" rel="noreferrer" aria-label="Open Default full screen"/);
-  assert.doesNotMatch(html, /<details|&lt;Widget/);
+  assert.doesNotMatch(html, /<details|&lt;Widget|data-code-open/);
 });
 
 test('story blurb renders inline code instead of loose backticks', () => {
@@ -94,6 +96,11 @@ test('the open code panel renders the snippet once, through CodeBlock', () => {
   });
   const html = renderToStaticMarkup(createElement(openFrame.StoryFrame, props));
   assert.match(html, /&lt;Widget \/&gt;/);
+  assert.match(html, /data-code-open="true"/);
+  assert.match(html, /<span>Hide code<\/span>/);
+  const close = html.split('class="sd-frame-code"')[1] ?? '';
+  assert.match(close, /class="sd-frame-footbar sd-frame-footbar-end"/, 'a collapse control follows the code');
+  assert.match(close, /<span>Hide code<\/span>/);
   assert.doesNotMatch(html, /sd-frame-code-bar|<span>Copy code<\/span>/);
 });
 

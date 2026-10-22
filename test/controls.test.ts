@@ -88,7 +88,7 @@ test('stories without snippets retain a deferred Code panel and no initial canva
   const html = renderToStaticMarkup(createElement(exports.ControlledStoryFrame!, {
     componentName: 'Flex', story: 'Default', module: { default: {}, Default: { render: () => null } },
   }));
-  assert.match(html, /aria-label="View code"[^>]*aria-expanded="false"[^>]*aria-controls="[^"]+"/);
+  assert.match(html, /class="sd-frame-footbar"><button[^>]*aria-expanded="false"[^>]*aria-controls="[^"]+"[^>]*>.*?<span>View code<\/span>/);
   assert.ok(!html.includes('No usage code'), 'fallback is deferred until the panel opens');
   assert.ok(!html.includes('tabindex'), 'unmeasured canvases do not enter the tab order');
 });
@@ -210,7 +210,7 @@ test('custom renders accept controls and retain story defaults', () => {
   assert.match(html, /Controls for Authored example/);
   assert.match(html, /data-story="Example"/);
   assert.match(html, /data-layout="fullscreen"/);
-  assert.match(html, /aria-label="View code"[^>]*aria-expanded="false"/);
+  assert.match(html, /class="sd-frame-footbar"><button[^>]*aria-expanded="false"[^>]*aria-controls="[^"]+"[^>]*>.*?<span>View code<\/span>/);
   assert.ok(!html.includes('&lt;Button'), 'closed Code panels do not render their source');
 });
 

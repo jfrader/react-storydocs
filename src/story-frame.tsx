@@ -52,6 +52,7 @@ const icons = {
   code: <path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18" />,
   link: <path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 3 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" />,
   expand: <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M3 3l6 6m12-6-6 6M3 21l6-6m12 6-6-6" />,
+  collapse: <path d="m6 15 6-6 6 6" />,
   check: <path d="m4 12 5 5L20 6" />,
 };
 
@@ -94,6 +95,18 @@ function StoryCodePanel({ id, open, snippet, language, name }: { id: string; ope
       : <p>No usage code for this example.</p>}
     </div> : null}
   </div>;
+}
+
+function CodeToggle({ open, controls, onToggle, label, icon }: {
+  open: boolean; controls: string; onToggle: () => void; label?: string; icon: keyof typeof icons;
+}) {
+  return (
+    <button type="button" className="sd-frame-code-toggle" aria-expanded={open} aria-controls={controls}
+      onClick={onToggle}>
+      <ActionIcon icon={icon} />
+      <span>{label ?? (open ? 'Hide code' : 'View code')}</span>
+    </button>
+  );
 }
 
 function ControlInput({ control, value, onChange }: {
@@ -172,9 +185,8 @@ export function StoryFrame({
     };
   }, [children, story]);
   return (
-    <div className="frame" data-story={story}>
+    <div className="frame" data-story={story} data-code-open={codeOpen ? 'true' : undefined}>
       <header><span>{storyName}</span><div className="sd-frame-actions" role="group" aria-label={`${storyName} actions`}>
-        <button type="button" className="sd-frame-action" aria-label="View code" title="View code" aria-expanded={codeOpen} aria-controls={codeId} onClick={() => setCodeOpen(!codeOpen)}><ActionIcon icon="code" /></button>
         <CopyAction label={`Copy link to ${storyName}`} success={`Link to ${storyName} copied`} text={() => storyLink(window.location, story)} />
         {componentSlug ? <a className="sd-frame-action" href={standaloneStoryHref(componentSlug, story)} target="_blank" rel="noreferrer" aria-label={`Open ${storyName} full screen`} title="Open full screen"><ActionIcon icon="expand" /></a> : null}
       </div></header>
@@ -197,7 +209,15 @@ export function StoryFrame({
         aria-label={scrollable ? storyName : undefined}>
         <StoryLane layout={storyLayout}>{children}</StoryLane>
       </div>
+      <div className="sd-frame-footbar">
+        <CodeToggle open={codeOpen} controls={codeId} icon="code" onToggle={() => setCodeOpen(!codeOpen)} />
+      </div>
       <StoryCodePanel id={codeId} open={codeOpen} snippet={snippet} language={codeLanguage} name={storyName} />
+      {codeOpen ? (
+        <div className="sd-frame-footbar sd-frame-footbar-end">
+          <CodeToggle open controls={codeId} icon="collapse" label="Hide code" onToggle={() => setCodeOpen(false)} />
+        </div>
+      ) : null}
     </div>
   );
 }

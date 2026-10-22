@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Move the StoryFrame code toggle from the header toolbar into a footer under the example, so opening and collapsing the code never needs a trip back to the top of the frame. The header keeps copy link and the fullscreen link; the open panel repeats a "Hide code" control after the snippet.
+
 ## 0.17.1
 
 - Emit `typeRefs` for public named types in prop, element and signature expressions, including the declaration file and 1-based line. The docs adapter turns these into source links; unresolved, generic and external types stay plain text.
