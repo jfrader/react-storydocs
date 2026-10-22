@@ -608,6 +608,37 @@ export function createPropsCollector() {
         .replace(/\s+/g, ' ').trim();
 
     /**
+     * Resolve the public type names printed in a type expression to their declaration. The UI
+     * receives a source location, not a guessed URL; the docs adapter owns the GitHub route.
+     */
+    const typeRefsFor = (text: string, location: ts.Node) => {
+      const refs: { name: string; source: { file: string; line: number } }[] = [];
+      const seen = new Set<string>();
+      for (const match of text.matchAll(/\b[A-Z][A-Za-z0-9_$]*\b/g)) {
+        const name = match[0];
+        if (name.length <= 1 || seen.has(name)) continue;
+        const index = match.index ?? 0;
+        if (index > 0 && text[index - 1] === '.') continue;
+        seen.add(name);
+        const symbol = checker.resolveName(name, location, ts.SymbolFlags.Type, false);
+        if (!symbol || (symbol.flags & ts.SymbolFlags.TypeParameter)) continue;
+        const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+        const declaration = target.declarations?.find((node) => {
+          const file = node.getSourceFile().fileName;
+          return !isExternal(file) && !/\.(stories|test)\./.test(file);
+        });
+        if (!declaration) continue;
+        const file = declaration.getSourceFile();
+        // Keep docs references repository-relative and avoid leaking compiler temp paths.
+        const marker = file.fileName.indexOf('/packages/ui/src/');
+        if (marker === -1) continue;
+        const line = file.getLineAndCharacterOfPosition(declaration.getStart()).line + 1;
+        refs.push({ name, source: { file: file.fileName.slice(marker + 1), line } });
+      }
+      return refs.length ? refs : undefined;
+    };
+
+    /**
      * `slotProps?: Partial<Record<'header' | 'body', …>>` synthesizes its keys, so the checker
      * reports no declarations for them. The comment is the block written before each literal, and
      * TypeScript attaches nothing to a literal inside a union: the gap between two members is what
@@ -682,8 +713,10 @@ export function createPropsCollector() {
           .map((part) => checker.typeToString(part, undefined, typeFlags)) : [];
         const signatures = memberType.getCallSignatures().map((signature) => {
           const signatureType = checker.signatureToString(signature, location, typeFlags | ts.TypeFormatFlags.WriteArrowStyleSignature);
+          const renderedSignatureType = nonCallableAlternatives.length ? `(${signatureType}) | ${nonCallableAlternatives.join(' | ')}` : signatureType;
           return {
-            type: nonCallableAlternatives.length ? `(${signatureType}) | ${nonCallableAlternatives.join(' | ')}` : signatureType,
+            type: renderedSignatureType,
+            typeRefs: typeRefsFor(renderedSignatureType, location),
             parameters: signature.getParameters().map((parameter) => {
               const parameterType = checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? location);
               const nonNullParameter = checker.getNonNullableType(parameterType);
@@ -700,9 +733,11 @@ export function createPropsCollector() {
                 && !checker.isTupleType(nonNullParameter)
                 && nonNullParameter.getCallSignatures().length === 0;
               const parameterMembers = parameterShape ? describeProps(parameterType, location, 2) : undefined;
+              const parameterTypeString = checker.typeToString(parameterType, location, typeFlags);
               return {
                 name: parameter.getName(),
-                type: checker.typeToString(parameterType, location, typeFlags),
+                type: parameterTypeString,
+                typeRefs: typeRefsFor(parameterTypeString, location),
                 description: ts.displayPartsToString(parameter.getDocumentationComment(checker)).trim(),
                 members: parameterMembers?.length ? parameterMembers : undefined,
               };
@@ -728,6 +763,7 @@ export function createPropsCollector() {
         return {
           name: symbol.getName(),
           type: displayType || 'unknown',
+          typeRefs: typeRefsFor(displayType || 'unknown', declaration ?? location),
           typeUnavailable: false,
           required: !optional,
           defaultValue: null,
@@ -738,7 +774,7 @@ export function createPropsCollector() {
           defaultElement: slotDefault?.defaultElement,
           part: depth === 0 ? undefined : partToken(symbol.getName()),
           signatures: signatures.length ? signatures : undefined,
-          element: elementMembers?.length ? { type: checker.typeToString(elementType as ts.Type, undefined, typeFlags), members: elementMembers } : undefined,
+          element: elementMembers?.length ? { type: checker.typeToString(elementType as ts.Type, undefined, typeFlags), typeRefs: typeRefsFor(checker.typeToString(elementType as ts.Type, undefined, typeFlags), location), members: elementMembers } : undefined,
           tags: symbol.getJsDocTags(checker).filter((tag) => ['deprecated', 'since', 'example'].includes(tag.name)).map((tag) => ({ name: tag.name, text: ts.displayPartsToString(tag.text) })),
           // A slot map is this component's contract even when the owner adopts it from a shared
           // seam, so both `slots` and `slotProps` expand wherever they are declared.

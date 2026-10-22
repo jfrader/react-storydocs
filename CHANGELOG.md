@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.1
+
+- Emit `typeRefs` for public named types in prop, element and signature expressions, including the declaration file and 1-based line. The docs adapter turns these into source links; unresolved, generic and external types stay plain text.
+
 ## 0.17.0
 
 - Replace example blocks with StoryFrame: compact accessible actions for inline code, copy link and a standalone story view. The code panel keeps the library's CodeBlock header and copy action, and story descriptions render inline code.
