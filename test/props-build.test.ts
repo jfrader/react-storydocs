@@ -224,3 +224,25 @@ test('local array element records expose their fields', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('public type names carry a declaration source reference', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'react-storydocs-type-refs-'));
+  const widgetDir = path.join(root, 'packages', 'ui', 'src');
+  try {
+    mkdirSync(widgetDir, { recursive: true });
+    symlinkSync(path.resolve('node_modules'), path.join(root, 'node_modules'), 'dir');
+    writeFileSync(path.join(widgetDir, 'widget.tsx'), `
+      export interface WidgetDetails { currency: string }
+      export interface WidgetProps { details?: WidgetDetails; label?: string }
+      export function Widget(props: WidgetProps) { return null; }
+    `);
+    writeFileSync(path.join(widgetDir, 'widget.stories.tsx'), `const meta = { title: 'Components/Widget', component: Widget }; export default meta; export const Default = {};`);
+    const widget = createPropsCollector().collect(path.join(widgetDir, 'widget.stories.tsx'), 'Widget', 'widget').components.find((component) => component.name === 'Widget');
+    const details = widget?.props.find((prop) => prop.name === 'details')?.typeRefs?.find((ref) => ref.name === 'WidgetDetails');
+    assert.ok(details?.source);
+    assert.match(details.source.file, /packages\/ui\/src\/widget\.tsx$/);
+    assert.equal(typeof details.source.line, 'number');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

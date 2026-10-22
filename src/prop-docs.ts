@@ -3,6 +3,16 @@ export interface CatalogRef {
   slug: string;
 }
 
+export interface TypeSourceRef {
+  file: string;
+  line: number;
+}
+
+export interface TypeRefDoc {
+  name: string;
+  source?: TypeSourceRef;
+}
+
 export interface TypeParameterDoc {
   name: string;
   constraint?: string;
@@ -12,6 +22,7 @@ export interface TypeParameterDoc {
 export interface PropElementDoc {
   /** Element type of an array prop, e.g. `SelectOption`. */
   type: string;
+  typeRefs?: TypeRefDoc[];
   members: PropDoc[];
 }
 
@@ -34,9 +45,11 @@ export interface PropDoc {
   part?: string;
   tags?: { name: string; text: string }[];
   members?: PropDoc[];
+  typeRefs?: TypeRefDoc[];
   signatures?: {
     type: string;
-    parameters: { name: string; type: string; description: string; members?: PropDoc[] }[];
+    typeRefs?: TypeRefDoc[];
+    parameters: { name: string; type: string; typeRefs?: TypeRefDoc[]; description: string; members?: PropDoc[] }[];
   }[];
   /** Fields of an array element type, e.g. what each `options` entry accepts. */
   element?: PropElementDoc;
