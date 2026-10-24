@@ -123,9 +123,9 @@ test('route changes replace document targets but preserve navigation group ident
     assert.equal(rail.props.pageKey, pageKey);
     assert.ok(rail.key?.endsWith(pageKey), `TOC remount key for ${path}`);
     if (path.startsWith('components/')) {
-      const content = main.props.children;
+      const content = Children.toArray(main.props.children).at(-1);
       assert.ok(isValidElement(content));
-      assert.equal(content.key, pageKey, 'the old scroll target must not be reused by the destination component page');
+      assert.ok(String(content.key ?? '').endsWith(pageKey), 'the old scroll target must not be reused by the destination component page');
     }
     const navTrack = Children.toArray(shell.props.children).find((child) => isValidElement<{ className?: string }>(child) && child.props.className === 'rail-track nav-track');
     assert.ok(isValidElement<{ children: ReactNode }>(navTrack));
