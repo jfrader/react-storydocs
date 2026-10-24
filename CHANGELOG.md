@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0
+
+- Show the "On this page" rail below 1180px as a native disclosure above the page content. The desktop rail is unchanged; the disclosure collapses before scrolling so the target offset stays correct.
+
 ## 0.17.2
 
 - Move the StoryFrame code toggle from the header toolbar into a footer under the example, so opening and collapsing the code never needs a trip back to the top of the frame. The header keeps copy link and the fullscreen link; the open panel repeats a "Hide code" control after the snippet.
