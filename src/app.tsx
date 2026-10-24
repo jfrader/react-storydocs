@@ -220,6 +220,7 @@ export function DocsApp() {
       </div>
 
       <main id="main" className="main" tabIndex={-1} ref={mainRef}>
+        {route.kind !== 'overview' ? <div className="toc-mobile-slot" data-toc-mobile-slot /> : null}
         {route.kind === 'component' ? (
           <ComponentPage key={pageKey} entry={catalog.find((entry) => entry.slug === route.slug)!} />
         ) : route.kind === 'color' ? (

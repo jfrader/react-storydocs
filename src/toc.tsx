@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './toc.css';
 import { scrollToElement } from './scroll';
 
@@ -168,6 +169,59 @@ function useActiveIds(scan: Scan | null) {
   return active;
 }
 
+/** The list shared by the desktop rail and the mobile disclosure. */
+function TocItems({ sections, active, onSelect }: {
+  sections: SectionItem[];
+  active: { section: string | null; story: string | null };
+  onSelect: (element: HTMLElement) => void;
+}) {
+  return (
+    <ul>
+      {sections.map((section) => (
+        <li key={section.id}>
+          <button
+            type="button"
+            className="toc-link"
+            title={section.title}
+            aria-current={active.section === section.id ? 'location' : undefined}
+            onClick={() => onSelect(section.heading)}
+          >
+            {section.title}
+          </button>
+          {section.subs.length > 0 ? (
+            <ul>
+              {section.subs.map((sub) => (
+                <li key={sub.id}>
+                  <button type="button" className="toc-link toc-sub" title={sub.title} onClick={() => onSelect(sub.element)}>
+                    {sub.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {section.stories.length > 0 ? (
+            <ul>
+              {section.stories.map((story) => (
+                <li key={story.id}>
+                  <button
+                    type="button"
+                    className="toc-link toc-story"
+                    title={story.name}
+                    aria-current={active.story === story.id ? 'location' : undefined}
+                    onClick={() => onSelect(story.element)}
+                  >
+                    {story.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The "On this page" rail and the `?story=` deep-link landing. */
 export function PageRail({ pageKey }: { pageKey: string }) {
   const ready = usePageReady(pageKey);
@@ -224,59 +278,40 @@ export function PageRail({ pageKey }: { pageKey: string }) {
   }, [target, scan, pageKey]);
 
   const active = useActiveIds(scan);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    setSlot(document.querySelector<HTMLElement>('[data-toc-mobile-slot]'));
+  }, [pageKey, ready, scan]);
+  const select = (element: HTMLElement) => {
+    // Collapse first: the disclosure sits above the target, so closing it changes the offset.
+    detailsRef.current?.removeAttribute('open');
+    requestAnimationFrame(() => scrollToElement(element));
+  };
 
   if (!scan || !ready) return null;
   return (
     <>
       {scan.sections.length > 0 ? (
-        <div className="rail-track toc-track">
-        <aside className="toc" aria-label="On this page">
-          <div className="toc-title">On this page</div>
-          <ul>
-            {scan.sections.map((section) => (
-              <li key={section.id}>
-                <button
-                  type="button"
-                  className="toc-link"
-                  title={section.title}
-                  aria-current={active.section === section.id ? 'location' : undefined}
-                  onClick={() => scrollToElement(section.heading)}
-                >
-                  {section.title}
-                </button>
-                {section.subs.length > 0 ? (
-                  <ul>
-                    {section.subs.map((sub) => (
-                      <li key={sub.id}>
-                        <button type="button" className="toc-link toc-sub" title={sub.title} onClick={() => scrollToElement(sub.element)}>
-                          {sub.title}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {section.stories.length > 0 ? (
-                  <ul>
-                    {section.stories.map((story) => (
-                      <li key={story.id}>
-                        <button
-                          type="button"
-                          className="toc-link toc-story"
-                          title={story.name}
-                          aria-current={active.story === story.id ? 'location' : undefined}
-                          onClick={() => scrollToElement(story.element)}
-                        >
-                          {story.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </aside>
-        </div>
+        <>
+          <div className="rail-track toc-track">
+            <aside className="toc" aria-label="On this page">
+              <div className="toc-title">On this page</div>
+              <TocItems sections={scan.sections} active={active} onSelect={scrollToElement} />
+            </aside>
+          </div>
+          {slot
+            ? createPortal(
+                <details className="toc-mobile" ref={detailsRef}>
+                  <summary>On this page</summary>
+                  <nav aria-label="On this page">
+                    <TocItems sections={scan.sections} active={active} onSelect={select} />
+                  </nav>
+                </details>,
+                slot,
+              )
+            : null}
+        </>
       ) : null}
     </>
   );

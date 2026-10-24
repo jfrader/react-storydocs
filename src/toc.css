@@ -53,6 +53,108 @@
 .toc-track {
   display: none;
 }
+.toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.toc ul ul {
+  margin: 2px 0 6px 10px;
+  border-left: 1px solid var(--sd-border);
+}
+.toc-link {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Touch screens: the rail is a list of targets, not a block of text. */
+  min-block-size: 24px;
+  padding: 4px 8px;
+  font: inherit;
+  text-align: left;
+  color: var(--sd-text-muted);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.toc-link:hover {
+  color: var(--sd-text);
+}
+.toc-link[aria-current='location'] {
+  color: var(--sd-text);
+  font-weight: 600;
+}
+.toc-story {
+  font-size: 12px;
+}
+/* Authored sub-headings sit closer to the section than its examples do. */
+.toc-sub {
+  font-size: 12.5px;
+  color: var(--sd-text-subtle);
+}
+
+/* Below the rail breakpoint the same list lives in a disclosure above the page content. */
+.toc-mobile-slot {
+  display: none;
+}
+@media (max-width: 1179px) {
+  .toc-mobile-slot {
+    display: block;
+    margin: 0 0 24px;
+  }
+  .toc-mobile {
+    border: 1px solid var(--sd-border);
+    border-radius: var(--sd-radius);
+    background: var(--sd-surface);
+  }
+  .toc-mobile > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-sizing: border-box;
+    min-block-size: 44px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sd-text);
+    list-style: none;
+    cursor: pointer;
+  }
+  .toc-mobile > summary::-webkit-details-marker {
+    display: none;
+  }
+  .toc-mobile > summary::after {
+    content: '';
+    inline-size: 7px;
+    block-size: 7px;
+    border-inline-end: 1.5px solid currentColor;
+    border-block-end: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 120ms ease;
+  }
+  .toc-mobile[open] > summary {
+    border-bottom: 1px solid var(--sd-border-subtle);
+  }
+  .toc-mobile[open] > summary::after {
+    transform: rotate(225deg);
+  }
+  .toc-mobile nav {
+    padding: 6px 10px 12px;
+    font-size: 13px;
+  }
+  .toc-mobile .toc-link {
+    min-block-size: 36px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toc-mobile > summary::after {
+    transition: none;
+  }
+}
 @media (min-width: 1180px) {
   .app.has-toc {
     grid-template-columns: 276px minmax(0, 1fr) 224px;
@@ -75,47 +177,5 @@
     font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-  }
-  .toc ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .toc ul ul {
-    margin: 2px 0 6px 10px;
-    border-left: 1px solid var(--sd-border);
-  }
-  .toc-link {
-    display: block;
-    width: 100%;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    /* Touch screens: the rail is a list of targets, not a block of text. */
-    min-block-size: 24px;
-    padding: 4px 8px;
-    font: inherit;
-    text-align: left;
-    color: var(--sd-text-muted);
-    background: none;
-    border: 0;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  .toc-link:hover {
-    color: var(--sd-text);
-  }
-  .toc-link[aria-current='location'] {
-    color: var(--sd-text);
-    font-weight: 600;
-  }
-  .toc-story {
-    font-size: 12px;
-  }
-  /* Authored sub-headings sit closer to the section than its examples do. */
-  .toc-sub {
-    font-size: 12.5px;
-    color: var(--sd-text-subtle);
   }
 }
