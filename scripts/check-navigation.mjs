@@ -97,6 +97,34 @@ async function followRoute(page, href) {
     document.querySelector('.nav a[aria-current="page"]')?.getAttribute('href') === hash, href);
 }
 
+/** The selected link as the reader sees it: which page it is, whether its group is open and whether
+ * the rail actually shows it. */
+async function landedState(page) {
+  return page.evaluate(() => {
+    const nav = document.querySelector('.nav');
+    const rail = nav.getBoundingClientRect();
+    const link = nav.querySelector('a[aria-current="page"]');
+    const rect = link?.getBoundingClientRect();
+    const group = link?.closest('[role="group"]');
+    return {
+      href: link?.getAttribute('href') ?? null,
+      groupOpen: group ? group.querySelector('button[aria-expanded]')?.getAttribute('aria-expanded') === 'true' : null,
+      visible: Boolean(rect && rect.top >= rail.top - 1 && rect.bottom <= rail.bottom + 1),
+      scrollTop: nav.scrollTop,
+      y: scrollY,
+    };
+  });
+}
+
+/** A component route whose group is collapsed, so a landing has to open it. */
+async function collapsedRoute(page) {
+  return page.locator('.nav').evaluate((nav) => {
+    const groups = [...nav.querySelectorAll('[role="group"]')].filter((group) =>
+      group.querySelector('button[aria-expanded="false"]'));
+    return groups.at(-1)?.querySelector('a[href*="/components/"]')?.getAttribute('href') ?? null;
+  });
+}
+
 async function scrollbarStyles(page) {
   return page.evaluate(() => {
     const read = (element) => {
@@ -224,8 +252,11 @@ try {
           await menu.click();
           await page.locator('.nav').waitFor();
           const reopened = await measure(page);
-          check(width, 'reopened menu retains scroll and groups', near(rail.scrollTop, reopened.scrollTop) &&
-            JSON.stringify(rail.groups) === JSON.stringify(reopened.groups), { before: rail, after: reopened });
+          const landed = await landedState(page);
+          const kept = rail.groups.filter(([, expanded]) => expanded === 'true')
+            .every(([id]) => reopened.groups.some(([other, expanded]) => other === id && expanded === 'true'));
+          check(width, 'reopening the menu shows the route it landed on and keeps the reader’s groups',
+            landed.visible && landed.groupOpen === true && kept, { before: rail, after: reopened, landed });
           await menu.click();
         }
         continue;
@@ -305,6 +336,32 @@ try {
         check(width, 'route supersedes scrolling without resetting navigation', samples.every((sample) =>
           near(sample.top, before.top) && near(sample.scrollTop, before.scrollTop) && sample.y <= TOLERANCE &&
           JSON.stringify(sample.groups) === JSON.stringify(before.groups)), { before, after: samples.at(-1), ys: samples.map((sample) => sample.y) });
+      }
+
+      const collapsedHref = await collapsedRoute(page);
+      check(width, 'a collapsed destination group is available to test', Boolean(collapsedHref));
+      if (collapsedHref) {
+        const before = await measure(page);
+        await page.evaluate((hash) => { window.location.hash = hash; }, collapsedHref);
+        await page.locator('main h1').waitFor();
+        await page.waitForFunction((hash) =>
+          document.querySelector('.nav a[aria-current="page"]')?.getAttribute('href') === hash, collapsedHref);
+        const landed = await landedState(page);
+        check(width, 'cross-group route opens its group and reveals the link in the rail',
+          landed.groupOpen === true && landed.visible === true && landed.y <= TOLERANCE, { before, landed });
+
+        const settled = await observe(page);
+        check(width, 'the reveal settles without a second correction', settled.every((sample) =>
+          near(sample.scrollTop, settled[0].scrollTop) && near(sample.y, settled[0].y)),
+          { samples: settled.map((sample) => [sample.scrollTop, sample.y]) });
+
+        await page.reload();
+        await page.locator('main h1').waitFor();
+        await page.waitForFunction((hash) =>
+          document.querySelector('.nav a[aria-current="page"]')?.getAttribute('href') === hash, collapsedHref);
+        const direct = await landedState(page);
+        check(width, 'a direct URL opens its group and reveals the link',
+          direct.groupOpen === true && direct.visible === true, direct);
       }
     } catch (error) {
       check(width, 'scenario completes', false, error.message);

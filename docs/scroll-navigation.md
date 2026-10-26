@@ -28,7 +28,11 @@ navigating the document must not reposition a sidebar the reader has scrolled.
 ## Implementation constraints
 
 Keep the sidebar's DOM identity and scroll container stable between routes.
-Selection updates must not automatically scroll the selected link into view.
+Landing on a page opens the group that carries it and brings its link into the
+rail with the least movement; nothing else moves. Reading a page never moves the
+rail: TOC clicks, story links, document scrolling and a rail the reader scrolled
+by hand keep their positions, and a reveal runs once per navigation — never on
+resize, on unrelated render, or repeatedly while the reader scrolls.
 [React subtree identity](https://react.dev/learn/preserving-and-resetting-state)
 
 The document keeps a normal-width native scrollbar. Navigation rails use thin
@@ -43,7 +47,8 @@ on hover or focus changes, and overlay visibility remains browser/OS-controlled.
 Desktop rail boundaries allow native wheel chaining to the document. A rail that
 fits must not trap the wheel. The narrow-screen overlay menu keeps containment.
 This follows MUI's document-plus-native-rails structure and desktop chaining,
-without copying its active-item scroll reveal. MUI uses thin bars, not contextual
+without copying its active-item scroll reveal: the rail follows a navigation into
+a page, not the reader's position on it. MUI uses thin bars, not contextual
 hover-only visibility.
 [MUI navigation](https://github.com/mui/material-ui/blob/b8d5b87532f15e2ccdb3e36f7d8c98eadeda6ff6/packages-internal/core-docs/src/AppLayout/navigation/AppNavDrawer.tsx#L440-L478),
 [MUI page outline](https://github.com/mui/material-ui/blob/b8d5b87532f15e2ccdb3e36f7d8c98eadeda6ff6/packages-internal/core-docs/src/TableOfContents/AppTableOfContents.tsx#L14-L44)
@@ -65,8 +70,10 @@ commit and before repaint, but does not make future asynchronous layout stable.
 
 Browser regression coverage must measure window and sidebar positions separately:
 TOC clicks, ordinary controls, route changes, direct fragments, delayed content,
-keyboard navigation and Back/Forward. A sibling rail moving with the viewport is
-different from its own scroll position being changed.
+keyboard navigation and Back/Forward. A route landing in a collapsed group must
+open it and reveal its link inside the rail; the document position must not
+change. A sibling rail moving with the viewport is different from its own scroll
+position being changed.
 
 Run the browser check against a running docs site from a directory that resolves
 Playwright, like the reference consumer's Storybook app:
