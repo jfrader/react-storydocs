@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.18.1
 
 - Landing on a page opens the navigation group that carries it and reveals its link inside the rail, so a search result, an in-page link, Back/Forward or a direct URL always shows where the reader is. Only the rail moves: the document keeps its position, and TOC clicks, story links and a hand-scrolled rail keep theirs.
 
