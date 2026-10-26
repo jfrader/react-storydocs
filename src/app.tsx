@@ -16,19 +16,23 @@ import { PageRail, hashPath } from './toc';
 import { DocsThemeContext } from './docs-theme.js';
 import { parseStoryRoute } from './story-route';
 import { StandaloneStoryPage } from './pages/story-page';
+import { revealActiveNavLink } from './nav-reveal';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
-function NavGroup({ id, title, active, children }: { id: string; title: string; active: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(active);
+function NavGroup({ id, title, page, children }: { id: string; title: string; page: string | null; children: ReactNode }) {
+  // A page that belongs to this group opens it, including a landing after the reader closed it.
+  // The reader's own toggles survive every route that does not land here.
+  const [nav, setNav] = useState({ page, open: page !== null });
+  if (nav.page !== page) setNav({ page, open: page !== null || nav.open });
   return (
     <div role="group" aria-labelledby={id}>
-      <button type="button" className="grp" id={id} aria-expanded={open} aria-controls={`${id}-links`} onClick={() => setOpen(!open)}>
+      <button type="button" className="grp" id={id} aria-expanded={nav.open} aria-controls={`${id}-links`} onClick={() => setNav((current) => ({ ...current, open: !current.open }))}>
         <span>{title}</span>
         <svg className="grp-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
           <path d="m6 4 4 4-4 4" />
         </svg>
       </button>
-      <div id={`${id}-links`} hidden={!open}>
+      <div id={`${id}-links`} hidden={!nav.open}>
         {children}
       </div>
     </div>
@@ -70,6 +74,7 @@ export function DocsApp() {
   const pageKey = route.kind === 'component' ? `components/${route.slug}` : route.kind === 'story' ? `stories/${route.slug}/${route.story}` : route.kind;
   const headerRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
   const renderedPage = useRef(pageKey);
   useLayoutEffect(() => {
     if (renderedPage.current !== pageKey) {
@@ -77,7 +82,10 @@ export function DocsApp() {
       mainRef.current?.focus({ preventScroll: true });
       renderedPage.current = pageKey;
     }
-  }, [pageKey]);
+    // Landing on a page opens its group in the same commit, so the selected link already has a box.
+    // Opening the narrow-screen menu counts too: the rail was hidden while the route changed.
+    revealActiveNavLink(navRef.current);
+  }, [pageKey, navOpen]);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -159,7 +167,7 @@ export function DocsApp() {
       </header>
 
       <div className="rail-track nav-track">
-      <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation">
+      <nav id="docs-nav" className={navOpen ? 'nav open' : 'nav'} aria-label="Documentation" ref={navRef}>
         <a href={routeHref('/')} className={route.kind === 'overview' ? 'on' : undefined} aria-current={route.kind === 'overview' ? 'page' : undefined}>
           Overview
         </a>
@@ -183,7 +191,7 @@ export function DocsApp() {
 
         ) : null}
         {foundations.length > 0 ? (
-          <NavGroup key="foundations" id="nav-grp-foundations" title="Design tokens" active={foundations.some((item) => route.kind === item.kind)}>
+          <NavGroup key="foundations" id="nav-grp-foundations" title="Design tokens" page={foundations.some((item) => route.kind === item.kind) ? pageKey : null}>
             {foundations.map((item) => (
               <a
                 key={item.href}
@@ -198,9 +206,9 @@ export function DocsApp() {
         ) : null}
         {groups.map((group, index) => {
           const entries = catalog.filter((entry) => entry.group === group);
-          const active = entries.some((entry) => entry.slug === activeSlug);
+          const landing = entries.some((entry) => entry.slug === activeSlug) ? pageKey : null;
           return (
-            <NavGroup key={group} id={`nav-grp-${index}`} title={group} active={active}>
+            <NavGroup key={group} id={`nav-grp-${index}`} title={group} page={landing}>
               {entries.map((entry) => (
                 <a
                   key={entry.slug}

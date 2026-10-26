@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Landing on a page opens the navigation group that carries it and reveals its link inside the rail, so a search result, an in-page link, Back/Forward or a direct URL always shows where the reader is. Only the rail moves: the document keeps its position, and TOC clicks, story links and a hand-scrolled rail keep theirs.
+
 ## 0.18.0
 
 - Show the "On this page" rail below 1180px as a native disclosure above the page content. The desktop rail is unchanged; the disclosure collapses before scrolling so the target offset stays correct.

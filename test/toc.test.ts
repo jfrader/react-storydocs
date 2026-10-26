@@ -89,6 +89,7 @@ test('route changes replace document targets but preserve navigation group ident
     './toc': { hashPath: (hash: string) => hash.split('?')[0], PageRail: () => null },
     './story-route': { parseStoryRoute: () => null },
     './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
+    './nav-reveal': { revealActiveNavLink: () => {} },
   };
   runInNewContext(`(function(require, exports) { ${compiled}\n})`, {
     window, document: {},
@@ -132,7 +133,7 @@ test('route changes replace document targets but preserve navigation group ident
     const nav = Children.only(navTrack.props.children);
     assert.ok(isValidElement<{ children: ReactNode }>(nav));
     const keys = Children.toArray(nav.props.children).flatMap((child) =>
-      isValidElement<{ active?: boolean }>(child) && child.props.active !== undefined ? [child.key] : []);
+      isValidElement<{ page?: string | null }>(child) && child.props.page !== undefined ? [child.key] : []);
     assert.equal(keys.length, 2, 'both foundations and component groups are checked');
     groupKeys ??= keys;
     assert.deepEqual(keys, groupKeys, `navigation state survives ${path}`);
