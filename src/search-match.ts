@@ -1,12 +1,10 @@
-import type { CatalogEntry } from './config';
+import type { CatalogEntry, PageEntry } from './config';
 
-export const MAX_COMPONENTS = 10;
+/** Matched components and pages listed; a component's story rows ride along with it. */
+export const MAX_MATCHES = 10;
 export const MAX_STORIES_PER_COMPONENT = 2;
 
-export interface SearchRow {
-  entry: CatalogEntry;
-  story?: string;
-}
+export type SearchRow = { entry: CatalogEntry; story?: string } | { page: PageEntry };
 
 export interface TextSegment {
   text: string;
@@ -27,41 +25,52 @@ export function highlightSegments(text: string, needle: string): TextSegment[] {
   ].filter((segment) => segment.text);
 }
 
-function scoreEntry(entry: CatalogEntry, needle: string): number {
-  const name = entry.name.toLowerCase();
+function scoreItem(item: { name: string; group: string; storybookTitle?: string }, needle: string): number {
+  const name = item.name.toLowerCase();
   if (name === needle) return 100;
   if (name.startsWith(needle)) return 80;
   if (name.includes(needle)) return 60;
-  if (entry.group.toLowerCase().includes(needle)) return 40;
-  if (entry.storybookTitle.toLowerCase().includes(needle)) return 30;
+  if (item.group.toLowerCase().includes(needle)) return 40;
+  if (item.storybookTitle?.toLowerCase().includes(needle)) return 30;
   return -1;
 }
 
 /**
  * Ranked option rows: a component row when the component itself matches, followed by up to
- * `MAX_STORIES_PER_COMPONENT` rows for its stories whose names match.
+ * `MAX_STORIES_PER_COMPONENT` rows for its stories whose names match. Pages rank by the same
+ * score as components.
  */
-export function searchCatalog(catalog: CatalogEntry[], query: string): SearchRow[] {
+export function searchCatalog(catalog: CatalogEntry[], query: string, pages: PageEntry[] = []): SearchRow[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
-  return catalog
-    .map((entry) => {
-      const stories = entry.stories.filter((story) => story.toLowerCase().includes(needle)).slice(0, MAX_STORIES_PER_COMPONENT);
-      const score = scoreEntry(entry, needle);
-      return { entry, stories, score: score >= 0 ? score : stories.length ? 20 : -1, componentHit: score >= 0 };
-    })
+  const components = catalog.map((entry) => {
+    const stories = entry.stories.filter((story) => story.toLowerCase().includes(needle)).slice(0, MAX_STORIES_PER_COMPONENT);
+    const score = scoreItem(entry, needle);
+    const rows: SearchRow[] = [...(score >= 0 ? [{ entry }] : []), ...stories.map((story) => ({ entry, story }))];
+    return { name: entry.name, score: score >= 0 ? score : stories.length ? 20 : -1, rows };
+  });
+  const pageMatches = pages.map((page) => ({ name: page.name, score: scoreItem(page, needle), rows: [{ page }] }));
+  return [...components, ...pageMatches]
     .filter((candidate) => candidate.score >= 0)
-    .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name))
-    .slice(0, MAX_COMPONENTS)
-    .flatMap(({ entry, stories, componentHit }) => [
-      ...(componentHit ? [{ entry }] : []),
-      ...stories.map((story) => ({ entry, story })),
-    ]);
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, MAX_MATCHES)
+    .flatMap(({ rows }) => rows);
 }
 
-export const rowKey = (row: SearchRow): string => (row.story ? `${row.entry.slug}--${row.story}` : row.entry.slug);
+/** The component or page a row opens. */
+export const rowTarget = (row: SearchRow): CatalogEntry | PageEntry => ('page' in row ? row.page : row.entry);
 
-export const rowLabel = (row: SearchRow): string => (row.story ? `${row.entry.name} › ${row.story}` : row.entry.name);
+export const rowKey = (row: SearchRow): string =>
+  'page' in row ? `pages/${row.page.slug}` : row.story ? `${row.entry.slug}--${row.story}` : row.entry.slug;
+
+export const rowLabel = (row: SearchRow): string =>
+  'page' in row ? row.page.name : row.story ? `${row.entry.name} › ${row.story}` : row.entry.name;
 
 export const rowPath = (row: SearchRow): string =>
-  `/components/${row.entry.slug}${row.story ? `?story=${encodeURIComponent(row.story)}` : ''}`;
+  'page' in row
+    ? `/pages/${row.page.slug}`
+    : `/components/${row.entry.slug}${row.story ? `?story=${encodeURIComponent(row.story)}` : ''}`;
+
+/** The secondary line: the group, plus the story count on a component row. */
+export const rowMeta = (row: SearchRow): string =>
+  'page' in row || row.story ? rowTarget(row).group : `${row.entry.group} · ${row.entry.stories.length} stories`;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { CatalogEntry } from '../src/config.ts';
-import { highlightSegments, rowKey, rowLabel, rowPath, searchCatalog } from '../src/search-match.ts';
+import type { CatalogEntry, PageEntry } from '../src/config.ts';
+import { highlightSegments, rowKey, rowLabel, rowMeta, rowPath, searchCatalog } from '../src/search-match.ts';
 
 const entry = (name: string, stories: string[], group = 'Inputs'): CatalogEntry => ({
   slug: name.toLowerCase(),
@@ -40,7 +40,7 @@ test('highlightSegments: user text stays plain text', () => {
 test('searchCatalog: story-only match yields capped story rows, no component row', () => {
   const rows = searchCatalog(catalog, 'variants');
   assert.deepEqual(rows.map(rowLabel), ['Button › Variants', 'Button › SizeVariants']);
-  assert.ok(rows.every((row) => row.story));
+  assert.ok(rows.every((row) => 'story' in row && row.story));
 });
 
 test('searchCatalog: component match ranks first and precedes its story rows', () => {
@@ -48,6 +48,22 @@ test('searchCatalog: component match ranks first and precedes its story rows', (
   assert.deepEqual(rows.map(rowLabel).slice(0, 2), ['Badge', 'Button']);
   assert.equal(searchCatalog(catalog, 'zzzz').length, 0);
   assert.equal(searchCatalog(catalog, '   ').length, 0);
+});
+
+test('searchCatalog: pages rank with components by the same score and open their own route', () => {
+  const pages: PageEntry[] = [
+    { slug: 'badges-guide', name: 'Badge patterns', group: 'Guides', load: async () => ({ markdown: '' }) },
+    { slug: 'install', name: 'Installation', group: 'Getting started', load: async () => ({ markdown: '' }) },
+  ];
+  const rows = searchCatalog(catalog, 'badge', pages);
+  assert.deepEqual(rows.map(rowLabel), ['Badge', 'Badge patterns']);
+  const page = rows[1]!;
+  assert.equal(rowKey(page), 'pages/badges-guide');
+  assert.equal(rowPath(page), '/pages/badges-guide');
+  assert.equal(rowMeta(page), 'Guides');
+  assert.equal(rowMeta(rows[0]!), 'Inputs · 1 stories');
+  assert.deepEqual(searchCatalog(catalog, 'getting', pages).map(rowLabel), ['Installation'], 'a page matches by its group');
+  assert.deepEqual(searchCatalog(catalog, 'badge'), searchCatalog(catalog, 'badge', []), 'without pages the rows are unchanged');
 });
 
 test('row helpers: unique keys and deep-link shape', () => {

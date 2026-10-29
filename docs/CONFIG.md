@@ -276,13 +276,38 @@ decorators: { module: './src/docs-decorators.tsx' },
 | `tokens.varsExport` | `string` | `'vars'` | Named export to read from that module. |
 | `tokens.css` | `string[]` | `[]` | CSS module specifiers imported globally, in order, after engine styles. |
 | `guidance` | object | Omitted | Optional Markdown prose; without it no authored content loads. Component pages can still show their built-in placeholder. |
-| `guidance.dir` | `string` | Required when `guidance` is supplied | Directory resolved against the consumer root. Files named `<component-slug>.md` render on that component's page; `index.md` renders on the overview. A missing directory or file loads no authored content. |
+| `guidance.dir` | `string \| string[]` | Required when `guidance` is supplied | Directories resolved against the consumer root; for the same file name, a later directory wins. Files named `<component-slug>.md` render on that component's page; `index.md` renders on the overview; a file that opens with frontmatter is a page of its own (see below). A missing directory or file loads no authored content. |
 
 Foundations read string-valued maps from the exported token object: `color`;
 `font`, `fontWeight`, `textSize`; `space`, `radius`, `size`; and `shadow`,
 `motion.duration`, `motion.ease` (or `motion.easing`). Values can be CSS variable
 references. Missing maps produce empty sections, not a crash. Guidance is authored
 Markdown rendered with `marked`; there is no built-in prose editor.
+
+### Pages
+
+A guidance file that opens with a YAML frontmatter block is a page in the navigation
+instead of a component's guidance:
+
+```md
+---
+title: Theming
+group: Foundations
+---
+
+Set `theme.vars` once and every page follows the toggle.
+```
+
+| Key | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `title` | `string` | The first `# Heading` | Page name in the navigation, search and page heading. When the H1 supplies it, that H1 is not repeated in the body. A page with neither fails the build. |
+| `group` | `string` | `'Getting started'` | Navigation group. `groups.rename` and `groups.order` apply as they do to story titles; add `Getting started` to `groups.order` to place it when you set a custom order. |
+
+The page lives at `#/pages/<file-name>` and renders with the same blocks as guidance:
+images, links, tables, code and do/don't callouts. Within a group, pages come first,
+by title, then components, by name. Other frontmatter keys are ignored. `index.md`
+always renders on the overview, frontmatter or not. Files without frontmatter keep
+their current behaviour.
 
 ## Page switches
 
@@ -397,8 +422,8 @@ show up as stories that render wrong rather than as errors:
   Addon parameters such as viewport and backgrounds are not applied; viewport frames show
   a notice. Layout supports centered, padded, and fullscreen. Fullscreen removes stage padding;
   the toolbar's full-screen action opens a standalone story page.
-- Search scans the in-memory catalog's component, group and story names. There is
-  no generated full-text search index for guidance, props or rendered content.
+- Search scans the in-memory catalog's component, page, group and story names. There
+  is no generated full-text search index for guidance, page bodies, props or rendered content.
 
 ### Checking a running site
 

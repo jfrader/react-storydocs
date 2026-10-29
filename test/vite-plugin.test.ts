@@ -4,14 +4,14 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { build, createServer } from 'vite';
-import type { ReactStorydocsConfig, CatalogEntry } from '../src/config.ts';
+import type { ReactStorydocsConfig, CatalogEntry, PageEntry } from '../src/config.ts';
 import { reactStorydocs } from '../src/vite-plugin.ts';
 import type { ComponentPropsDoc } from '../src/vite-plugin.ts';
 
 const engineRoot = path.resolve(import.meta.dirname, '..');
 const prefix = 'virtual:react-storydocs/';
 
-async function fixture(overrides: Partial<ReactStorydocsConfig> = {}) {
+async function fixture(overrides: Partial<ReactStorydocsConfig> = {}, files: Record<string, string> = {}) {
   const root = mkdtempSync(path.join(engineRoot, '.plugin-test-'));
   const write = (name: string, source: string) => {
     const file = path.join(root, name);
@@ -50,6 +50,7 @@ export const Rendered = { render: (args) => <Component {...args} /> };
   write('library/package.json', '{"version":"2.3.4"}');
   write('CHANGELOG.md', '# Changelog\n\n## 2.3.4\n\n- **Fixed** defaults.\n');
   write('code.ts', 'export default function Code() { return null; }');
+  for (const [name, source] of Object.entries(files)) write(name, source);
   const config: ReactStorydocsConfig = {
     site: { title: 'Test consumer' },
     stories: { from: '@fixture/ui', pattern: 'src/**/*.stories.tsx' },
@@ -87,8 +88,9 @@ export const Rendered = { render: (args) => <Component {...args} /> };
 test('virtual catalog preserves group order, slugs and tagged story exports inside the linked package', async () => {
   const consumer = await fixture();
   try {
-    const { catalog, groups, stats, storySource } = await consumer.evaluate('catalog');
+    const { catalog, pages, groups, stats, storySource } = await consumer.evaluate('catalog');
     assert.equal(storySource, '@fixture/ui');
+    assert.deepEqual(pages, [], 'guidance without frontmatter declares no page');
     assert.deepEqual(catalog.map(({ slug, name, group, stories, hasComponent }: CatalogEntry) => ({ slug, name, group, stories, hasComponent })), [
       { slug: 'button', name: 'Button', group: 'Actions', stories: ['Default', 'Disabled', 'Rendered'], hasComponent: true },
       { slug: 'icon-button', name: 'IconButton', group: 'Actions', stories: ['Default', 'Disabled', 'Rendered'], hasComponent: true },
@@ -154,6 +156,33 @@ test('virtual guidance merges directories, with later overrides and empty missin
     assert.equal((await consumer.evaluate('guidance/button')).markdown, '# Updated button\n');
     assert.equal((await consumer.evaluate('guidance/alert')).markdown, '# Alert\n');
     assert.equal((await consumer.evaluate('guidance/unknown')).markdown, '');
+  } finally { await consumer.close(); }
+});
+
+test('guidance files with frontmatter become pages in the catalog, outside component guidance', async () => {
+  const consumer = await fixture({}, {
+    'guidance/base/install.md': '---\ntitle: Installation\n---\n# Install\n\nRun `pnpm add`.\n',
+    'guidance/base/motion.md': '---\ngroup: Feedback\n---\n\n# Motion & `timing`\n\nKeep it short.\n',
+    'guidance/override/patterns.md': '---\ntitle: Action patterns\ngroup: Primitives\n---\nBody.\n',
+    'guidance/override/index.md': '---\ntitle: Ignored\n---\nOverview prose.\n',
+  });
+  try {
+    const { pages, groups, stats } = await consumer.evaluate('catalog');
+    assert.deepEqual(pages.map(({ slug, name, group }: PageEntry) => ({ slug, name, group })), [
+      { slug: 'patterns', name: 'Action patterns', group: 'Actions' },
+      { slug: 'motion', name: 'Motion & timing', group: 'Feedback' },
+      { slug: 'install', name: 'Installation', group: 'Getting started' },
+    ]);
+    assert.deepEqual(groups, ['Actions', 'Feedback', 'Getting started']);
+    assert.deepEqual(stats, { components: 3, stories: 9, groups: 3 });
+    assert.match(await consumer.source('catalog'), /import\("virtual:react-storydocs\/pages\/install"\)/);
+    assert.equal((await consumer.evaluate('pages/install')).markdown, '# Install\n\nRun `pnpm add`.\n');
+    assert.equal((await consumer.evaluate('pages/motion')).markdown.trim(), 'Keep it short.');
+    assert.equal((await consumer.evaluate('pages/unknown')).markdown, '');
+    const index = await consumer.source('guidance');
+    assert.doesNotMatch(index, /install|motion|patterns/);
+    assert.equal((await consumer.evaluate('guidance/index')).markdown, '---\ntitle: Ignored\n---\nOverview prose.\n');
+    assert.equal((await consumer.evaluate('guidance/button')).markdown, '# Updated button\n');
   } finally { await consumer.close(); }
 });
 

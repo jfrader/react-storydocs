@@ -3,9 +3,9 @@
  * Authored guidance: plain Markdown files in the configured directories, one per component slug
  * (`button.md`) plus optionally `index.md` for the overview. It carries the editorial layer the
  * story files do not — when to reach for a component, when not to, accessibility notes — on top of
- * the usage prose each story authors for itself.
+ * the usage prose each story authors for itself. A file with frontmatter is a page of its own.
  */
-import { createElement, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { loadGuidance } from 'virtual:react-storydocs/guidance';
 import { CodeBlock } from './code';
 import { parseGuidance, type Block, type CalloutTone, type Inline } from './guidance-model';
@@ -113,6 +113,12 @@ export function MarkdownView({ markdown, className = 'guidance' }: { markdown: s
 }
 
 export function Guidance({ slug }: { slug: string }) {
+  const load = useCallback(() => loadGuidance(slug), [slug]);
+  return <LazyMarkdown load={load} />;
+}
+
+/** Renders the Markdown a lazy module exports, or nothing when it exports none. */
+export function LazyMarkdown({ load }: { load: () => Promise<{ markdown?: string }> }) {
   const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [missing, setMissing] = useState(false);
 
@@ -120,10 +126,10 @@ export function Guidance({ slug }: { slug: string }) {
     let alive = true;
     setBlocks(null);
     setMissing(false);
-    loadGuidance(slug)
+    load()
       .then((module) => {
         if (!alive) return;
-        const markdown = (module as { markdown?: string }).markdown;
+        const markdown = module.markdown;
         if (!markdown) {
           setMissing(true);
           return;
@@ -136,7 +142,7 @@ export function Guidance({ slug }: { slug: string }) {
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [load]);
 
   // No guidance directory entry: the section simply does not exist on this page.
   if (missing) return null;

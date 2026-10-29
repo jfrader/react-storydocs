@@ -11,42 +11,71 @@ import ts from 'typescript';
 import { matchGlob, storyIdentity } from '../src/scan.ts';
 import { buildCatalog, catalogCode, storyImportSpecifier } from '../src/build/catalog.ts';
 import { sectionStories, usageSnippet, buildUsageSnippet, selectExample } from '../src/sections.ts';
+import * as navItems from '../src/nav-items.ts';
 
-test('shell brand links to the base-aware overview and follows the skip link', () => {
+/** Renders the docs shell at `hash` over a stubbed catalog module, with the real navigation items. */
+function renderShell(catalogModule: Record<string, unknown>, hash = '#/docs/', pageModules: Record<string, unknown> = {}): string {
   const require = createRequire(import.meta.url);
   const compiled = ts.transpileModule(readFileSync(new URL('../src/app.tsx', import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const exports: { DocsApp?: ComponentType } = {};
   const modules: Record<string, unknown> = {
-    'virtual:react-storydocs/catalog': { catalog: [{ group: 'Foundations', slug: 'theme', name: 'Theme', load: () => {} }], groups: ['Foundations'], stats: { components: 1, stories: 1 } },
+    'virtual:react-storydocs/catalog': { pages: [], ...catalogModule },
     'virtual:react-storydocs/site': { pages: { color: true }, site: { title: 'Example UI', mark: 'E' }, theme: {} },
     'virtual:react-storydocs/releases': { releases: {} },
     './base': { REACT_STORYDOCS_BASE: 'docs/', hrefFor: (path: string) => `/docs${path}` },
     './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
-    './toc': { hashPath: (hash: string) => hash.slice(1) },
+    './toc': { hashPath: (hash: string) => hash.slice(1), PageRail: () => null },
     './story-route': { parseStoryRoute: () => null },
     './search': { SearchBox: () => null },
     './nav-reveal': { revealActiveNavLink: () => {} },
+    './nav-items': navItems,
     './pages/overview': { OverviewPage: () => null },
+    ...pageModules,
   };
   runInThisContext(`(function(require, exports) { ${compiled}\n})`)((name: string) =>
     modules[name] ?? (name.startsWith('./') ? {} : require(name)), exports);
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { hash: '#/docs/' } } });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { hash } } });
   try {
-    const html = renderToStaticMarkup(createElement(exports.DocsApp!));
-    assert.match(html, /<a class="brand-link" href="#\/docs\/">\s*<span class="mark" aria-hidden="true">E<\/span>\s*<span class="brand">Example UI<\/span><\/a>/);
-    assert.ok(html.indexOf('class="skip"') < html.indexOf('<button'), 'skip link precedes every button');
-    assert.ok(html.indexOf('class="skip"') < html.indexOf('class="brand-link"'), 'skip link precedes the brand link');
-    const groupTitles = [...html.matchAll(/class="grp"[^>]*><span>([^<]+)<\/span>/g)].map((match) => match[1]);
-    assert.deepEqual(groupTitles, ['Design tokens', 'Foundations']);
-    assert.match(html, /href="#\/docs\/tokens\/color"/);
-    assert.match(html, /href="#\/docs\/components\/theme"/);
+    return renderToStaticMarkup(createElement(exports.DocsApp!));
   } finally {
     if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
     else Reflect.deleteProperty(globalThis, 'window');
   }
+}
+
+const navGroupTitles = (html: string) => [...html.matchAll(/class="grp"[^>]*><span>([^<]+)<\/span>/g)].map((match) => match[1]);
+
+test('shell brand links to the base-aware overview and follows the skip link', () => {
+  const html = renderShell({ catalog: [{ group: 'Foundations', slug: 'theme', name: 'Theme', load: () => {} }], groups: ['Foundations'], stats: { components: 1, stories: 1 } });
+  assert.match(html, /<a class="brand-link" href="#\/docs\/">\s*<span class="mark" aria-hidden="true">E<\/span>\s*<span class="brand">Example UI<\/span><\/a>/);
+  assert.ok(html.indexOf('class="skip"') < html.indexOf('<button'), 'skip link precedes every button');
+  assert.ok(html.indexOf('class="skip"') < html.indexOf('class="brand-link"'), 'skip link precedes the brand link');
+  assert.deepEqual(navGroupTitles(html), ['Design tokens', 'Foundations']);
+  assert.match(html, /href="#\/docs\/tokens\/color"/);
+  assert.match(html, /href="#\/docs\/components\/theme"/);
+});
+
+test('shell lists pages in the catalog group order, ahead of components, and routes to the page', () => {
+  const load = () => {};
+  const catalogModule = {
+    catalog: [{ group: 'Foundations', slug: 'theme', name: 'Theme', load }, { group: 'Inputs', slug: 'button', name: 'Button', load }],
+    pages: [
+      { group: 'Getting started', slug: 'install', name: 'Installation', load },
+      { group: 'Foundations', slug: 'theming', name: 'Theming', load },
+    ],
+    groups: ['Getting started', 'Foundations', 'Inputs'],
+  };
+  const pageModule = { './pages/markdown-page': { MarkdownPage: ({ page }: { page: { name: string } }) => createElement('h1', null, page.name) } };
+  const html = renderShell(catalogModule, '#/docs/pages/theming', pageModule);
+  assert.deepEqual(navGroupTitles(html), ['Design tokens', 'Getting started', 'Foundations', 'Inputs']);
+  const links = [...html.matchAll(/href="#\/docs\/((?:pages|components)\/[^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(links, ['pages/install', 'pages/theming', 'components/theme', 'components/button']);
+  assert.match(html, /<a href="#\/docs\/pages\/theming" class="on" aria-current="page">Theming<\/a>/);
+  assert.match(html, /<main[^>]*>.*<h1>Theming<\/h1>/s);
+  assert.doesNotMatch(renderShell(catalogModule, '#/docs/pages/missing', pageModule), /<h1>/, 'an unknown page falls back to the overview');
 });
 
 type NavGroupProps = { id: string; title: string; page: string | null; children: ReactNode };

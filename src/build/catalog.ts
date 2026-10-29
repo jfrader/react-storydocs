@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { collectMatches, readStoryFile, storyIdentity } from '../scan.ts';
-import type { CatalogEntry, ReactStorydocsConfig } from '../config.js';
-import { FILE_PREFIX } from './module-ids.ts';
+import type { CatalogEntry, PageEntry, ReactStorydocsConfig } from '../config.js';
+import type { GuidancePage } from './guidance.ts';
+import { FILE_PREFIX, VIRTUAL_PREFIX } from './module-ids.ts';
 
 const DEFAULT_GROUP_ORDER = [
   'Getting started', 'Foundations', 'Actions', 'Forms', 'Inputs', 'Data display',
@@ -16,6 +17,8 @@ export interface StoryFile {
 
 export interface Catalog {
   entries: CatalogEntry[];
+  /** Markdown pages, sorted like the entries. Within a group they precede the components. */
+  pages: PageEntry[];
   groups: string[];
   stats: { components: number; stories: number; groups: number };
   files: Map<string, string>;
@@ -76,9 +79,19 @@ export function scanStories(config: ReactStorydocsConfig['stories'], root: strin
   return stories;
 }
 
-export function buildCatalog(stories: StoryFile[], groupsConfig: ReactStorydocsConfig['groups']): Catalog {
+export function buildCatalog(
+  stories: StoryFile[],
+  groupsConfig: ReactStorydocsConfig['groups'],
+  guidancePages: Pick<GuidancePage, 'slug' | 'title' | 'group'>[] = [],
+): Catalog {
   const rename = groupsConfig?.rename ?? {};
   const order = groupsConfig?.order ?? DEFAULT_GROUP_ORDER;
+  const rank = (group: string) => {
+    const index = order.indexOf(group);
+    return index === -1 ? 99 : index;
+  };
+  const byGroupThenName = (a: { group: string; name: string }, b: { group: string; name: string }) =>
+    rank(a.group) - rank(b.group) || a.name.localeCompare(b.name);
   const entries: CatalogEntry[] = [];
   const files = new Map<string, string>();
   const components = new Map<string, string | null>();
@@ -99,19 +112,19 @@ export function buildCatalog(stories: StoryFile[], groupsConfig: ReactStorydocsC
       load: () => import(/* @vite-ignore */ `${FILE_PREFIX}${file}`),
     });
   }
-  entries.sort((a, b) => {
-    const indexA = order.indexOf(a.group);
-    const indexB = order.indexOf(b.group);
-    if (indexA !== indexB) return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
-    return a.name.localeCompare(b.name);
-  });
-  const groups = [...new Set(entries.map((entry) => entry.group))].sort((a, b) => {
-    const indexA = order.indexOf(a);
-    const indexB = order.indexOf(b);
-    return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
-  });
+  entries.sort(byGroupThenName);
+  const pages: PageEntry[] = guidancePages
+    .map(({ slug, title, group }) => ({
+      slug,
+      name: title,
+      group: rename[group] ?? group,
+      load: () => import(/* @vite-ignore */ `${VIRTUAL_PREFIX}pages/${slug}`),
+    }))
+    .sort(byGroupThenName);
+  const groups = [...new Set([...entries, ...pages].map((item) => item.group))].sort((a, b) => rank(a) - rank(b));
   return {
     entries,
+    pages,
     groups,
     files,
     components,
@@ -137,6 +150,15 @@ ${catalog.entries
       `  { slug: ${JSON.stringify(entry.slug)}, name: ${JSON.stringify(entry.name)}, group: ${JSON.stringify(entry.group)}, ` +
       `storybookTitle: ${JSON.stringify(entry.storybookTitle)}, hasComponent: ${entry.hasComponent}, ` +
       `stories: ${JSON.stringify(entry.stories)}, load: () => import(${JSON.stringify(`${FILE_PREFIX}${resolveStoryFile(entry)}`)}) },`,
+  )
+  .join('\n')}
+];
+export const pages = [
+${catalog.pages
+  .map(
+    (page) =>
+      `  { slug: ${JSON.stringify(page.slug)}, name: ${JSON.stringify(page.name)}, group: ${JSON.stringify(page.group)}, ` +
+      `load: () => import(${JSON.stringify(`${VIRTUAL_PREFIX}pages/${page.slug}`)}) },`,
   )
   .join('\n')}
 ];

@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import { Children, createElement, isValidElement, type ComponentType, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import * as navItems from '../src/nav-items.ts';
 
 test('featured frames outside sections remain component story deep-link targets', () => {
   const require = createRequire(import.meta.url);
@@ -82,7 +83,7 @@ test('route changes replace document targets but preserve navigation group ident
   }).outputText;
   const exports: { DocsApp?: () => ReactElement<{ children: ReactNode }> } = {};
   const modules: Record<string, unknown> = {
-    'virtual:react-storydocs/catalog': { catalog, groups: ['Examples'], stats: {} },
+    'virtual:react-storydocs/catalog': { catalog, pages: [], groups: ['Examples'], stats: {} },
     'virtual:react-storydocs/site': { pages: { color: true }, site: { title: 'Example' }, theme: {} },
     'virtual:react-storydocs/releases': { releases: {} },
     './base': { REACT_STORYDOCS_BASE: '', hrefFor: (path: string) => path },
@@ -90,6 +91,7 @@ test('route changes replace document targets but preserve navigation group ident
     './story-route': { parseStoryRoute: () => null },
     './docs-theme.js': { DocsThemeContext: { Provider: ({ children }: { children: unknown }) => children } },
     './nav-reveal': { revealActiveNavLink: () => {} },
+    './nav-items': navItems,
   };
   runInNewContext(`(function(require, exports) { ${compiled}\n})`, {
     window, document: {},
