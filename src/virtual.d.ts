@@ -9,7 +9,9 @@ declare module 'virtual:react-storydocs/site' {
 
 declare module 'virtual:react-storydocs/catalog' {
   type CatalogEntry = import('./config.js').CatalogEntry;
+  type PageEntry = import('./config.js').PageEntry;
   export const catalog: CatalogEntry[];
+  export const pages: PageEntry[];
   export const storySource: string;
   export const groups: string[];
   export const stats: { components: number; stories: number; groups: number };

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseGuidance, readCallout, type Block } from '../src/guidance-model.ts';
+import { DEFAULT_PAGE_GROUP, readPage } from '../src/build/guidance.ts';
 
 function only<K extends Block['kind']>(markdown: string, kind: K): Extract<Block, { kind: K }> {
   const blocks = parseGuidance(markdown);

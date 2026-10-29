@@ -1,11 +1,13 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { catalog } from 'virtual:react-storydocs/catalog';
+import { catalog, pages } from 'virtual:react-storydocs/catalog';
 import { hrefFor } from './base';
 import {
   highlightSegments,
   rowKey,
+  rowMeta,
   rowPath,
+  rowTarget,
   searchCatalog,
   type SearchRow,
 } from './search-match';
@@ -27,7 +29,7 @@ export function SearchBox() {
   const optionId = (key: string) => `${listId}-${key}`;
 
   const results = useMemo<SearchRow[]>(() => {
-    return searchCatalog(catalog, query);
+    return searchCatalog(catalog, query, pages);
   }, [query]);
 
   useEffect(() => {
@@ -125,6 +127,8 @@ export function SearchBox() {
               {results.map((row, index) => {
                 const key = rowKey(row);
                 const optId = optionId(key);
+                const target = rowTarget(row);
+                const story = 'story' in row ? row.story : undefined;
                 return (
                   <li
                     key={key}
@@ -133,11 +137,11 @@ export function SearchBox() {
                     aria-selected={index === active}
                     onMouseEnter={() => {
                       setActive(index);
-                      void row.entry.load();
+                      void target.load();
                     }}
                     onFocus={() => {
                       setActive(index);
-                      void row.entry.load();
+                      void target.load();
                     }}
                     onMouseDown={(event) => {
                       event.preventDefault();
@@ -145,17 +149,15 @@ export function SearchBox() {
                     }}
                   >
                     <span className="search-result-main">
-                      <b className="search-result-name">{renderHighlighted(row.entry.name, query)}</b>
-                      {row.story ? (
+                      <b className="search-result-name">{renderHighlighted(target.name, query)}</b>
+                      {story ? (
                         <>
                           <span className="search-result-sep" aria-hidden="true"> › </span>
-                          <span className="search-result-story">{renderHighlighted(row.story, query)}</span>
+                          <span className="search-result-story">{renderHighlighted(story, query)}</span>
                         </>
                       ) : null}
                     </span>
-                    <span className="search-result-meta">
-                      {row.story ? row.entry.group : `${row.entry.group} · ${row.entry.stories.length} stories`}
-                    </span>
+                    <span className="search-result-meta">{rowMeta(row)}</span>
                   </li>
                 );
               })}

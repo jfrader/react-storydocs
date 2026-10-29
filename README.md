@@ -17,7 +17,7 @@ example/            # a consumer you can copy
 | Piece | Source of truth |
 | --- | --- |
 | Sidebar, groups, slugs | each story module's `title` (scoped to the `meta` object, so fixtures never leak in) |
-| Search (⌘K) | the catalog, scored over component, group and story names |
+| Search (⌘K) | the catalog, scored over component, page, group and story names |
 | Examples (inline, in sections) | the story module itself — meta `component` + merged `args`, or the story's `render` |
 | Example sections | authored `parameters.docs.sections`, or story-name buckets when absent |
 | Props tables (one per component and part, with native-element notes and an inherited-props disclosure) | the component sources — `react-docgen-typescript` for components, the TypeScript compiler API for exported `*Props` types (where compound parts live) |
@@ -25,6 +25,7 @@ example/            # a consumer you can copy
 | API | component import, root and part descriptions and props, merged slots and related components |
 | Per-example toolbar: inline code, Copy code, Copy link, and full-screen story | authored source or code derived from the story's render and merged args; links use the component slug and story export key |
 | Authored guidance per component | Markdown files in the configured guidance directories, with `> Do —` / `> Don't —` blockquotes rendered as do/don't cards — the part stories cannot generate |
+| Prose pages (getting started, patterns) | guidance Markdown files that open with frontmatter declaring a `title` and `group` |
 | Foundations: Color, Typography, Spacing & shape, Elevation & motion | your token module (optional) |
 | Docs chrome theme | your CSS custom properties (optional) |
 

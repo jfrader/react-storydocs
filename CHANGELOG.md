@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add Markdown pages. A guidance file that opens with frontmatter (`title`, `group`) becomes its own page at `#/pages/<file-name>`, listed in the navigation, the overview and search, and rendered with the guidance blocks: images, links, tables, code and callouts. Without `title`, the first H1 is the title; without `group`, the page lands in `Getting started`. Within a group, pages come before components. Guidance files without frontmatter and `index.md` render exactly as before.
+
 ## 0.18.1
 
 - Landing on a page opens the navigation group that carries it and reveals its link inside the rail, so a search result, an in-page link, Back/Forward or a direct URL always shows where the reader is. Only the rail moves: the document keeps its position, and TOC clicks, story links and a hand-scrolled rail keep theirs.

@@ -40,7 +40,8 @@
   "dependencies": {
     "marked": "^18.1.1",
     "react-docgen-typescript": "^2.4.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "yaml": "^2.9.1"
   },
   "license": "MIT",
   "repository": {

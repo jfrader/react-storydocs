@@ -15,7 +15,7 @@ import { siteCode } from './build/site.ts';
 import { tokensCode } from './build/tokens.ts';
 import { globalStylesCode } from './build/global-styles.ts';
 import { createPropsCollector, propsCode, propsIndexCode } from './build/props.ts';
-import { guidanceCode, guidanceIndexCode, indexGuidance } from './build/guidance.ts';
+import { guidanceCode, guidanceIndexCode, indexGuidance, readPage, type GuidanceIndex } from './build/guidance.ts';
 import { readReleases, releasesCode } from './build/releases.ts';
 import { codeModuleCode, resolveCodeModule } from './build/code.ts';
 import { compositionModuleCode, resolveCompositionModule } from './build/composition.ts';
@@ -43,7 +43,7 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
   const storySourcesCache = new Map<string, Record<string, string>>();
   const propsCollector = createPropsCollector();
   let buildMode = false;
-  let guidanceFiles = new Map<string, string>();
+  let guidance: GuidanceIndex = { guidance: new Map(), pages: [] };
 
   const loadProps = (slug: string) => {
     let collected = propsCache.get(slug);
@@ -69,7 +69,7 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
     'global-styles': () => globalStylesCode(engineStyles, config.tokens?.css),
     'stub-storybook-test': () => STORYBOOK_TEST_STUB,
     props: () => propsIndexCode(catalog.entries.map((entry) => entry.slug)),
-    guidance: () => guidanceIndexCode(guidanceFiles.keys()),
+    guidance: () => guidanceIndexCode(guidance.guidance.keys()),
     'story-sources': () => storySourcesIndexCode(catalog.files.keys()),
     releases: () => releasesCode(readReleases(config, projectRoot)),
     code: () => codeModuleCode(resolveCodeModule(config.code?.module, projectRoot)),
@@ -103,8 +103,8 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
       buildMode = resolved.command === 'build';
       propsCollector.setBuildMode(buildMode);
       projectRoot = options.root ?? resolved.root;
-      catalog = buildCatalog(scanStories(config.stories, projectRoot), config.groups);
-      guidanceFiles = indexGuidance(config.guidance, projectRoot);
+      guidance = indexGuidance(config.guidance, projectRoot);
+      catalog = buildCatalog(scanStories(config.stories, projectRoot), config.groups, guidance.pages);
       this.info?.(
         `react-storydocs: ${catalog.stats.components} components, ${catalog.stats.stories} stories, ${catalog.stats.groups} groups from ${config.stories.from}`,
       );
@@ -146,8 +146,12 @@ export function reactStorydocs(options: ReactStorydocsPluginOptions): Plugin {
         return storySourcesCode(sources);
       }
       if (name.startsWith('guidance/')) {
-        const file = guidanceFiles.get(name.slice('guidance/'.length));
+        const file = guidance.guidance.get(name.slice('guidance/'.length));
         return guidanceCode(file ? readFileSync(file, 'utf8') : '');
+      }
+      if (name.startsWith('pages/')) {
+        const file = guidance.pages.find((page) => page.slug === name.slice('pages/'.length))?.file;
+        return guidanceCode(file ? readPage(file, readFileSync(file, 'utf8'))?.body ?? '' : '');
       }
       return null;
     },

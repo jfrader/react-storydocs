@@ -1,10 +1,11 @@
 /** @jsxImportSource react */
 
 import type { ReactNode } from 'react';
-import { catalog, groups, stats } from 'virtual:react-storydocs/catalog';
+import { catalog, groups, pages, stats } from 'virtual:react-storydocs/catalog';
 import { site } from 'virtual:react-storydocs/site';
 import { hrefFor } from '../base';
 import { Guidance } from '../guidance';
+import { groupNavItems } from '../nav-items';
 
 export function OverviewPage(): ReactNode {
   const startHere = catalog.slice(0, 6);
@@ -30,7 +31,7 @@ export function OverviewPage(): ReactNode {
       <h2>Browse by area</h2>
       <div className="group-grid">
         {groups.map((group) => {
-          const inGroup = catalog.filter((entry) => entry.group === group);
+          const inGroup = groupNavItems(group, catalog, pages);
           const shown = inGroup.slice(0, 6);
           return (
             <div className="card group-card" key={group}>
@@ -38,13 +39,13 @@ export function OverviewPage(): ReactNode {
                 {group} <span className="count">{inGroup.length}</span>
               </h3>
               <ul>
-                {shown.map((entry) => (
-                  <li key={entry.slug}>
+                {shown.map((item) => (
+                  <li key={item.route}>
                     <a
-                      href={`#${hrefFor(`/components/${entry.slug}`)}`}
-                      onMouseEnter={() => void entry.load()}
-                      onFocus={() => void entry.load()}
-                    >{entry.name}</a>
+                      href={`#${hrefFor(`/${item.route}`)}`}
+                      onMouseEnter={() => void item.load()}
+                      onFocus={() => void item.load()}
+                    >{item.name}</a>
                   </li>
                 ))}
               </ul>

@@ -67,7 +67,8 @@ export interface ReactStorydocsConfig {
    * Optional authored prose. A directory of Markdown files named after component slugs
    * (`button.md`) plus optionally `index.md` for the overview; each is rendered on that
    * component's page. This is the part stories cannot generate. Several directories may be
-   * listed; for the same slug, a later directory wins.
+   * listed; for the same slug, a later directory wins. A file that opens with a frontmatter block
+   * (`title`, `group`) is a page of its own in the navigation instead.
    */
   guidance?: {
     dir: string | string[];
@@ -150,4 +151,12 @@ export interface CatalogEntry {
   stories: string[];
   hasComponent: boolean;
   load: () => Promise<Record<string, unknown>>;
+}
+
+/** A Markdown page from the guidance directories, listed in the navigation beside components. */
+export interface PageEntry {
+  slug: string;
+  name: string;
+  group: string;
+  load: () => Promise<{ markdown: string }>;
 }

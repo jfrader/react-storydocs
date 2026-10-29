@@ -1,12 +1,13 @@
 /** @jsxImportSource react */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { catalog, groups, stats } from 'virtual:react-storydocs/catalog';
+import { catalog, groups, pages as markdownPages } from 'virtual:react-storydocs/catalog';
 import { pages, site, theme } from 'virtual:react-storydocs/site';
 import { ComponentPage } from './pages/component-page';
 import { ColorPage } from './pages/foundations-color';
 import { EffectsPage } from './pages/foundations-effects';
 import { SpacingPage } from './pages/foundations-spacing';
 import { TypePage } from './pages/foundations-type';
+import { MarkdownPage } from './pages/markdown-page';
 import { OverviewPage } from './pages/overview';
 import { ReleasesPage } from './pages/releases';
 import { SearchBox } from './search';
@@ -17,6 +18,7 @@ import { DocsThemeContext } from './docs-theme.js';
 import { parseStoryRoute } from './story-route';
 import { StandaloneStoryPage } from './pages/story-page';
 import { revealActiveNavLink } from './nav-reveal';
+import { groupNavItems } from './nav-items';
 
 const routeHref = (path: string) => `#${hrefFor(path)}`;
 function NavGroup({ id, title, page, children }: { id: string; title: string; page: string | null; children: ReactNode }) {
@@ -43,6 +45,7 @@ type Route =
   | { kind: 'overview' }
   | { kind: 'releases' }
   | { kind: 'component'; slug: string }
+  | { kind: 'page'; slug: string }
   | { kind: 'story'; slug: string; story: string }
   | { kind: 'color' }
   | { kind: 'typography' }
@@ -56,6 +59,10 @@ function parseRoute(hash: string): Route {
   if (path.startsWith('components/')) {
     const slug = path.slice('components/'.length);
     if (catalog.some((entry) => entry.slug === slug)) return { kind: 'component', slug };
+  }
+  if (path.startsWith('pages/')) {
+    const slug = path.slice('pages/'.length);
+    if (markdownPages.some((page) => page.slug === slug)) return { kind: 'page', slug };
   }
   // A releases page without a configured changelog documents nothing: the nav entry and the route
   // only exist when there is a changelog to read.
@@ -71,7 +78,7 @@ export function DocsApp() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [mode, setMode] = useState(theme.values?.[0] ?? 'dark');
   const [navOpen, setNavOpen] = useState(false);
-  const pageKey = route.kind === 'component' ? `components/${route.slug}` : route.kind === 'story' ? `stories/${route.slug}/${route.story}` : route.kind;
+  const pageKey = route.kind === 'component' ? `components/${route.slug}` : route.kind === 'page' ? `pages/${route.slug}` : route.kind === 'story' ? `stories/${route.slug}/${route.story}` : route.kind;
   const headerRef = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
@@ -119,7 +126,6 @@ export function DocsApp() {
   const [darkMode, lightMode] = theme.values ?? ['dark', 'light'];
   const nextMode = mode === darkMode ? lightMode : darkMode;
   const themeAction = <button type="button" className="tool" aria-label={`Switch to ${nextMode} theme`} onClick={() => setMode(nextMode)}>{nextMode}</button>;
-  const activeSlug = route.kind === 'component' ? route.slug : null;
   const foundations = [
     ...(pages.color ? [{ href: routeHref(`/tokens/color`), label: 'Color', kind: 'color' }] : []),
     ...(pages.typography ? [{ href: routeHref(`/tokens/typography`), label: 'Typography', kind: 'typography' }] : []),
@@ -205,20 +211,20 @@ export function DocsApp() {
           </NavGroup>
         ) : null}
         {groups.map((group, index) => {
-          const entries = catalog.filter((entry) => entry.group === group);
-          const landing = entries.some((entry) => entry.slug === activeSlug) ? pageKey : null;
+          const items = groupNavItems(group, catalog, markdownPages);
+          const landing = items.some((item) => item.route === pageKey) ? pageKey : null;
           return (
             <NavGroup key={group} id={`nav-grp-${index}`} title={group} page={landing}>
-              {entries.map((entry) => (
+              {items.map((item) => (
                 <a
-                  key={entry.slug}
-                  href={routeHref(`/components/${entry.slug}`)}
-                  className={activeSlug === entry.slug ? 'on' : undefined}
-                  aria-current={activeSlug === entry.slug ? 'page' : undefined}
-                  onMouseEnter={() => void entry.load()}
-                  onFocus={() => void entry.load()}
+                  key={item.route}
+                  href={routeHref(`/${item.route}`)}
+                  className={pageKey === item.route ? 'on' : undefined}
+                  aria-current={pageKey === item.route ? 'page' : undefined}
+                  onMouseEnter={() => void item.load()}
+                  onFocus={() => void item.load()}
                 >
-                  {entry.name}
+                  {item.name}
                 </a>
               ))}
             </NavGroup>
@@ -231,6 +237,8 @@ export function DocsApp() {
         {route.kind !== 'overview' ? <div className="toc-mobile-slot" data-toc-mobile-slot /> : null}
         {route.kind === 'component' ? (
           <ComponentPage key={pageKey} entry={catalog.find((entry) => entry.slug === route.slug)!} />
+        ) : route.kind === 'page' ? (
+          <MarkdownPage key={pageKey} page={markdownPages.find((page) => page.slug === route.slug)!} />
         ) : route.kind === 'color' ? (
           <ColorPage />
         ) : route.kind === 'typography' ? (
