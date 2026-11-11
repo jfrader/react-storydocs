@@ -10,6 +10,8 @@
  *
  * Usage, from a directory where `playwright` resolves (normally your Storybook app):
  *   node path/to/check-example-frames.mjs http://localhost:4320 [--json out.json] [--width 390]
+ *   Add --route pages/heading-wrapping --text-scale 2 to check enlarged prose headings.
+ *   --height sets the viewport height (default 1000).
  *
  * Manual tool, not a CI gate: Playwright and its browser must be installed by the caller.
  * For the built fixtures consumer, run `pnpm --dir examples/fixtures build`, then
@@ -39,21 +41,27 @@ const jsonIndex = rest.indexOf('--json');
 const jsonPath = jsonIndex === -1 ? null : rest[jsonIndex + 1];
 const widthIndex = rest.indexOf('--width');
 const width = widthIndex === -1 ? 1440 : Number(rest[widthIndex + 1]);
-if (!Number.isInteger(width) || width <= 0) {
-  console.error('check-example-frames: --width must be a positive integer.');
+const heightIndex = rest.indexOf('--height');
+const height = heightIndex === -1 ? 1000 : Number(rest[heightIndex + 1]);
+const textScaleIndex = rest.indexOf('--text-scale');
+const textScale = textScaleIndex === -1 ? 1 : Number(rest[textScaleIndex + 1]);
+const routeIndex = rest.indexOf('--route');
+const route = routeIndex === -1 ? null : rest[routeIndex + 1];
+if (![width, height].every((size) => Number.isInteger(size) && size > 0) || !Number.isFinite(textScale) || textScale < 1) {
+  console.error('check-example-frames: --width and --height must be positive integers; --text-scale must be at least 1.');
   process.exit(2);
 }
 
 const report = [];
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width, height: 1000 } });
+const page = await browser.newPage({ viewport: { width, height } });
 const consoleErrors = [];
 page.on('pageerror', (error) => consoleErrors.push(error.message.slice(0, 120)));
 
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(2500);
-const slugs = await page.evaluate(() =>
+const slugs = route ? [route] : await page.evaluate(() =>
   Array.from(document.querySelectorAll('.nav a[href*="/components/"]')).map((a) => a.getAttribute('href').split('/components/')[1]),
 );
 console.log(`checking ${slugs.length} component pages on ${url}`);
@@ -61,7 +69,8 @@ console.log(`checking ${slugs.length} component pages on ${url}`);
 for (const slug of slugs) {
   consoleErrors.length = 0;
   try {
-    await page.goto(`${url}/#/components/${slug}`, { waitUntil: 'load' });
+    await page.goto('about:blank');
+    await page.goto(`${url}/#/${route ? slug.replace(/^\//, '') : `components/${slug}`}`, { waitUntil: 'load' });
     await page.waitForTimeout(4200);
     // Walk the page so lazy frames mount, then return to the top.
     const height = await page.evaluate(() => document.body.scrollHeight);
@@ -72,12 +81,28 @@ for (const slug of slugs) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(600);
 
+    await page.evaluate((scale) => {
+      if (scale === 1) return;
+      const sizes = Array.from(document.querySelectorAll('body *')).map((element) => {
+        const style = getComputedStyle(element);
+        return { element, fontSize: parseFloat(style.fontSize), lineHeight: parseFloat(style.lineHeight) };
+      });
+      for (const { element, fontSize, lineHeight } of sizes) {
+        element.style.setProperty('font-size', `${fontSize * scale}px`, 'important');
+        if (Number.isFinite(lineHeight)) element.style.setProperty('line-height', `${lineHeight * scale}px`, 'important');
+      }
+    }, textScale);
+    await page.evaluate(() => document.fonts.ready);
+
     const result = await page.evaluate(() => {
       const frames = Array.from(document.querySelectorAll('.frame'));
       const failed = [];
       const overflow = [];
       const collapsed = [];
       const zeroTargets = [];
+      const headingOverflow = [];
+      const unreachableHeadings = [];
+      if (!document.querySelector('main h1')) headingOverflow.push('Page heading did not render');
       let mounted = 0;
 
       // Invisible helpers (measure probes, closed dialogs, top-layer overlays, aria-hidden
@@ -91,6 +116,28 @@ for (const slug of slugs) {
         if (Number(style.opacity) === 0) return false;
         return element.checkVisibility ? element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) : true;
       };
+
+      for (const heading of document.querySelectorAll('main h1, main h2, main h3')) {
+        if (heading.closest('.story-lane') || !isReal(heading)) continue;
+        heading.scrollIntoView({ block: 'center' });
+        const bounds = heading.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(heading);
+        const rects = Array.from(range.getClientRects());
+        const headerBottom = document.querySelector('.top')?.getBoundingClientRect().bottom ?? 0;
+        const reachable = rects.some((rect) => {
+          const top = Math.max(rect.top, headerBottom, 0);
+          const bottom = Math.min(rect.bottom, innerHeight);
+          return bottom > top && heading.contains(document.elementFromPoint((rect.left + rect.right) / 2, (top + bottom) / 2));
+        });
+        if (!reachable) unreachableHeadings.push(heading.textContent.trim());
+        for (const rect of rects) {
+          if (rect.right > Math.min(bounds.right, innerWidth) + 1 || rect.left < Math.max(bounds.left, 0) - 1) {
+            headingOverflow.push(heading.textContent.trim());
+            break;
+          }
+        }
+      }
 
       for (const frame of frames) {
         const story = frame.querySelector('header span')?.textContent?.trim() ?? '?';
@@ -150,17 +197,21 @@ for (const slug of slugs) {
         overflow: overflow.slice(0, 4),
         collapsed: collapsed.slice(0, 3),
         zeroTargets: zeroTargets.slice(0, 4),
+        headingOverflow,
+        unreachableHeadings,
         loadError: (document.body.innerText.match(/Could not load the story module[^\n]*/) ?? [])[0] ?? null,
       };
     });
 
-    const issues = result.failed.length + result.overflow.length + result.zeroTargets.length + (result.loadError ? 1 : 0) + (result.pageOverflow > 0 ? 1 : 0);
-    report.push({ slug, width, ...result, consoleErrors: [...consoleErrors] });
+    const issues = result.failed.length + result.overflow.length + result.zeroTargets.length + result.headingOverflow.length + result.unreachableHeadings.length + (result.loadError ? 1 : 0) + (result.pageOverflow > 0 ? 1 : 0);
+    report.push({ slug, width, height, textScale, ...result, consoleErrors: [...consoleErrors] });
     console.log(
       `${issues === 0 ? 'ok   ' : 'ISSUE'} ${slug.padEnd(24)} frames=${result.frames} mounted=${result.mounted}` +
         (result.loadError ? ` LOAD-ERROR=${result.loadError.slice(0, 80)}` : '') +
         (result.failed.length ? ` FAILED=${result.failed.join(' | ')}` : '') +
         (result.overflow.length ? ` OVERFLOW=${result.overflow.join(' | ')}` : '') +
+        (result.headingOverflow.length ? ` HEADING-OVERFLOW=${result.headingOverflow.join(' | ')}` : '') +
+        (result.unreachableHeadings.length ? ` UNREACHABLE-HEADING=${result.unreachableHeadings.join(' | ')}` : '') +
         (result.pageOverflow > 0 ? ` PAGE-OVERFLOW=+${result.pageOverflow}px` : '') +
         (result.zeroTargets.length ? ` ZERO-SIZE=${result.zeroTargets.join(',')}` : '') +
         (result.collapsed.length ? ` EMPTY-ROOTS=${result.collapsed.join(' | ')}` : ''),
@@ -177,6 +228,6 @@ if (jsonPath) {
   writeFileSync(jsonPath, JSON.stringify(report, null, 1));
   console.log(`wrote ${jsonPath}`);
 }
-const withIssues = report.filter((entry) => entry.error || entry.loadError || entry.failed?.length || entry.overflow?.length || entry.zeroTargets?.length || entry.pageOverflow > 0);
+const withIssues = report.filter((entry) => entry.error || entry.loadError || entry.failed?.length || entry.overflow?.length || entry.zeroTargets?.length || entry.headingOverflow?.length || entry.unreachableHeadings?.length || entry.pageOverflow > 0);
 console.log(`${report.length - withIssues.length} of ${report.length} components clean`);
 process.exit(withIssues.length === 0 ? 0 : 1);

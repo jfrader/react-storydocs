@@ -303,6 +303,9 @@ body {
   margin-bottom: 10px;
 }
 /* Zero-specificity boundaries keep chrome typography out of stories and document portals. */
+:where(.app) :is(h1, h2, h3):where(:not(.story-lane *)) {
+  overflow-wrap: anywhere;
+}
 :where(.app) h1:where(:not(.story-lane *)) {
   font-size: clamp(36px, 3.5vw, 52px);
   line-height: 1.12;
