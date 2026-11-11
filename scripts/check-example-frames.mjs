@@ -73,9 +73,9 @@ for (const slug of slugs) {
     await page.goto(`${url}/#/${route ? slug.replace(/^\//, '') : `components/${slug}`}`, { waitUntil: 'load' });
     await page.waitForTimeout(4200);
     // Walk the page so lazy frames mount, then return to the top.
-    const height = await page.evaluate(() => document.body.scrollHeight);
+    const documentHeight = await page.evaluate(() => document.body.scrollHeight);
     for (const fraction of [0.33, 0.66, 1]) {
-      await page.evaluate((y) => window.scrollTo(0, y), Math.round(height * fraction));
+      await page.evaluate((y) => window.scrollTo(0, y), Math.round(documentHeight * fraction));
       await page.waitForTimeout(900);
     }
     await page.evaluate(() => window.scrollTo(0, 0));
