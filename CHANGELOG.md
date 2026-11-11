@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.19.1
+
+- Keep long documentation headings within narrow viewports when text is enlarged.
+
 ## 0.19.0
 
 - Add Markdown pages. A guidance file that opens with frontmatter (`title`, `group`) becomes its own page at `#/pages/<file-name>`, listed in the navigation, the overview and search, and rendered with the guidance blocks: images, links, tables, code and callouts. Without `title`, the first H1 is the title; without `group`, the page lands in `Getting started`. Within a group, pages come before components. Guidance files without frontmatter and `index.md` render exactly as before.
